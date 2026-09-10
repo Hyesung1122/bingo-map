@@ -743,7 +743,7 @@ nav a.active::after {
  */
 
 .leaflet-control-attribution {
-    display: none !important;
+    display: block !important;
 }
 
 

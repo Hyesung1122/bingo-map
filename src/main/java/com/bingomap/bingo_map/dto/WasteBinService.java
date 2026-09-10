@@ -15,8 +15,11 @@ public class WasteBinService {
     private static final String OVERPASS_URL = "https://overpass-api.de/api/interpreter";
 
     // 도톤보리 주변 bounding box (남, 서, 북, 동)
-    private static final String BBOX = "34.664,135.495,34.674,135.508";
-
+    // 변경: 도톤보리와 인근까지 검색 범위를 확대한다.
+    // 기존 범위: 34.664,135.495,34.674,135.508
+    // 좌표 순서: 남쪽 위도, 서쪽 경도, 북쪽 위도, 동쪽 경도
+    // 새 범위: 남북 약 3.3km × 동서 약 3.2km
+    private static final String BBOX = "34.655,135.485,34.685,135.520";
     public List<WasteBinDto> getWasteBins() {
 
         // waste_basket(일반)과 recycling(재활용/캔·병)을 함께 조회
