@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로그인 | BinGo Map</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/auth/auth.css">
+</head>
+<body>
+<header class="header">
+    <div class="header-inner">
+        <a class="logo" href="/">
+            <span class="logo-mark">♜</span>
+            <span>
+          <strong>BinGo Map</strong>
+          <small>Clean &amp; Gourmet</small>
+        </span>
+        </a>
+
+        <nav class="nav">
+            <a class="active" href="/">홈</a>
+            <a href="/map">지도</a>
+            <a href="/restaurants">주변 맛집</a>
+            <a href="/favorites">즐겨찾기</a>
+            <a href="/reviews">리뷰</a>
+            <a href="/notices">공지사항</a>
+        </nav>
+
+        <div class="header-actions">
+            <button class="language">🇰🇷 한국어 <span>⌄</span></button>
+            <a class="login" href="/login">로그인</a>
+        </div>
+    </div>
+</header>
+
+<main>
+    <section class="auth-wrap">
+        <div class="auth-card">
+            <div class="auth-icon">🗑</div>
+            <h2>로그인</h2>
+            <p class="auth-sub">BinGo Map과 함께 깨끗한 여행을 시작하세요</p>
+
+            <form action="/login" method="post">
+                <div class="auth-field">
+                    <span class="icon-left">✉</span>
+                    <input type="email" name="email" placeholder="이메일을 입력하세요" required>
+                </div>
+
+                <div class="auth-field">
+                    <span class="icon-left">🔒</span>
+                    <input type="password" name="password" placeholder="비밀번호를 입력하세요" required>
+                    <button type="button" class="icon-right" aria-label="비밀번호 표시">👁</button>
+                </div>
+
+                <div class="auth-forgot">
+                    <a href="/password-reset">비밀번호 찾기</a>
+                </div>
+
+                <button type="submit" class="auth-submit">로그인</button>
+            </form>
+
+            <div class="auth-divider">또는</div>
+
+            <div class="auth-social">
+                <button type="button">G 구글로 로그인</button>
+                <button type="button"> 애플로 로그인</button>
+                <button type="button">💬 카카오로 로그인</button>
+            </div>
+
+            <p class="auth-footer-link">계정이 없으신가요? <a href="/signup">회원가입하기</a></p>
+        </div>
+    </section>
+</main>
+
+<footer class="footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </div>
+        <p>BinGo Map은 깨끗한 일본 여행 문화를 응원합니다.<br>모두가 함께 만들어가는 깨끗하고 즐거운 여행 플랫폼!</p>
+        <div class="footer-links">
+            <div>◎　♥　f</div>
+            <small>이용약관　　개인정보처리방침　　문의하기</small>
+            <small>© 2025 BinGo Map. All rights reserved.</small>
+        </div>
+        <a class="top-btn" href="#">↑<small>TOP</small></a>
+    </div>
+</footer>
+</body>
+</html>

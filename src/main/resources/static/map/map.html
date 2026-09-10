@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>BinGo Map</title>
+
+    <!-- Leaflet -->
+    <link
+            rel="stylesheet"
+            href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+            crossorigin=""
+    >
+
+    <!-- BinGo Map CSS -->
+    <link rel="stylesheet" href="/map/map.css">
+</head>
+
+<body>
+
+<!-- =========================================================
+     HEADER
+========================================================= -->
+<header class="header">
+
+    <!-- Logo -->
+    <a href="/" class="logo">
+
+        <div class="logo-mark">
+            <span>●</span>
+        </div>
+
+        <div class="logo-text">
+            <strong>BinGo Map</strong>
+            <small>Clean &amp; Gourmet</small>
+        </div>
+
+    </a>
+
+
+    <!-- Navigation -->
+    <nav>
+
+        <a href="/">홈</a>
+
+        <a href="/map" class="active">지도</a>
+
+        <a href="#">주변 맛집</a>
+
+        <a href="#">리뷰</a>
+
+    </nav>
+
+
+    <!-- Header right -->
+    <div class="header-right">
+
+        <button
+                type="button"
+                class="language">
+            KR 한국어⌄
+        </button>
+
+        <button
+                type="button"
+                class="login"
+                onclick="location.href='#'">
+            로그인
+        </button>
+
+    </div>
+
+</header>
+
+
+<!-- =========================================================
+     MAP PAGE
+========================================================= -->
+<main class="map-page">
+
+
+    <!-- =====================================================
+         LEFT SIDEBAR
+    ====================================================== -->
+    <aside class="sidebar">
+
+
+        <!-- Search -->
+        <section class="search-area">
+
+            <div class="search">
+
+                <span class="search-icon">⌕</span>
+
+                <input
+                        id="searchInput"
+                        type="text"
+                        placeholder="장소, 지역, 역 이름으로 검색"
+                        autocomplete="off"
+                >
+
+            </div>
+
+
+            <!-- Category filters -->
+            <div class="filters">
+
+                <button
+                        type="button"
+                        class="filter active"
+                        data-category="all">
+                    전체
+                </button>
+
+                <button
+                        type="button"
+                        class="filter"
+                        data-category="general">
+                    ● 쓰레기통
+                </button>
+
+                <button
+                        type="button"
+                        class="filter"
+                        data-category="can">
+                    ● 캔/병
+                </button>
+
+                <button
+                        type="button"
+                        class="filter"
+                        data-category="recycle">
+                    ● 재활용
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <!-- List title -->
+        <div class="list-title">
+
+            <strong>내 주변 쓰레기통</strong>
+
+            <span>
+                반경 <b>500m</b> ·
+                <b id="binCount">0</b>곳
+            </span>
+
+        </div>
+
+
+        <!-- Bin list -->
+        <div
+                id="binList"
+                class="bin-list">
+
+            <div class="loading">
+                쓰레기통 정보를 불러오는 중...
+            </div>
+
+        </div>
+
+    </aside>
+
+
+    <!-- =====================================================
+         MAP
+    ====================================================== -->
+    <section class="map-wrap">
+
+        <div id="map"></div>
+
+
+        <!-- Map top label -->
+        <div class="map-label">
+
+            <span class="map-label-icon">⌕</span>
+
+            <b>도톤보리 주변 쓰레기통</b>
+
+            <span id="mapBinCount">0</span>곳
+
+        </div>
+
+
+        <!-- Zoom -->
+        <div class="zoom">
+
+            <button
+                    type="button"
+                    id="zoomIn">
+                +
+            </button>
+
+            <button
+                    type="button"
+                    id="zoomOut">
+                −
+            </button>
+
+        </div>
+
+
+        <!-- Current location -->
+        <button
+                type="button"
+                id="locateButton"
+                class="locate"
+                title="현재 위치">
+            ⊕
+        </button>
+
+
+        <!-- Legend -->
+        <div class="legend">
+
+            <div class="legend-item">
+                <span class="legend-dot gray"></span>
+                일반쓰레기
+            </div>
+
+            <div class="legend-item">
+                <span class="legend-dot blue"></span>
+                재활용
+            </div>
+
+            <div class="legend-item">
+                <span class="legend-dot green"></span>
+                음식물
+            </div>
+
+            <div class="legend-item">
+                <span class="legend-dot orange"></span>
+                캔/병
+            </div>
+
+        </div>
+
+    </section>
+
+</main>
+
+
+<!-- =========================================================
+     LEAFLET
+========================================================= -->
+<script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        crossorigin="">
+</script>
+
+
+<script>
+
+    /* =========================================================
+       BinGo Map
+    ========================================================= */
+
+
+    /* ---------------------------------------------------------
+       1. 지도 좌표 범위
+    --------------------------------------------------------- */
+
+    const MAP_BOUNDS = [
+        [34.664, 135.495],
+        [34.674, 135.508]
+    ];
+
+
+    /* 도톤보리 중심 */
+    const MAP_CENTER = [
+        34.669,
+        135.5015
+    ];
+
+
+    /* ---------------------------------------------------------
+       2. 지도 생성
+    --------------------------------------------------------- */
+
+    const map = L.map('map', {
+
+        center: MAP_CENTER,
+
+        zoom: 15,
+
+        zoomControl: false,
+
+        attributionControl: false,
+
+        minZoom: 13,
+
+        maxZoom: 19,
+
+        maxBounds: [
+            [34.662, 135.493],
+            [34.676, 135.510]
+        ],
+
+        maxBoundsViscosity: 0.8
+
+    });
+
+
+    /* ---------------------------------------------------------
+       3. 커스텀 지도 이미지
+    ---------------------------------------------------------
+
+       실제 OSM / CARTO 타일을 사용하지 않습니다.
+
+       팀에서 만든 이미지:
+
+       /map/custom-map.png
+
+       이미지의 실제 범위는 아래 BBOX와 맞춰야 합니다.
+
+    --------------------------------------------------------- */
+
+    const mapImage = L.imageOverlay(
+
+        '/map/custom-map.png',
+
+        MAP_BOUNDS,
+
+        {
+            opacity: 1,
+            interactive: false
+        }
+
+    );
+
+    mapImage.addTo(map);
+
+
+    /* 처음 지도 화면 */
+    map.fitBounds(
+        MAP_BOUNDS,
+        {
+            padding: [0, 0]
+        }
+    );
+
+
+    /* ---------------------------------------------------------
+       4. 변수
+    --------------------------------------------------------- */
+
+    let allBins = [];
+
+    let markers = [];
+
+    let currentCategory = 'all';
+
+    let selectedBinId = null;
+
+    let currentLocationMarker = null;
+
+
+    /* ---------------------------------------------------------
+       5. DOM
+    --------------------------------------------------------- */
+
+    const searchInput =
+        document.getElementById('searchInput');
+
+    const binList =
+        document.getElementById('binList');
+
+    const binCount =
+        document.getElementById('binCount');
+
+    const mapBinCount =
+        document.getElementById('mapBinCount');
+
+    const filterButtons =
+        document.querySelectorAll('.filter');
+
+
+    /* ---------------------------------------------------------
+       6. 카테고리 이름
+    --------------------------------------------------------- */
+
+    function getCategoryName(category) {
+
+        switch (category) {
+
+            case 'general':
+                return '일반쓰레기';
+
+            case 'can':
+                return '캔/병';
+
+            case 'recycle':
+                return '재활용';
+
+            default:
+                return '쓰레기통';
+
+        }
+
+    }
+
+
+    /* ---------------------------------------------------------
+       7. 카테고리 색상
+    --------------------------------------------------------- */
+
+    function getCategoryColor(category) {
+
+        switch (category) {
+
+            case 'general':
+                return 'gray';
+
+            case 'can':
+                return 'orange';
+
+            case 'recycle':
+                return 'blue';
+
+            default:
+                return 'green';
+
+        }
+
+    }
+
+
+    /* ---------------------------------------------------------
+       8. 카테고리 아이콘
+    --------------------------------------------------------- */
+
+    function getCategoryIcon(category) {
+
+        switch (category) {
+
+            case 'recycle':
+                return '♻';
+
+            case 'can':
+                return '♻';
+
+            case 'general':
+            default:
+                return '▣';
+
+        }
+
+    }
+
+
+    /* ---------------------------------------------------------
+       9. HTML Escape
+    --------------------------------------------------------- */
+
+    function escapeHtml(value) {
+
+        if (
+            value === null ||
+            value === undefined
+        ) {
+            return '';
+        }
+
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+
+    }
+
+
+    /* ---------------------------------------------------------
+       10. 거리 계산
+    ---------------------------------------------------------
+
+       현재 위치가 있으면 현재 위치 기준.
+
+       없으면 도톤보리 지도 중심 기준.
+
+    --------------------------------------------------------- */
+
+    function calculateDistance(
+        lat,
+        lon
+    ) {
+
+        let referenceLat =
+            MAP_CENTER[0];
+
+        let referenceLon =
+            MAP_CENTER[1];
+
+
+        if (
+            currentLocationMarker
+        ) {
+
+            const position =
+                currentLocationMarker.getLatLng();
+
+            referenceLat =
+                position.lat;
+
+            referenceLon =
+                position.lng;
+
+        }
+
+
+        const R = 6371000;
+
+        const lat1 =
+            referenceLat * Math.PI / 180;
+
+        const lat2 =
+            Number(lat) * Math.PI / 180;
+
+        const deltaLat =
+            (Number(lat) - referenceLat)
+            * Math.PI / 180;
+
+        const deltaLon =
+            (Number(lon) - referenceLon)
+            * Math.PI / 180;
+
+
+        const a =
+            Math.sin(deltaLat / 2) *
+            Math.sin(deltaLat / 2) +
+
+            Math.cos(lat1) *
+            Math.cos(lat2) *
+            Math.sin(deltaLon / 2) *
+            Math.sin(deltaLon / 2);
+
+
+        const c =
+            2 *
+            Math.atan2(
+                Math.sqrt(a),
+                Math.sqrt(1 - a)
+            );
+
+
+        return Math.round(
+            R * c
+        );
+
+    }
+
+
+    /* ---------------------------------------------------------
+       11. 거리 표시
+    --------------------------------------------------------- */
+
+    function formatDistance(distance) {
+
+        if (distance < 1000) {
+
+            return `${distance}m`;
+
+        }
+
+        return `${(
+            distance / 1000
+        ).toFixed(1)}km`;
+
+    }
+
+
+    /* ---------------------------------------------------------
+       12. 도보 시간
+    --------------------------------------------------------- */
+
+    function getWalkingTime(distance) {
+
+        const minutes =
+            Math.max(
+                1,
+                Math.round(
+                    distance / 70
+                )
+            );
+
+        return `도보 ${minutes}분`;
+
+    }
+
+
+    /* ---------------------------------------------------------
+       13. 주소
+    --------------------------------------------------------- */
+
+    function getAddress(bin) {
+
+        if (
+            bin.address &&
+            String(bin.address).trim() !== ''
+        ) {
+
+            return bin.address;
+
+        }
+
+        return '주소 정보 없음';
+
+    }
+
+
+    /* ---------------------------------------------------------
+       14. Marker 생성
+    --------------------------------------------------------- */
+
+    function createMarker(bin) {
+
+        const color =
+            getCategoryColor(
+                bin.category
+            );
+
+
+        const icon =
+            L.divIcon({
+
+                className:
+                    'bin-marker-wrap',
+
+                html: `
+                <div
+                    class="bin-marker ${color}"
+                    data-id="${escapeHtml(bin.id)}">
+
+                    <span>
+                        ${getCategoryIcon(
+                    bin.category
+                )}
+                    </span>
+
+                </div>
+            `,
+
+                iconSize: [
+                    34,
+                    42
+                ],
+
+                iconAnchor: [
+                    17,
+                    42
+                ],
+
+                popupAnchor: [
+                    0,
+                    -38
+                ]
+
+            });
+
+
+        const marker =
+            L.marker(
+
+                [
+                    Number(bin.lat),
+                    Number(bin.lon)
+                ],
+
+                {
+                    icon: icon
+                }
+
+            );
+
+
+        marker.binId =
+            String(bin.id);
+
+
+        marker.on(
+            'click',
+            function () {
+
+                selectBin(
+                    bin.id,
+                    true
+                );
+
+            }
+        );
+
+
+        marker.addTo(map);
+
+
+        return marker;
+
+    }
+
+
+    /* ---------------------------------------------------------
+       15. Popup 생성
+    --------------------------------------------------------- */
+
+    function createPopup(bin) {
+
+        const distance =
+            calculateDistance(
+                bin.lat,
+                bin.lon
+            );
+
+
+        return `
+
+        <div class="popup">
+
+            <small>
+                가까운 쓰레기통
+            </small>
+
+
+            <strong>
+                ${escapeHtml(
+            bin.name ||
+            '도톤보리 공용 쓰레기통'
+        )}
+            </strong>
+
+
+            <b>
+                ${formatDistance(
+            distance
+        )}
+            </b>
+
+
+            <span>
+                🚶
+                ${getWalkingTime(distance)}
+                ·
+                ${getCategoryName(
+            bin.category
+        )}
+            </span>
+
+
+            <button
+                type="button"
+                onclick="findRoute(
+                    ${Number(bin.lat)},
+                    ${Number(bin.lon)}
+                )">
+
+                길찾기 〉
+
+            </button>
+
+        </div>
+
+    `;
+
+    }
+
+
+    /* ---------------------------------------------------------
+       16. 필터링
+    --------------------------------------------------------- */
+
+    function getFilteredBins() {
+
+        const keyword =
+            searchInput.value
+                .trim()
+                .toLowerCase();
+
+
+        return allBins.filter(
+            function (bin) {
+
+
+                /* 카테고리 */
+
+                if (
+                    currentCategory !== 'all' &&
+                    bin.category !== currentCategory
+                ) {
+
+                    return false;
+
+                }
+
+
+                /* 검색 */
+
+                if (keyword !== '') {
+
+                    const name =
+                        String(
+                            bin.name || ''
+                        ).toLowerCase();
+
+
+                    const address =
+                        String(
+                            bin.address || ''
+                        ).toLowerCase();
+
+
+                    if (
+                        !name.includes(keyword) &&
+                        !address.includes(keyword)
+                    ) {
+
+                        return false;
+
+                    }
+
+                }
+
+
+                return true;
+
+            }
+        );
+
+    }
+
+
+    /* ---------------------------------------------------------
+       17. 거리순 정렬
+    --------------------------------------------------------- */
+
+    function sortByDistance(bins) {
+
+        return [...bins].sort(
+            function (a, b) {
+
+                return calculateDistance(
+                        a.lat,
+                        a.lon
+                    )
+                    -
+                    calculateDistance(
+                        b.lat,
+                        b.lon
+                    );
+
+            }
+        );
+
+    }
+
+
+    /* ---------------------------------------------------------
+       18. 목록 HTML
+    --------------------------------------------------------- */
+
+    function createBinItem(bin) {
+
+        const distance =
+            calculateDistance(
+                bin.lat,
+                bin.lon
+            );
+
+
+        const category =
+            bin.category || 'general';
+
+
+        let iconClass = '';
+
+        if (
+            category === 'recycle'
+        ) {
+
+            iconClass = 'recycle';
+
+        } else if (
+            category === 'can'
+        ) {
+
+            iconClass = 'can';
+
+        }
+
+
+        const selected =
+            String(selectedBinId) ===
+            String(bin.id);
+
+
+        return `
+
+        <button
+            type="button"
+            class="bin-item ${selected ? 'selected' : ''}"
+            data-id="${escapeHtml(bin.id)}">
+
+
+            <div
+                class="bin-icon ${iconClass}">
+
+                ${getCategoryIcon(
+            category
+        )}
+
+            </div>
+
+
+            <div class="bin-info">
+
+                <strong>
+                    ${escapeHtml(
+            bin.name ||
+            '도톤보리 공용 쓰레기통'
+        )}
+                </strong>
+
+
+                <small>
+                    ${escapeHtml(
+            getAddress(bin)
+        )}
+                </small>
+
+
+                <em>
+                    ${getCategoryName(
+            category
+        )}
+
+                    &nbsp;
+
+                    🚶
+
+                    ${getWalkingTime(
+            distance
+        )}
+                </em>
+
+            </div>
+
+
+            <b>
+                ${formatDistance(
+            distance
+        )}
+            </b>
+
+
+        </button>
+
+    `;
+
+    }
+
+
+    /* ---------------------------------------------------------
+       19. 목록 렌더링
+    --------------------------------------------------------- */
+
+    function renderBinList() {
+
+        let filtered =
+            getFilteredBins();
+
+
+        filtered =
+            sortByDistance(
+                filtered
+            );
+
+
+        binCount.textContent =
+            filtered.length;
+
+
+        mapBinCount.textContent =
+            filtered.length;
+
+
+        if (
+            filtered.length === 0
+        ) {
+
+            binList.innerHTML = `
+
+            <div class="empty">
+
+                검색 결과가 없습니다.
+
+            </div>
+
+        `;
+
+            return;
+
+        }
+
+
+        binList.innerHTML =
+            filtered
+                .map(createBinItem)
+                .join('');
+
+
+        document
+            .querySelectorAll('.bin-item')
+            .forEach(
+                function (item) {
+
+                    item.addEventListener(
+                        'click',
+                        function () {
+
+                            selectBin(
+                                this.dataset.id,
+                                true
+                            );
+
+                        }
+                    );
+
+                }
+            );
+
+    }
+
+
+    /* ---------------------------------------------------------
+       20. Marker 제거
+    --------------------------------------------------------- */
+
+    function clearMarkers() {
+
+        markers.forEach(
+            function (marker) {
+
+                map.removeLayer(
+                    marker
+                );
+
+            }
+        );
+
+
+        markers = [];
+
+    }
+
+
+    /* ---------------------------------------------------------
+       21. Marker 렌더링
+    --------------------------------------------------------- */
+
+    function renderMarkers() {
+
+        clearMarkers();
+
+
+        const filtered =
+            getFilteredBins();
+
+
+        filtered.forEach(
+            function (bin) {
+
+                const marker =
+                    createMarker(bin);
+
+
+                marker.bindPopup(
+
+                    createPopup(bin),
+
+                    {
+                        closeButton: false,
+
+                        maxWidth: 250,
+
+                        minWidth: 228,
+
+                        className:
+                            'bingo-popup'
+                    }
+
+                );
+
+
+                markers.push(
+                    marker
+                );
+
+            }
+        );
+
+    }
+
+
+    /* ---------------------------------------------------------
+       22. 전체 화면 갱신
+    --------------------------------------------------------- */
+
+    function render() {
+
+        renderMarkers();
+
+        renderBinList();
+
+    }
+
+
+    /* ---------------------------------------------------------
+       23. 쓰레기통 선택
+    --------------------------------------------------------- */
+
+    function selectBin(
+        id,
+        openPopup
+    ) {
+
+        selectedBinId =
+            String(id);
+
+
+        const bin =
+            allBins.find(
+                function (item) {
+
+                    return String(
+                        item.id
+                    ) === String(id);
+
+                }
+            );
+
+
+        if (!bin) {
+
+            return;
+
+        }
+
+
+        /*
+         * 목록 선택 표시
+         */
+
+        document
+            .querySelectorAll('.bin-item')
+            .forEach(
+                function (item) {
+
+                    item.classList.toggle(
+                        'selected',
+
+                        String(
+                            item.dataset.id
+                        ) === String(id)
+
+                    );
+
+                }
+            );
+
+
+        /*
+         * Marker 찾기
+         */
+
+        const marker =
+            markers.find(
+                function (item) {
+
+                    return String(
+                        item.binId
+                    ) === String(id);
+
+                }
+            );
+
+
+        if (!marker) {
+
+            return;
+
+        }
+
+
+        /*
+         * 지도 이동
+         */
+
+        map.setView(
+
+            [
+                Number(bin.lat),
+                Number(bin.lon)
+            ],
+
+            Math.max(
+                map.getZoom(),
+                16
+            ),
+
+            {
+                animate: true
+            }
+
+        );
+
+
+        /*
+         * Popup
+         */
+
+        if (openPopup) {
+
+            marker.openPopup();
+
+        }
+
+    }
+
+
+    /* ---------------------------------------------------------
+       24. API 호출
+    --------------------------------------------------------- */
+
+    async function loadWasteBins() {
+
+        try {
+
+            const response =
+                await fetch(
+                    '/api/bins'
+                );
+
+
+            if (!response.ok) {
+
+                throw new Error(
+                    `HTTP ${response.status}`
+                );
+
+            }
+
+
+            const data =
+                await response.json();
+
+
+            if (
+                !Array.isArray(data)
+            ) {
+
+                throw new Error(
+                    'API 응답이 배열이 아닙니다.'
+                );
+
+            }
+
+
+            allBins =
+                data.map(
+                    function (bin) {
+
+                        return {
+
+                            id: bin.id,
+
+                            lat: Number(
+                                bin.lat
+                            ),
+
+                            lon: Number(
+                                bin.lon
+                            ),
+
+                            name:
+                                bin.name || '',
+
+                            category:
+                                bin.category ||
+                                'general',
+
+                            address:
+                                bin.address ||
+                                ''
+
+                        };
+
+                    }
+                );
+
+
+            render();
+
+
+        } catch (error) {
+
+            console.error(
+                '쓰레기통 데이터 로딩 실패:',
+                error
+            );
+
+
+            binList.innerHTML = `
+
+            <div class="error">
+
+                쓰레기통 정보를
+                불러오지 못했습니다.
+
+                <small>
+                    /api/bins 또는 서버 상태를
+                    확인해주세요.
+                </small>
+
+            </div>
+
+        `;
+
+        }
+
+    }
+
+
+    /* ---------------------------------------------------------
+       25. 검색
+    --------------------------------------------------------- */
+
+    searchInput.addEventListener(
+        'input',
+        function () {
+
+            render();
+
+        }
+    );
+
+
+    /* ---------------------------------------------------------
+       26. 필터
+    --------------------------------------------------------- */
+
+    filterButtons.forEach(
+        function (button) {
+
+            button.addEventListener(
+                'click',
+                function () {
+
+
+                    filterButtons
+                        .forEach(
+                            function (item) {
+
+                                item.classList
+                                    .remove(
+                                        'active'
+                                    );
+
+                            }
+                        );
+
+
+                    this.classList.add(
+                        'active'
+                    );
+
+
+                    currentCategory =
+                        this.dataset.category;
+
+
+                    render();
+
+                }
+            );
+
+        }
+    );
+
+
+    /* ---------------------------------------------------------
+       27. Zoom
+    --------------------------------------------------------- */
+
+    document
+        .getElementById('zoomIn')
+        .addEventListener(
+            'click',
+            function () {
+
+                map.zoomIn();
+
+            }
+        );
+
+
+    document
+        .getElementById('zoomOut')
+        .addEventListener(
+            'click',
+            function () {
+
+                map.zoomOut();
+
+            }
+        );
+
+
+    /* ---------------------------------------------------------
+       28. 현재 위치
+    --------------------------------------------------------- */
+
+    document
+        .getElementById('locateButton')
+        .addEventListener(
+            'click',
+            function () {
+
+                if (
+                    !navigator.geolocation
+                ) {
+
+                    alert(
+                        '현재 브라우저에서는 위치 기능을 사용할 수 없습니다.'
+                    );
+
+                    return;
+
+                }
+
+
+                navigator
+                    .geolocation
+                    .getCurrentPosition(
+
+                        function (position) {
+
+                            const lat =
+                                position.coords.latitude;
+
+                            const lon =
+                                position.coords.longitude;
+
+
+                            /*
+                             * 기존 위치 제거
+                             */
+
+                            if (
+                                currentLocationMarker
+                            ) {
+
+                                map.removeLayer(
+                                    currentLocationMarker
+                                );
+
+                            }
+
+
+                            /*
+                             * 현재 위치 marker
+                             */
+
+                            currentLocationMarker =
+                                L.marker(
+
+                                    [
+                                        lat,
+                                        lon
+                                    ],
+
+                                    {
+                                        icon:
+                                            L.divIcon({
+
+                                                className:
+                                                    'current-location-wrap',
+
+                                                html:
+                                                    `
+                                                <div
+                                                    class="current-location">
+                                                </div>
+                                                `,
+
+                                                iconSize:
+                                                    [14, 14],
+
+                                                iconAnchor:
+                                                    [7, 7]
+
+                                            })
+                                    }
+
+                                );
+
+
+                            currentLocationMarker
+                                .addTo(map);
+
+
+                            /*
+                             * 지도 이동
+                             */
+
+                            map.setView(
+
+                                [
+                                    lat,
+                                    lon
+                                ],
+
+                                17,
+
+                                {
+                                    animate: true
+                                }
+
+                            );
+
+
+                            /*
+                             * 거리 다시 계산
+                             */
+
+                            render();
+
+                        },
+
+                        function () {
+
+                            alert(
+                                '현재 위치를 가져올 수 없습니다.'
+                            );
+
+                        },
+
+                        {
+
+                            enableHighAccuracy:
+                                true,
+
+                            timeout:
+                                10000,
+
+                            maximumAge:
+                                60000
+
+                        }
+
+                    );
+
+            }
+        );
+
+
+    /* ---------------------------------------------------------
+       29. 길찾기
+    --------------------------------------------------------- */
+
+    function findRoute(
+        lat,
+        lon
+    ) {
+
+        const url =
+            `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
+
+
+        window.open(
+            url,
+            '_blank'
+        );
+
+    }
+
+
+    /* ---------------------------------------------------------
+       30. 시작
+    --------------------------------------------------------- */
+
+    loadWasteBins();
+
+</script>
+
+</body>
+</html>
