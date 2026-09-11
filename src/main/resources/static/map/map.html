@@ -15,6 +15,11 @@
 
     <!-- BinGo Map CSS -->
     <link rel="stylesheet" href="/map/map.css">
+    <link rel="stylesheet"
+          href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css">
+    <link rel="stylesheet" href="/map/bingo-basemap.css">
+    <!-- 추가: 길찾기 화면 디자인 -->
+    <link rel="stylesheet" href="/map/bingo-routing.css">
 </head>
 
 <body>
@@ -251,7 +256,11 @@
         src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         crossorigin="">
 </script>
-
+<script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
+<script src="/map/bingo-basemap.js"></script>
+<!-- 추가: 지도 안 길찾기 기능 -->
+<script src="/map/bingo-routing.js"></script>
 
 <script>
 
@@ -294,12 +303,8 @@
     });
 
     // 현재 정상 작동하는 OpenStreetMap 지도 배경 유지.
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution:
-            '&copy; <a href="https://www.openstreetmap.org/copyright">' +
-            'OpenStreetMap contributors</a>'
-    }).addTo(map);
+    //사진의 옅은 건물·도로, 파란 강을 기준으로 배경 교체
+    BinGoBasemap.addTo(map);
 
     // 변경 4: 넓어진 검색 범위가 처음 화면에 들어오도록 맞춘다.
     map.fitBounds(MAP_BOUNDS, { padding: [20, 20] });
@@ -395,23 +400,30 @@
     --------------------------------------------------------- */
 
     function getCategoryIcon(category) {
-
-        switch (category) {
-
-            case 'recycle':
-                return '♻';
-
-            case 'can':
-                return '♻';
-
-            case 'general':
-            default:
-                return '▣';
-
+        // 재활용·캔/병 아이콘은 기존 모양 유지
+        if (category === 'recycle' || category === 'can') {
+            return '♻';
         }
 
+        // 변경: 네모 대신 쓰레기통 모양의 SVG 아이콘 사용
+        // currentColor: 지도에서는 흰색, 목록에서는 기존 초록색
+        return `
+        <svg xmlns="http://www.w3.org/2000/svg"
+             width="20" height="20" viewBox="0 0 24 24"
+             fill="none" stroke="currentColor" stroke-width="1.8"
+             stroke-linecap="round" stroke-linejoin="round"
+             style="display: block;" aria-hidden="true">
+            <!-- 뚜껑 -->
+            <path d="M4 7h16" />
+            <!-- 손잡이 -->
+            <path d="M9 7V4h6v3" />
+            <!-- 몸통 -->
+            <path d="M6 7l1 13h10l1-13" />
+            <!-- 몸통의 세로선 -->
+            <path d="M10 11v5M14 11v5" />
+        </svg>
+    `;
     }
-
 
     /* ---------------------------------------------------------
        9. HTML Escape
@@ -643,17 +655,13 @@
             String(bin.id);
 
 
-        marker.on(
-            'click',
-            function () {
-
-                selectBin(
-                    bin.id,
-                    true
-                );
-
-            }
-        );
+        marker.on('click', function () {
+            //이때 false는 팝업 기능을 끈다는 뜻이 아니라, selectBin()에서 직접 여는 동작을 생략한다는 뜻
+            // 변경: true → false
+            // 목록 선택 표시와 지도 이동을 처리합니다.
+            // 팝업은 이미 연결된 bindPopup의 기본 클릭 동작으로 엽니다.
+            selectBin(bin.id, false);
+        });
 
 
         marker.addTo(map);
@@ -1531,20 +1539,27 @@
        29. 길찾기
     --------------------------------------------------------- */
 
-    function findRoute(
-        lat,
-        lon
-    ) {
+    function findRoute(lat, lon) {
+        // 추가 1: 선택한 쓰레기통의 이름을 찾습니다.
+        const bin = allBins.find(function (item) {
+            return Number(item.lat) === Number(lat)
+                && Number(item.lon) === Number(lon);
+        });
 
-        const url =
-            `https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`;
+        // 추가 2: 기존 지도에 길찾기 기능을 한 번만 연결합니다.
+        if (!window.bingoRouter) {
+            window.bingoRouter = BinGoRouting.create(map, {
+                // 한국에서도 도톤보리 출발점을 선택해 테스트할 수 있게 합니다.
+                allowTestOrigin: true
+            });
+        }
 
-
-        window.open(
-            url,
-            '_blank'
-        );
-
+        // 변경: 외부 창 대신 현재 지도에서 길찾기를 엽니다.
+        window.bingoRouter.open({
+            lat: Number(lat),
+            lon: Number(lon),
+            name: bin ? bin.name : '선택한 쓰레기통'
+        });
     }
 
 

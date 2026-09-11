@@ -1298,3 +1298,10 @@ nav a.active::after {
     }
 
 }
+#map .leaflet-tile-pane {
+    /* 배경색을 회색에 가깝게 하고 대비를 낮춘다. */
+    filter: grayscale(80%) contrast(85%);
+
+    /* 1에 가까우면 진하게, 0에 가까우면 연하게 표시한다. */
+    opacity: 0.65;
+}
