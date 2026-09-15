@@ -15,6 +15,9 @@
 
     <!-- BinGo Map CSS -->
     <link rel="stylesheet" href="/map/map.css">
+    <!-- 추가: 식당 탭, 목록, 팝업 디자인 -->
+    <link rel="stylesheet" href="/map/bingo-restaurants.css">
+
     <link rel="stylesheet"
           href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css">
     <link rel="stylesheet" href="/map/bingo-basemap.css">
@@ -252,16 +255,28 @@
 <!-- =========================================================
      LEAFLET
 ========================================================= -->
+<!-- 1. Leaflet 지도 라이브러리 -->
 <script
         src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
         crossorigin="">
 </script>
+
+<!-- 2. MapLibre 지도 라이브러리 -->
 <script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
+
+<!-- 3. Leaflet과 MapLibre 연결 -->
 <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.0.22/leaflet-maplibre-gl.js"></script>
+
+<!-- 4. 기존 배경 지도 설정 -->
 <script src="/map/bingo-basemap.js"></script>
-<!-- 추가: 지도 안 길찾기 기능 -->
+
+<!-- 5. 지도 안 길찾기 기능: 한 번만 연결 -->
 <script src="/map/bingo-routing.js"></script>
 
+<!-- 6. Oracle DB 식당 표시 기능 -->
+<script src="/map/bingo-restaurants.js"></script>
+
+<!-- 7. 이 아래부터 기존 지도 JavaScript -->
 <script>
 
     /* =========================================================
@@ -1078,11 +1093,13 @@
     --------------------------------------------------------- */
 
     function render() {
-
         renderMarkers();
-
         renderBinList();
 
+        // 추가: 현재 위치가 바뀌면 식당 목록의 직선 거리도 다시 계산
+        if (window.restaurantMap) {
+            window.restaurantMap.refreshDistances();
+        }
     }
 
 
@@ -1567,6 +1584,46 @@
        30. 시작
     --------------------------------------------------------- */
 
+    // 추가: Oracle DB에서 식당을 조회하고 지도에 표시하는 기능 연결
+    window.restaurantMap = BinGoRestaurants.create(map, {
+        getReference: function () {
+            // 현재 위치가 있으면 그 위치를 기준으로 거리 계산
+            if (currentLocationMarker) {
+                const point = currentLocationMarker.getLatLng();
+
+                return {
+                    lat: point.lat,
+                    lon: point.lng,
+                    label: '현재 위치'
+                };
+            }
+
+            // 현재 위치가 없으면 기존 지도 기준 좌표 사용
+            return {
+                lat: MAP_CENTER[0],
+                lon: MAP_CENTER[1],
+                label: '지도 기준 위치'
+            };
+        },
+
+        onRoute: function (restaurant) {
+            // 기존 지도 안 길찾기 기능 사용
+            if (!window.bingoRouter) {
+                window.bingoRouter = BinGoRouting.create(map, {
+                    allowTestOrigin: true
+                });
+            }
+
+            // 선택한 식당의 좌표와 이름을 길찾기에 전달
+            window.bingoRouter.open({
+                lat: restaurant.lat,
+                lon: restaurant.lon,
+                name: restaurant.name
+            });
+        }
+    });
+
+    // 기존 쓰레기통 조회 실행
     loadWasteBins();
 
 </script>

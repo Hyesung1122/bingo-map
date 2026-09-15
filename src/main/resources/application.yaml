@@ -3,10 +3,12 @@ spring:
     name: bingo-map
 
   datasource:
-    url: jdbc:oracle:thin:@//localhost:1521/orcl
-    username: scott
-    password: tiger
-    driver-class-name: oracle.jdbc.OracleDriver
+
+      # 수정: 실행 설정의 환경 변수에서 접속 정보를 가져옴
+      url: ${SPRING_DATASOURCE_URL}
+      username: ${SPRING_DATASOURCE_USERNAME}
+      password: ${SPRING_DATASOURCE_PASSWORD}
+      driver-class-name: oracle.jdbc.OracleDriver
 
   jpa:
     hibernate:
