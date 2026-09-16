@@ -46,6 +46,8 @@
 
     function create(map, options) {
         options = options || {};
+        // 추가: 메인 경로 안내 버튼으로 들어온 경우에만 식당 선택부터 시작합니다.
+        const routeEntry = options.routeEntry === true;
         const sidebar = document.querySelector('.sidebar');
         if (!sidebar) throw new Error('지도 HTML에 .sidebar가 없습니다.');
         if (sidebar.querySelector('.brm-tabs, .bt-tabs'))
@@ -62,6 +64,18 @@
         tabs.append(binTab, foodTab); sidebar.prepend(tabs);
 
         const panel = el('section', 'brm-panel'); panel.hidden = true;
+        if (routeEntry) {
+            const guide = el('section', 'brm-route-guide');
+            guide.setAttribute('aria-label', '식당과 쓰레기통 경로 선택');
+            const title = el('h2', '', '식당 · 쓰레기통 경로');
+            const steps = el('ol', 'brm-route-flow');
+            ['내 위치', '식당 선택', '가까운 쓰레기통'].forEach(function (text) {
+                steps.append(el('li', '', text));
+            });
+            const description = el('p', '', '아래 식당을 선택하면 현재 위치를 확인하고 길찾기를 시작합니다.');
+            const back = el('a', 'brm-route-back', '일반 지도 보기'); back.href = '/map';
+            guide.append(title, steps, description, back); panel.append(guide);
+        }
         const controls = el('div', 'brm-controls');
         const search = el('input', 'brm-search'); search.type = 'search';
         search.placeholder = '식당 이름, 음식 종류, 주소 검색'; search.setAttribute('aria-label', '식당 검색');
@@ -102,6 +116,18 @@
                 card.classList.toggle('is-selected', match); card.setAttribute('aria-pressed', String(match));
             });
         }
+        // 추가: 목록의 경로 선택과 마커 팝업이 같은 기존 onRoute 함수를 사용합니다.
+        function startRoute(p) {
+            try {
+                if (typeof options.onRoute !== 'function') throw new Error('길찾기 연결 함수가 없습니다.');
+                map.closePopup();
+                options.onRoute(p);
+            } catch (error) {
+                status.textContent = '길찾기를 열지 못했습니다. 새로고침한 뒤 다시 선택해주세요.';
+                status.hidden = false; status.classList.add('is-error');
+                console.error('식당 길찾기 연결 실패:', error);
+            }
+        }
         function popup(p) {
             const box = el('div', 'brm-popup'), origin = getReference();
             box.append(el('span', 'brm-kicker', result.sampleData ? '샘플 식당 정보' : '등록 식당'), el('h3', '', p.name));
@@ -124,10 +150,9 @@
             } else detail('', '등록된 대표 메뉴가 없습니다.');
             if (result.sampleData) detail('', '위 가격·평점 등은 연동 테스트용 샘플 값입니다.');
             const website = link('등록된 웹사이트', p.websiteUrl); if (website) box.append(website);
-            const route = button('brm-route', '길찾기 ›', function () {
-                if (typeof options.onRoute !== 'function') { route.textContent = '길찾기 연결 설정을 확인해주세요'; return; }
-                try { map.closePopup(); options.onRoute(p); }
-                catch (error) { route.textContent = '길찾기 모듈 연결을 확인해주세요'; }
+            // 변경: 식당 이후 가까운 쓰레기통 연결도 함께 열립니다.
+            const route = button('brm-route', '식당 · 쓰레기통 길찾기 ›', function () {
+                startRoute(p);
             });
             box.append(route); return box;
         }
@@ -148,7 +173,10 @@
             rows.forEach(function (row) {
                 const p = row.place;
                 const card = button('brm-card', undefined, function () {
-                    choose(p.id); map.panTo([p.lat, p.lon]);
+                    choose(p.id);
+                    // 변경: 경로 선택 화면에서는 목록 선택으로 바로 기존 길찾기를 엽니다.
+                    if (routeEntry) { startRoute(p); return; }
+                    map.panTo([p.lat, p.lon]);
                     const marker = markers.get(p.id); if (marker) marker.openPopup();
                 });
                 card.dataset.id = p.id;
@@ -156,14 +184,17 @@
                 top.append(el('strong', 'brm-name', p.name), el('span', 'brm-distance', meters(row.distance)));
                 card.append(top, el('span', 'brm-tag', p.category || '음식점'));
                 if (p.menuName) card.append(el('span', 'brm-address', p.menuName + ' · ' + (p.menuPrice || '가격 정보 없음')));
-                card.append(el('span', 'brm-address', p.address || '주소 정보 없음')); list.append(card);
+                card.append(el('span', 'brm-address', p.address || '주소 정보 없음'));
+                if (routeEntry) card.append(el('span', 'brm-route-card-action', '이 식당으로 길찾기 ›'));
+                list.append(card);
             });
             choose(selected);
         }
         function render(rebuild) {
             const rows = filtered(), origin = getReference();
             count.textContent = loaded ? '식당 ' + rows.length + '곳 / 지도 등록 ' + places.length + '곳' : '식당 정보';
-            badge.textContent = loaded ? '등록 식당 ' + rows.length + '곳' : '식당 정보';
+            badge.textContent = routeEntry ? '길찾기할 식당을 선택하세요'
+                : (loaded ? '등록 식당 ' + rows.length + '곳' : '식당 정보');
             reference.textContent = (origin.label || '기준 위치') + '에서의 직선 거리순';
             sample.hidden = !loaded || !result.sampleData; refresh.disabled = loading;
             let message = loading ? '식당 정보를 불러오는 중입니다.' : failure;
@@ -211,6 +242,7 @@
             if (destroyed) return;
             active = value;
             document.body.classList.toggle('bingo-restaurant-mode', active);
+            document.body.classList.toggle('bingo-route-entry', active && routeEntry);
             document.body.classList.toggle('bingo-restaurant-with-bins', active && both.checked);
             panel.hidden = !active; badge.hidden = !active;
             binTab.setAttribute('aria-pressed', String(!active)); foodTab.setAttribute('aria-pressed', String(active));
@@ -223,13 +255,15 @@
             map.closePopup(); document.body.classList.toggle('bingo-restaurant-with-bins', active && both.checked);
         });
         render(false);
+        // 추가: 식당 선택 전에는 위치 권한이나 외부 경로 조회를 요청하지 않습니다.
+        if (routeEntry) setActive(true);
         return {
             refreshDistances:function () { if (!destroyed) render(false); },
             refresh:function () { load(); },
             destroy:function () {
                 destroyed = true; if (controller) controller.abort(); map.removeLayer(layer); layer.clearLayers(); markers.clear();
                 tabs.remove(); panel.remove(); badge.remove();
-                document.body.classList.remove('bingo-restaurant-mode', 'bingo-restaurant-with-bins');
+                document.body.classList.remove('bingo-restaurant-mode', 'bingo-restaurant-with-bins', 'bingo-route-entry');
             }
         };
     }

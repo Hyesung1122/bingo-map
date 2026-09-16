@@ -51,22 +51,40 @@ body.bingo-routing-active .map-wrap { width: 100%; height: 100%; flex: 1; }
 .br-point-start { background: #1677ff; }
 .br-point-end { background: #ee4438; }
 .br-point-label { border-radius: 6px; padding: 6px 9px; color: #26352b; }
+.br-point-bin { background: #208d43; color: #fff; display: flex; align-items: center; justify-content: center; width: 29px; height: 29px; }
+.br-point-restaurant { background: #df7651; }
+.br-journey { margin: 9px 0; padding: 10px; border: 1px solid #dcecdf; border-radius: 10px; background: #f4faf5; }
+.br-journey[hidden], .br-modes[hidden], .br-bin-retry[hidden] { display: none; }
+.br-stages { display: grid; grid-template-columns: 1fr 1.2fr; gap: 6px; }
+.br-stages button { padding: 8px 4px; border: 1px solid #d3e1d7; border-radius: 7px; color: #40594a; background: #fff; font-size: 12px; }
+.br-stages button[aria-pressed="true"] { border-color: #238b46; color: #157636; background: #e5f5e9; font-weight: 700; }
+.br-journey [data-el="bin-status"] { font-size: 11px; line-height: 1.6; margin: 8px 0 0; white-space: pre-line; overflow-wrap: anywhere; }
+.br-bin-retry { padding: 5px 0; margin-top: 5px; border: 0; background: transparent; color: #176b35; text-decoration: underline; font-size: 11px; }
+.br-has-journey .br-bottom { max-height: calc(100% - var(--br-top-height, 380px) - 80px); }
+/* 길찾기 중에는 선택한 식당과 연결된 쓰레기통만 별도 경로 마커로 표시합니다. */
+body.bingo-routing-active .bin-marker-wrap,
+body.bingo-routing-active .brm-marker-wrap { display: none !important; }
 .br-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 @media (max-width: 999px) {
     .br-top, .br-bottom { left: 12px; right: 12px; width: auto; padding: 12px; }
     .br-top { top: 12px; }
     .br-bottom { bottom: 28px; max-height: 32%; }
+    .br-has-journey .br-bottom { max-height: min(32%, calc(100% - var(--br-top-height, 350px) - 60px)); }
+    .br-journey { padding: 8px; margin: 6px 0; }
     .br-steps { max-height: 120px; }
     .br-heading { margin-bottom: 6px; }
     .br-place { min-height: 33px; margin-bottom: 5px; padding: 6px 9px; }
     .br-modes { margin-top: 6px; }
     .br-summary strong { font-size: 15px; }
     body.bingo-routing-active .zoom { top: 260px; right: 14px; }
+    body.bingo-routing-active:has(.br-has-journey) .zoom { top: 350px; }
 }
 @media (max-height: 650px) {
     .br-bottom { max-height: calc(100% - 265px); }
     .br-summary > span { display: none; }
     .br-note { max-height: 42px; overflow-y: auto; flex-shrink: 0; }
     .br-top, .br-bottom { padding: 9px; }
+    .br-has-journey .br-top { max-height: 51%; overflow-y: auto; }
+    .br-has-journey .br-bottom { max-height: 34%; }
     .br-steps { max-height: 70px; }
 }
