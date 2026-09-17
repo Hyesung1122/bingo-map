@@ -1,7 +1,45 @@
 \# \[Bingo-map] 프로젝트 개발일지
 
+안태건
+2026-09-10일
+유저, 로그인, 회원가입 기능 만들기
+모델 
+내일 질문할 내용.
+어제 추가한 기능에 대해서 설명해줘.
+그리고 연결한 데이터 베이스
+
+추가할 기능
+로그인 실패시 아래 빨간텍스트로 실패한 이유와 다시
+아이디 또는 비밀번호가 올바르지 않습니다. 입력한 정보를 다시 확인해 주세요.
+텍스트 출력하기
+
+2026-09-11
+추가 한 기능
+마이페이지
+로그인 실패시 아래 빨간텍스트로 실패한 이유와 다시
+아이디 또는 비밀번호가 올바르지 않습니다. 입력한 정보를 다시 확인해 주세요.
+닉네임기능 추가 
 
 
+추가할 기능
+관리자 계정 만들기
+관리자 페이지 작성
+마이페이지 참여응원이 아니라 받은좋아요로 바꾸기 
+
+2026-09-14
+추가한 기능
+관리자 페이지 제작
+
+2026-09-15
+유저관리 기능 제작
+공지사항 작성 및 관리 기능 제작
+정보 수정 기능
+
+2026-09-16 
+질문할것
+1.회원가입할때 비밀번호 재설정을 위한 본인인증 질문을 만들기 
+ex)처음으로 키웠던 동물의 이름, 부모님의 이름 등
+2.가려져있는 비밀번호 눈 모양 표시 누르면 보이도록 작동 되게 변경
 \### ■ TIP:
 
 작업물 확인 방법:
@@ -50,9 +88,28 @@ gemini는 사용량 제한이 없다.
 
 
 
-\## 09.10
+\## 09.10 추가한 파일
 
-
+entity/User.java	TB_USER 테이블 매핑
+repository/UserRepository.java	이메일 조회/중복확인
+sql/tb_user_ddl.sql	TB_USER 테이블 생성 SQL
+dto/SignupRequestDto.java	회원가입 폼 데이터
+exception/SignupException.java	가입 실패 예외
+service/SignupService.java	가입 처리 로직
+dto/LoginRequestDto.java	로그인 폼 데이터
+exception/LoginException.java	로그인 실패 예외
+service/LoginService.java	로그인 처리 로직
+dto/SessionResponseDto.java	로그인 상태 응답
+controller/SessionController.java	로그인 상태 API
+static/js/header-auth.js	헤더 로그인 상태 표시
+static/auth/auth.js	에러/성공 메시지 표시
+        수정한 파일
+controller/SignupController.java	POST /signup 추가
+controller/LoginController.java	POST /login, GET /logout 추가
+build.gradle	암호화, Oracle 11g 방언 의존성 추가
+application.yaml	Oracle 11g용 dialect 설정
+static/auth/auth.css	알림 박스 스타일 추가
+정적 페이지 8개	header-auth.js 스크립트 태그 삽입
 
 \### ■ 과제
 

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 페이지 | BinGo Map</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/admin/admin.css">
+</head>
+<body>
+<header class="header">
+    <div class="header-inner">
+        <a class="logo" href="/">
+            <span class="logo-mark">♜</span>
+            <span>
+          <strong>BinGo Map</strong>
+          <small>Clean &amp; Gourmet</small>
+        </span>
+        </a>
+
+        <nav class="nav">
+            <a href="/">홈</a>
+            <a href="/map">지도</a>
+            <a href="/restaurants">주변 맛집</a>
+            <a href="/favorites">즐겨찾기</a>
+            <a href="/reviews">리뷰</a>
+            <a href="/notices">공지사항</a>
+        </nav>
+
+        <div class="header-actions">
+            <button class="language">🇰🇷 한국어 <span>⌄</span></button>
+            <a class="login" href="/login">로그인</a>
+        </div>
+    </div>
+</header>
+
+<main>
+    <div class="admin-layout">
+        <aside class="admin-sidebar">
+            <h3>관리자 페이지</h3>
+            <nav class="admin-nav">
+                <a href="#" class="active" data-tab="dashboard">대시보드</a>
+                <a href="#" data-tab="reports">쓰레기통 제보 관리</a>
+                <a href="#" data-tab="users">유저 관리</a>
+                <a href="#" data-tab="notices">공지사항 관리</a>
+                <a href="#" data-tab="settings">시스템 설정</a>
+            </nav>
+        </aside>
+
+        <div class="admin-main">
+
+            <section id="tab-dashboard" class="admin-tab-content">
+                <h2>대시보드</h2>
+
+                <div class="admin-stats">
+                    <div class="admin-stat-card">
+                        <div class="admin-stat-icon">👤</div>
+                        <div>
+                            <span class="num" id="admin-member-count">-</span>
+                            <span class="label">회원 수</span>
+                        </div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <div class="admin-stat-icon">🗑</div>
+                        <div>
+                            <span class="num" id="admin-bin-count">-</span>
+                            <span class="label">쓰레기통 수</span>
+                        </div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <div class="admin-stat-icon">🍴</div>
+                        <div>
+                            <span class="num" id="admin-restaurant-count">-</span>
+                            <span class="label">맛집 수</span>
+                        </div>
+                    </div>
+                    <div class="admin-stat-card">
+                        <div class="admin-stat-icon">✉</div>
+                        <div>
+                            <span class="num" id="admin-pending-count">-</span>
+                            <span class="label">제보 대기</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="admin-panel">
+                    <div class="admin-panel-head">
+                        <b>제보 검수 대기 목록</b>
+                        <a href="#" data-tab-link="reports">더보기</a>
+                    </div>
+                    <p class="admin-empty">아직 연동된 제보 데이터가 없습니다.<br>쓰레기통 제보 기능이 완성되면 이 목록에 표시됩니다.</p>
+                </div>
+
+                <div class="admin-panel">
+                    <div class="admin-panel-head">
+                        <b>최근 시스템 로그</b>
+                    </div>
+                    <p class="admin-empty">아직 기록된 시스템 로그가 없습니다.</p>
+                </div>
+            </section>
+
+            <section id="tab-reports" class="admin-tab-content" hidden>
+                <h2>쓰레기통 제보 관리</h2>
+                <div class="admin-panel">
+                    <table class="admin-table">
+                        <thead>
+                        <tr>
+                            <th><input type="checkbox" disabled></th>
+                            <th>제보 유형</th>
+                            <th>내용</th>
+                            <th>위치</th>
+                            <th>제보자</th>
+                            <th>제보일</th>
+                        </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                    <p class="admin-empty">아직 연동된 제보 데이터가 없습니다.<br>쓰레기통 제보 기능이 완성되면 이 목록에 표시됩니다.</p>
+                    <div class="admin-actions">
+                        <button type="button" class="approve" disabled>선택 승인</button>
+                        <button type="button" class="reject" disabled>선택 반려</button>
+                        <button type="button" disabled>새로고침</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-users" class="admin-tab-content" hidden>
+                <h2>유저 관리</h2>
+                <div class="admin-panel">
+                    <p class="admin-message" id="admin-user-message"></p>
+                    <table class="admin-table">
+                        <thead>
+                        <tr>
+                            <th>이름</th>
+                            <th>닉네임</th>
+                            <th>이메일</th>
+                            <th>권한</th>
+                            <th>가입일</th>
+                            <th>관리</th>
+                        </tr>
+                        </thead>
+                        <tbody id="admin-user-table-body"></tbody>
+                    </table>
+                    <p class="admin-empty" id="admin-user-empty" hidden>회원이 없습니다.</p>
+                </div>
+            </section>
+
+            <section id="tab-notices" class="admin-tab-content" hidden>
+                <h2>공지사항 관리</h2>
+
+                <div class="admin-panel">
+                    <div class="admin-panel-head">
+                        <b>공지사항 목록</b>
+                        <button type="button" id="notice-new-btn" class="admin-new-btn">+ 새 공지 작성</button>
+                    </div>
+                    <p class="admin-message" id="notice-message"></p>
+                    <table class="admin-table">
+                        <thead>
+                        <tr>
+                            <th>제목</th>
+                            <th>작성일</th>
+                            <th>수정일</th>
+                            <th>관리</th>
+                        </tr>
+                        </thead>
+                        <tbody id="notice-table-body"></tbody>
+                    </table>
+                    <p class="admin-empty" id="notice-empty" hidden>등록된 공지사항이 없습니다.</p>
+                </div>
+
+                <div id="notice-form-panel" class="admin-panel" hidden>
+                    <h3 id="notice-form-heading">새 공지 작성</h3>
+                    <input type="hidden" id="notice-form-id">
+
+                    <div class="admin-form-row">
+                        <label for="notice-title-input">제목</label>
+                        <input type="text" id="notice-title-input" placeholder="공지 제목을 입력하세요">
+                    </div>
+                    <div class="admin-form-row">
+                        <label for="notice-content-input">내용</label>
+                        <textarea id="notice-content-input" rows="6" placeholder="공지 내용을 입력하세요"></textarea>
+                    </div>
+
+                    <p class="admin-message" id="notice-form-error"></p>
+
+                    <div class="admin-form-actions">
+                        <button type="button" id="notice-save-btn" class="save">저장</button>
+                        <button type="button" id="notice-cancel-btn">취소</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-settings" class="admin-tab-content" hidden>
+                <h2>시스템 설정</h2>
+                <div class="admin-panel">
+                    <p class="admin-message" id="settings-message"></p>
+
+                    <div class="admin-form-row">
+                        <label for="settings-signup-enabled">회원가입 허용</label>
+                        <select id="settings-signup-enabled">
+                            <option value="true">허용</option>
+                            <option value="false">차단</option>
+                        </select>
+                    </div>
+
+                    <div class="admin-form-row">
+                        <label for="settings-maintenance-mode">점검 모드</label>
+                        <select id="settings-maintenance-mode">
+                            <option value="false">해제</option>
+                            <option value="true">사용 (사이트 상단에 안내 배너 표시)</option>
+                        </select>
+                    </div>
+
+                    <div class="admin-form-row">
+                        <label for="settings-maintenance-message">점검 안내 문구</label>
+                        <input type="text" id="settings-maintenance-message" placeholder="예: 현재 서버 점검 중입니다.">
+                    </div>
+
+                    <div class="admin-form-actions">
+                        <button type="button" id="settings-save-btn" class="save">저장</button>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </div>
+</main>
+
+<footer class="footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </div>
+        <p>BinGo Map은 깨끗한 일본 여행 문화를 응원합니다.<br>모두가 함께 만들어가는 깨끗하고 즐거운 여행 플랫폼!</p>
+        <div class="footer-links">
+            <div>◎　♥　f</div>
+            <small>이용약관　　개인정보처리방침　　문의하기</small>
+            <small>© 2025 BinGo Map. All rights reserved.</small>
+        </div>
+        <a class="top-btn" href="#">↑<small>TOP</small></a>
+    </div>
+</footer>
+<script src="/admin/admin.js"></script>
+<script src="/js/header-auth.js"></script>
+</body>
+</html>

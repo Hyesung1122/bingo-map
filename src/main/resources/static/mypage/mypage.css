@@ -1,0 +1,58 @@
+.mypage-layout{max-width:1080px;margin:0 auto;padding:36px 20px 60px;display:grid;grid-template-columns:220px 1fr;gap:28px;align-items:start;}
+
+.mypage-sidebar{background:#fff;border:1px solid #ececec;border-radius:14px;padding:22px 18px;}
+.mypage-sidebar h3{font-size:15px;font-weight:900;margin:0 0 16px;padding-left:6px;}
+.mypage-nav{display:flex;flex-direction:column;gap:2px;}
+.mypage-nav a{display:block;padding:10px 12px;border-radius:9px;font-size:14px;font-weight:700;color:#555;}
+.mypage-nav a:hover{background:#f5f8f5;}
+.mypage-nav a.active{background:#e9f8ee;color:#159b35;}
+
+.mypage-main h2{font-size:20px;font-weight:900;margin:0 0 18px;}
+
+.mypage-profile{display:flex;align-items:center;gap:20px;background:#f7faf7;border:1px solid #e7f0e8;border-radius:14px;padding:24px 26px;margin-bottom:16px;}
+.mypage-profile-body{flex:1;min-width:0;}
+.mypage-avatar{width:64px;height:64px;border-radius:50%;background:#20a53b;color:#fff;font-size:26px;font-weight:900;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.mypage-name-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;}
+.mypage-name{font-size:18px;font-weight:900;margin:0;}
+.mypage-badge{background:#e9f8ee;color:#159b35;font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;}
+.mypage-sub-info{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:13px;color:#666;}
+.mypage-edit-btn{border:1px solid #ddd;background:#fff;border-radius:8px;padding:9px 16px;font-size:13px;font-weight:700;color:#444;white-space:nowrap;flex-shrink:0;}
+.mypage-save-btn{background:#159b35;border-color:#159b35;color:#fff;}
+
+.mypage-edit-panel{background:#fff;border:1px solid #ececec;border-radius:14px;padding:22px 26px;margin-bottom:26px;max-width:420px;}
+.mypage-edit-panel h3{font-size:15px;font-weight:900;margin:0 0 14px;}
+.mypage-edit-row{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;}
+.mypage-edit-row label{font-size:12px;font-weight:700;color:#666;}
+.mypage-edit-row input,.mypage-edit-row select{border:1px solid #ddd;border-radius:8px;padding:9px 12px;font-size:13px;background:#fff;}
+.mypage-edit-row input:focus,.mypage-edit-row select:focus{outline:none;border-color:#20a53b;}
+.mypage-edit-error{color:#e0392b;font-size:12px;font-weight:700;margin:0 0 10px;min-height:14px;}
+.mypage-edit-actions{display:flex;gap:8px;}
+
+.mypage-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:26px;}
+.mypage-stat-card{background:#fff;border:1px solid #ececec;border-radius:12px;padding:18px 10px;text-align:center;}
+.mypage-stat-card .num{display:block;font-size:23px;color:#159b35;font-weight:900;margin-bottom:4px;}
+.mypage-stat-card .label{font-size:12px;color:#777;font-weight:700;}
+
+.mypage-recent{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.mypage-panel{background:#fff;border:1px solid #ececec;border-radius:12px;padding:18px 20px;}
+.mypage-panel-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.mypage-panel-head b{font-size:14px;}
+.mypage-panel-head a{font-size:12px;color:#159b35;font-weight:700;}
+.mypage-empty{font-size:13px;color:#999;text-align:center;padding:26px 6px;}
+
+@media(max-width:800px){.mypage-layout{grid-template-columns:1fr;}.mypage-sidebar{display:none;}.mypage-stats{grid-template-columns:repeat(2,1fr);}.mypage-recent{grid-template-columns:1fr;}.mypage-profile{flex-wrap:wrap;}.mypage-edit-btn{margin-left:0;}}
+
+.settings-row{display:flex;align-items:center;justify-content:space-between;gap:16px;}
+.settings-row-text b{display:block;font-size:14px;margin-bottom:4px;}
+.settings-row-text span{font-size:12px;color:#888;}
+
+.settings-switch{position:relative;display:inline-block;width:44px;height:26px;flex-shrink:0;}
+.settings-switch input{opacity:0;width:0;height:0;}
+.settings-switch-track{position:absolute;cursor:pointer;inset:0;background:#ddd;border-radius:26px;transition:.2s;}
+.settings-switch-track:before{content:"";position:absolute;height:20px;width:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
+.settings-switch input:checked + .settings-switch-track{background:#20a53b;}
+.settings-switch input:checked + .settings-switch-track:before{transform:translateX(18px);}
+
+.settings-save-message{font-size:13px;font-weight:700;margin:8px 0 0;min-height:16px;}
+.settings-save-message.error{color:#e0392b;}
+.settings-save-message.success{color:#159b35;}
