@@ -1,0 +1,30 @@
+/* 기존 회색/투명도 효과를 새 벡터 배경에서 해제합니다. */
+#map.bingo-vector-map .leaflet-tile-pane {
+    filter: none;
+    opacity: 1;
+}
+
+#map.bingo-vector-map { background: #f8f7f3; }
+
+/* 기존 CSS에서 출처 표시를 숨긴 경우에도 새 지도 출처를 표시합니다. */
+#map.bingo-vector-map .leaflet-control-attribution {
+    display: block !important;
+    max-width: 100%;
+    background: rgba(255, 255, 255, 0.94);
+}
+
+#map .bingo-basemap-status {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 700;
+    max-width: min(320px, calc(100% - 90px));
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.96);
+    color: #536273;
+    font-size: 12px;
+    line-height: 1.5;
+    pointer-events: none;
+}
