@@ -5,27 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>리뷰 | BinGo Map</title>
     <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/reviews/reviews.css">
 </head>
 <body>
 <header class="header">
     <div class="header-inner">
         <a class="logo" href="/">
             <span class="logo-mark">♜</span>
-            <span>
-          <strong>BinGo Map</strong>
-          <small>Clean &amp; Gourmet</small>
-        </span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
         </a>
-
         <nav class="nav">
             <a href="/">홈</a>
             <a href="/map">지도</a>
             <a href="/restaurants">주변 맛집</a>
             <a href="/favorites">즐겨찾기</a>
             <a class="active" href="/reviews">리뷰</a>
+            <a href="/community">커뮤니티</a>
             <a href="/notices">공지사항</a>
         </nav>
-
         <div class="header-actions">
             <button class="language">🇰🇷 한국어 <span>⌄</span></button>
             <a class="login" href="/login">로그인</a>
@@ -34,11 +31,35 @@
 </header>
 
 <main>
-    <section class="section">
-        <h2 class="section-title">리뷰</h2>
-        <div class="title-line"></div>
-        <p style="text-align:center;color:#777;">쓰레기통·맛집 리뷰 목록과 작성 기능이 여기에 표시됩니다. (개발 예정)</p>
-    </section>
+    <div class="review-wrap" style="max-width:1080px;">
+        <div class="review-top">
+            <h2>맛집 리뷰</h2>
+        </div>
+
+        <div class="rv-toolbar">
+            <div class="rv-sort" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+                <button id="locate-btn" class="btn-write" style="background:#fff;color:#159b35;border:1px solid #159b35;" onclick="useMyLocation()">📍 내 위치 사용</button>
+                <select id="origin-select" onchange="onOriginSelectChange()">
+                    <option value="">기준 위치: 선택 안 함</option>
+                </select>
+                <select id="radius-select" onchange="render()">
+                    <option value="">거리 전체</option>
+                    <option value="100">100m 이내</option>
+                    <option value="300">300m 이내</option>
+                    <option value="500">500m 이내</option>
+                </select>
+                <select id="sort-select" onchange="render()">
+                    <option value="count">리뷰 많은순</option>
+                    <option value="rating">평점 높은순</option>
+                    <option value="distance">거리순</option>
+                </select>
+            </div>
+            <p style="font-size:12px;color:#999;margin:6px 0 0;" id="origin-status"></p>
+        </div>
+        <p class="rv-count" id="rv-count">불러오는 중...</p>
+
+        <div class="rv-grid" id="rv-grid"></div>
+    </div>
 </main>
 
 <footer class="footer">
@@ -56,5 +77,203 @@
         <a class="top-btn" href="#">↑<small>TOP</small></a>
     </div>
 </footer>
+
+<script>
+function renderStars(rating) {
+    const r = Math.round(rating || 0);
+    return '★★★★★☆☆☆☆☆'.slice(5 - r, 10 - r);
+}
+
+function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+
+let summaryList = [];
+let restaurantMap = {};
+let menuMap = {};
+let myLocation = null; // {lat, lng} from navigator.geolocation
+
+// 두 좌표(위도/경도) 사이 거리를 m 단위로 계산 (하버사인 공식)
+function distanceMeters(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = deg => deg * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) ** 2 +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function useMyLocation() {
+    const statusEl = document.getElementById('origin-status');
+    if (!navigator.geolocation) {
+        statusEl.textContent = '이 브라우저는 위치 정보를 지원하지 않아요.';
+        return;
+    }
+    statusEl.textContent = '위치 확인 중...';
+    navigator.geolocation.getCurrentPosition(
+        pos => {
+            myLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            document.getElementById('origin-select').value = '__my_location__';
+            statusEl.textContent = '내 위치 기준으로 거리를 표시하고 있어요.';
+            document.getElementById('sort-select').value = 'distance';
+            render();
+        },
+        err => {
+            statusEl.textContent = '위치 정보를 가져오지 못했어요. 브라우저 위치 권한을 확인해주세요.';
+        }
+    );
+}
+
+function onOriginSelectChange() {
+    const val = document.getElementById('origin-select').value;
+    if (val !== '__my_location__') {
+        document.getElementById('origin-status').textContent = '';
+    }
+    render();
+}
+
+async function loadSummaries() {
+    const grid = document.getElementById('rv-grid');
+    const countEl = document.getElementById('rv-count');
+
+    try {
+        const [summaryRes, restaurantRes] = await Promise.all([
+            fetch('/api/reviews/restaurants'),
+            fetch('/api/restaurants')
+        ]);
+        if (!summaryRes.ok) throw new Error('failed');
+        const reviewSummaries = await summaryRes.json();
+        const reviewSummaryMap = Object.fromEntries(reviewSummaries.map(s => [String(s.restaurantId), s]));
+        const restaurants = restaurantRes.ok ? await restaurantRes.json() : [];
+        restaurantMap = Object.fromEntries(restaurants.map(r => [String(r.restaurantId), r]));
+
+        // 목록의 기준은 리뷰가 아니라 RESTAURANT 테이블 전체 — 리뷰가 0개인 맛집도 카드에 나오게 함
+        summaryList = restaurants.map(r => {
+            const s = reviewSummaryMap[String(r.restaurantId)];
+            return {
+                restaurantId: r.restaurantId,
+                reviewCount: s ? s.reviewCount : 0,
+                avgRating: s ? s.avgRating : 0,
+                previewContent: s ? s.previewContent : '',
+                thumbnailUrl: s ? s.thumbnailUrl : null
+            };
+        });
+
+        // 맛집별 대표 메뉴 1개씩 가져오기 (카드에 미리보기로 표시)
+        await Promise.all(restaurants.map(async r => {
+            try {
+                const res = await fetch(`/api/restaurants/${r.restaurantId}/menu`);
+                if (!res.ok) return;
+                const items = await res.json();
+                if (items && items.length) {
+                    menuMap[String(r.restaurantId)] = items.find(i => i.signature) || items[0];
+                }
+            } catch (e) { /* 메뉴 없어도 무시 */ }
+        }));
+
+        // 기준 위치 드롭다운: "내 위치" + 좌표 있는 맛집들을 기준점 후보로 제공
+        const originSelect = document.getElementById('origin-select');
+        const withCoords = restaurants.filter(r => r.latitude != null && r.longitude != null);
+        originSelect.innerHTML = '<option value="">기준 위치: 선택 안 함</option>' +
+            '<option value="__my_location__">📍 내 위치</option>' +
+            withCoords.map(r => `<option value="${r.restaurantId}">${escapeHtml(r.name)} 기준</option>`).join('');
+
+        render();
+    } catch (e) {
+        grid.innerHTML = '';
+        countEl.textContent = '리뷰를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
+    }
+}
+
+function render() {
+    const grid = document.getElementById('rv-grid');
+    const countEl = document.getElementById('rv-count');
+    const sortBy = document.getElementById('sort-select').value;
+    const radius = Number(document.getElementById('radius-select').value) || null;
+    const originId = document.getElementById('origin-select').value;
+
+    if (!summaryList.length) {
+        grid.innerHTML = '';
+        countEl.textContent = '등록된 맛집이 없습니다.';
+        return;
+    }
+
+    let originLat = null, originLng = null, originLabel = null;
+    if (originId === '__my_location__' && myLocation) {
+        originLat = myLocation.lat; originLng = myLocation.lng; originLabel = '내 위치';
+    } else if (originId && restaurantMap[originId]) {
+        const o = restaurantMap[originId];
+        originLat = Number(o.latitude); originLng = Number(o.longitude); originLabel = o.name;
+    }
+    const hasOrigin = originLat != null && originLng != null;
+
+    let list = summaryList.map(r => {
+        const info = restaurantMap[String(r.restaurantId)];
+        let distance = null;
+        if (hasOrigin && info && info.latitude != null && info.longitude != null) {
+            distance = distanceMeters(originLat, originLng, Number(info.latitude), Number(info.longitude));
+        }
+        return { ...r, info, distance };
+    });
+
+    // 거리 필터: 기준 위치가 있을 때만 적용
+    if (hasOrigin && radius) {
+        list = list.filter(r => r.distance != null && r.distance <= radius);
+    }
+
+    // 정렬
+    list = list.slice().sort((a, b) => {
+        if (sortBy === 'distance' && hasOrigin) return (a.distance ?? Infinity) - (b.distance ?? Infinity);
+        if (sortBy === 'rating') return (b.avgRating ?? 0) - (a.avgRating ?? 0);
+        return (b.reviewCount ?? 0) - (a.reviewCount ?? 0);
+    });
+
+    countEl.textContent = hasOrigin
+        ? `${originLabel} 기준 ${radius ? radius + 'm 이내 ' : ''}${list.length}개 맛집을 찾았습니다.`
+        : `총 ${list.length}개 맛집의 리뷰를 찾았습니다.`;
+
+    if (!list.length) {
+        grid.innerHTML = '';
+        return;
+    }
+
+    grid.innerHTML = list.map(r => {
+        const info = r.info;
+        const name = info ? info.name : `맛집 #${r.restaurantId}`;
+        const category = info && info.category ? `<span style="color:#159b35;">#${escapeHtml(info.category)}</span>` : '';
+        const thumbUrl = (info && info.mainImageUrl) || r.thumbnailUrl;
+        const thumb = thumbUrl ? `<img src="${thumbUrl}" alt="${escapeHtml(name)}">` : '';
+        const distanceText = r.distance != null ? `${Math.round(r.distance)}m` : '';
+        const addressText = info && info.address ? escapeHtml(info.address) : '';
+        const menuItem = menuMap[String(r.restaurantId)];
+        const menuLine = menuItem
+            ? `<div style="font-size:12px;color:#333;margin-top:4px;">🍴 ${escapeHtml(menuItem.name)}${menuItem.price ? ` · ${escapeHtml(menuItem.price)}` : ''}</div>`
+            : '';
+        return `
+        <div class="rv-card" onclick="location.href='/reviews/restaurant/${r.restaurantId}'">
+            <div class="rv-thumb-wrap ${thumb ? '' : 'placeholder'}">
+                ${thumb || '🍽️'}
+                <span class="rv-badge">리뷰 ${r.reviewCount}개</span>
+                <span class="rv-bookmark" onclick="event.stopPropagation()">🔖</span>
+            </div>
+            <div class="rv-name">${escapeHtml(name)}</div>
+            <div class="rv-sub-row">
+                ${category}
+                <span class="stars">${renderStars(r.avgRating)}</span>
+                <span class="rating-num">${(r.avgRating ?? 0).toFixed(1)}</span>
+            </div>
+            ${(addressText || distanceText) ? `<div class="rv-sub-row" style="color:#888;font-size:12px;">
+                📍 <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${addressText}</span>
+                ${distanceText ? `<span style="color:#159b35;font-weight:700;flex-shrink:0;">${distanceText}</span>` : ''}
+            </div>` : ''}
+            <p class="rv-preview">${escapeHtml(r.previewContent) || '아직 등록된 리뷰가 없어요.'}</p>
+            ${menuLine}
+        </div>`;
+    }).join('');
+}
+
+loadSummaries();
+</script>
 </body>
 </html>

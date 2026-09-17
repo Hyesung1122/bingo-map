@@ -1,0 +1,24 @@
+-- ddl-auto: none, so create manually. Does not touch RESTAURANT table (owned by teammate).
+-- Menu is a separate table. Sequence-based PK (this Oracle instance doesn't support IDENTITY/OFFSET-FETCH).
+
+CREATE TABLE TB_RESTAURANT_MENU (
+    MENU_ID       NUMBER PRIMARY KEY,
+    RESTAURANT_ID NUMBER NOT NULL,
+    NAME          VARCHAR2(100) NOT NULL,
+    PRICE         VARCHAR2(50),
+    IS_SIGNATURE  NUMBER(1) DEFAULT 0
+);
+
+CREATE SEQUENCE SEQ_RESTAURANT_MENU START WITH 1 INCREMENT BY 1 NOCACHE;
+
+-- Sample data for restaurant #1 (adjust/add as needed)
+INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE)
+VALUES (SEQ_RESTAURANT_MENU.NEXTVAL, 1, 'Takoyaki 8pcs', '800 yen', 1);
+INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE)
+VALUES (SEQ_RESTAURANT_MENU.NEXTVAL, 1, 'Takoyaki 12pcs', '1,200 yen', 0);
+INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE)
+VALUES (SEQ_RESTAURANT_MENU.NEXTVAL, 1, 'Mentai Mayo Takoyaki', '900 yen', 0);
+
+COMMIT;
+select * from tb_restaurant_menu;
+

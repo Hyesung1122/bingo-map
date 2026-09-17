@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>맛집 리뷰 | BinGo Map</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/reviews/reviews.css">
+</head>
+<body>
+<header class="header">
+    <div class="header-inner">
+        <a class="logo" href="/">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </a>
+        <nav class="nav">
+            <a href="/">홈</a>
+            <a href="/map">지도</a>
+            <a href="/restaurants">주변 맛집</a>
+            <a href="/favorites">즐겨찾기</a>
+            <a class="active" href="/reviews">리뷰</a>
+            <a href="/community">커뮤니티</a>
+            <a href="/notices">공지사항</a>
+        </nav>
+        <div class="header-actions">
+            <button class="language">🇰🇷 한국어 <span>⌄</span></button>
+            <a class="login" href="/login">로그인</a>
+        </div>
+    </div>
+</header>
+
+<main>
+    <div class="review-wrap" style="max-width:1080px;">
+        <a class="back-link" href="/reviews">‹ 맛집 리뷰 목록</a>
+
+        <div class="rd-top-row">
+            <div class="rd-logo" id="rd-logo">🍽️</div>
+            <div class="rd-titles">
+                <h2 id="rd-name">불러오는 중...</h2>
+                <span class="rd-category-badge" id="rd-category" style="display:none;"></span>
+            </div>
+            <button class="rd-bookmark-btn" title="북마크">🔖</button>
+        </div>
+
+        <div class="rd-carousel" id="rd-carousel">
+            <div class="placeholder">🍽️</div>
+        </div>
+
+        <div class="rd-layout">
+            <div>
+                <div class="rd-intro-box" id="rd-intro" style="display:none;">
+                    <div class="rd-intro-label">🍽 매장 소개</div>
+                    <div id="rd-intro-text"></div>
+                </div>
+
+                <div class="rd-section-title" style="margin-top:0;">메뉴</div>
+                <div class="rd-menu-grid" id="rd-menu">
+                    <p style="color:#999;font-size:13px;">메뉴 정보를 불러오는 중...</p>
+                </div>
+
+                <div class="rd-pick-box" id="rd-pick" style="display:none;margin-top:30px;">
+                    <div class="rd-pick-label">👍 추천 독자의 리뷰</div>
+                    <div id="rd-pick-content"></div>
+                </div>
+
+                <div class="rd-section-title">독자 리뷰 <span id="rd-review-count"></span></div>
+                <div id="rd-review-list"></div>
+                <div id="rd-empty" class="empty-state" style="display:none;">
+                    등록된 리뷰가 없습니다.<br>첫 리뷰를 남겨보세요!
+                </div>
+            </div>
+
+            <aside class="rd-info-card">
+                <div class="rd-info-row" id="row-address" style="display:none;">
+                    <span class="icon">📍</span><span id="val-address"></span>
+                </div>
+                <div class="rd-info-row" id="row-hours" style="display:none;">
+                    <span class="icon">🕒</span><span id="val-hours"></span>
+                </div>
+                <div class="rd-info-row" id="row-website" style="display:none;">
+                    <span class="icon">🔗</span><a id="val-website" href="#" target="_blank">웹사이트</a>
+                </div>
+                <div class="rd-sidebar-btns">
+                    <button class="rd-btn-write" id="write-btn" style="flex:1;">리뷰하기</button>
+                </div>
+            </aside>
+        </div>
+    </div>
+</main>
+
+<footer class="footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </div>
+        <p>BinGo Map은 깨끗한 일본 여행 문화를 응원합니다.<br>모두가 함께 만들어가는 깨끗하고 즐거운 여행 플랫폼!</p>
+        <div class="footer-links">
+            <div>◎　♥　f</div>
+            <small>이용약관　　개인정보처리방침　　문의하기</small>
+            <small>© 2025 BinGo Map. All rights reserved.</small>
+        </div>
+        <a class="top-btn" href="#">↑<small>TOP</small></a>
+    </div>
+</footer>
+
+<script>
+const restaurantId = location.pathname.split('/').pop();
+document.getElementById('rd-name').textContent = `맛집 #${restaurantId}`;
+document.getElementById('write-btn').addEventListener('click', () => {
+    location.href = `/reviews/write?restaurantId=${restaurantId}`;
+});
+
+function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+function renderStars(rating) {
+    const r = Math.round(rating || 0);
+    return '★★★★★☆☆☆☆☆'.slice(5 - r, 10 - r);
+}
+function setRow(rowId, valId, value, isLink) {
+    if (!value) return;
+    document.getElementById(rowId).style.display = 'flex';
+    const el = document.getElementById(valId);
+    if (isLink) { el.href = value; } else { el.textContent = value; }
+}
+
+// ── 캐러셀 ──
+let carouselImages = [];
+let carouselIndex = 0;
+function renderCarousel() {
+    const el = document.getElementById('rd-carousel');
+    if (!carouselImages.length) {
+        el.innerHTML = '<div class="placeholder">🍽️</div>';
+        return;
+    }
+    const dots = carouselImages.map((_, i) => `<span class="${i === carouselIndex ? 'active' : ''}"></span>`).join('');
+    el.innerHTML = `
+        <img src="${carouselImages[carouselIndex]}" alt="맛집 사진">
+        ${carouselImages.length > 1 ? `
+            <button class="rd-carousel-btn prev" onclick="moveCarousel(-1)">‹</button>
+            <button class="rd-carousel-btn next" onclick="moveCarousel(1)">›</button>
+            <div class="rd-carousel-dots">${dots}</div>
+        ` : ''}
+    `;
+}
+function moveCarousel(dir) {
+    carouselIndex = (carouselIndex + dir + carouselImages.length) % carouselImages.length;
+    renderCarousel();
+}
+
+// ── 맛집 정보 ──
+fetch(`/api/restaurants/${restaurantId}`)
+    .then(res => res.ok ? res.json() : null)
+    .then(info => {
+        if (!info || !info.name) return;
+        document.getElementById('rd-name').textContent = info.name;
+        if (info.category) {
+            const badge = document.getElementById('rd-category');
+            badge.textContent = `#${info.category}`;
+            badge.style.display = 'inline-block';
+        }
+        if (info.mainImageUrl) {
+            document.getElementById('rd-logo').innerHTML = `<img src="${info.mainImageUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`;
+            carouselImages.push(info.mainImageUrl);
+            renderCarousel();
+        } else {
+            document.getElementById('rd-logo').textContent = (info.name || '?').charAt(0);
+        }
+        if (info.description) {
+            document.getElementById('rd-intro').style.display = 'block';
+            document.getElementById('rd-intro-text').textContent = info.description;
+        }
+        setRow('row-address', 'val-address', info.address);
+        setRow('row-hours', 'val-hours', info.openingHours);
+        setRow('row-website', 'val-website', info.websiteUrl, true);
+    })
+    .catch(() => {});
+
+// ── 메뉴 ──
+fetch(`/api/restaurants/${restaurantId}/menu`)
+    .then(res => res.ok ? res.json() : [])
+    .then(menu => {
+        const el = document.getElementById('rd-menu');
+        if (!menu || !menu.length) {
+            el.innerHTML = '<p style="color:#999;font-size:13px;">등록된 메뉴 정보가 없습니다.</p>';
+            return;
+        }
+        el.innerHTML = menu.map(m => `
+            <div class="rd-menu-item">
+                ${m.signature ? '<span class="signature">대표</span>' : ''}
+                <span class="mname">${escapeHtml(m.name)}</span>
+                <span class="dots"></span>
+                <span class="mprice">${escapeHtml(m.price)}</span>
+            </div>
+        `).join('');
+    })
+    .catch(() => {
+        document.getElementById('rd-menu').innerHTML = '<p style="color:#999;font-size:13px;">메뉴 정보를 불러오지 못했습니다.</p>';
+    });
+
+// ── 리뷰 ──
+function reviewItemHtml(r) {
+    const dateStr = r.createdAt ? r.createdAt.substring(0, 10) : '';
+    const images = (r.imageUrls || []).map(url => `<img src="${url}" alt="리뷰 사진">`).join('');
+    return `
+        <div class="rd-review-item">
+            <div class="review-meta-row">
+                <span class="stars">${renderStars(r.rating)}</span>
+                <span class="rating-num">${(r.rating ?? 0).toFixed(1)}</span>
+                <span class="review-date">회원 ${r.userId ?? ''} · ${dateStr}</span>
+            </div>
+            <p class="review-content" style="-webkit-line-clamp:initial;">${escapeHtml(r.content)}</p>
+            ${images ? `<div class="rd-review-images">${images}</div>` : ''}
+            <button class="helpful-btn" onclick="markHelpful(${r.reviewId}, this)">👍 도움이 돼요 ${r.helpCount ?? 0}</button>
+            <a class="helpful-btn" style="text-decoration:none;margin-left:6px;" href="/reviews/${r.reviewId}">상세</a>
+        </div>`;
+}
+
+async function loadReviews() {
+    try {
+        const res = await fetch(`/api/reviews?restaurantId=${restaurantId}`);
+        if (!res.ok) throw new Error('failed');
+        const reviews = await res.json();
+
+        if (!reviews.length) {
+            document.getElementById('rd-empty').style.display = 'block';
+            return;
+        }
+
+        reviews.flatMap(r => r.imageUrls || []).forEach(url => carouselImages.push(url));
+        renderCarousel();
+
+        const mostHelpful = reviews.reduce((a, b) => (b.helpCount ?? 0) > (a.helpCount ?? 0) ? b : a);
+        if ((mostHelpful.helpCount ?? 0) > 0) {
+            document.getElementById('rd-pick').style.display = 'block';
+            document.getElementById('rd-pick-content').innerHTML = reviewItemHtml(mostHelpful);
+        }
+
+        document.getElementById('rd-review-count').textContent = `(${reviews.length})`;
+        document.getElementById('rd-review-list').innerHTML = reviews.map(reviewItemHtml).join('');
+    } catch (e) {
+        document.getElementById('rd-empty').textContent = '리뷰를 불러오지 못했습니다.';
+        document.getElementById('rd-empty').style.display = 'block';
+    }
+}
+
+async function markHelpful(reviewId, btn) {
+    btn.disabled = true;
+    try {
+        const res = await fetch(`/api/reviews/${reviewId}/helpful`, { method: 'POST' });
+        if (!res.ok) throw new Error('failed');
+        const r = await res.json();
+        btn.textContent = `👍 도움이 돼요 ${r.helpCount}`;
+    } catch (e) {
+        btn.disabled = false;
+    }
+}
+
+loadReviews();
+</script>
+</body>
+</html>

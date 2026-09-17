@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>리뷰 작성 | BinGo Map</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/reviews/reviews.css">
+</head>
+<body>
+<header class="header">
+    <div class="header-inner">
+        <a class="logo" href="/">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </a>
+        <nav class="nav">
+            <a href="/">홈</a>
+            <a href="/map">지도</a>
+            <a href="/restaurants">주변 맛집</a>
+            <a href="/favorites">즐겨찾기</a>
+            <a class="active" href="/reviews">리뷰</a>
+            <a href="/community">커뮤니티</a>
+            <a href="/notices">공지사항</a>
+        </nav>
+        <div class="header-actions">
+            <button class="language">🇰🇷 한국어 <span>⌄</span></button>
+            <a class="login" href="/login">로그인</a>
+        </div>
+    </div>
+</header>
+
+<main>
+    <div class="review-wrap" style="max-width:560px;">
+        <a class="back-link" href="/reviews">‹ 리뷰 목록</a>
+        <div class="review-top"><h2>리뷰 작성</h2></div>
+
+        <div class="write-card">
+            <div class="restaurant-summary" style="display:block;">
+                <h3 id="restaurant-name" style="margin:0 0 4px;">불러오는 중...</h3>
+                <div class="sub" id="restaurant-sub">&nbsp;</div>
+            </div>
+
+            <form id="review-form">
+                <div class="field">
+                    <label>별점 선택</label>
+                    <span class="star-picker" id="star-picker">☆☆☆☆☆</span>
+                    <span class="star-value" id="star-value">평점을 선택해주세요</span>
+                </div>
+
+                <div class="field">
+                    <label>리뷰 작성</label>
+                    <textarea id="content" class="review-textarea" maxlength="500"
+                        placeholder="도톤보리에서 꼭 맛봐야 할 타코야끼였어요! 겉은 바삭하고 속은 촉촉해서 정말 맛있었어요."></textarea>
+                    <div class="char-count"><span id="char-count">0</span>/500</div>
+                </div>
+
+                <div class="field">
+                    <label>사진 첨부 <span class="optional">최대 5장 등록 가능</span></label>
+                    <div class="photo-grid" id="photo-grid">
+                        <label class="photo-add" id="photo-add">
+                            <span>＋</span>추가
+                            <input type="file" id="photo-input" accept="image/*" multiple hidden>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>방문 정보 <span class="optional">선택</span></label>
+                    <div class="visit-grid">
+                        <input type="date" id="visit-date">
+                        <select id="visit-time-slot">
+                            <option value="">방문 시간대 선택</option>
+                            <option value="점심 11:00~14:00">점심 11:00~14:00</option>
+                            <option value="오후 14:00~18:00">오후 14:00~18:00</option>
+                            <option value="저녁 18:00~21:00">저녁 18:00~21:00</option>
+                            <option value="심야 21:00~24:00">심야 21:00~24:00</option>
+                        </select>
+                    </div>
+                    <div class="purpose-chips" id="purpose-chips">
+                        <div class="chip" data-value="데이트">데이트</div>
+                        <div class="chip" data-value="여행">여행</div>
+                        <div class="chip" data-value="가족외식">가족외식</div>
+                        <div class="chip" data-value="친구모임">친구모임</div>
+                        <div class="chip" data-value="기타">기타</div>
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>이 매장을 추천하시나요?</label>
+                    <div class="recommend-toggle" id="recommend-toggle">
+                        <button type="button" data-value="true">추천해요 👍</button>
+                        <button type="button" data-value="false">추천하지 않아요 👎</button>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn" id="submit-btn">리뷰 등록</button>
+            </form>
+        </div>
+    </div>
+</main>
+
+<footer class="footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </div>
+        <p>BinGo Map은 깨끗한 일본 여행 문화를 응원합니다.<br>모두가 함께 만들어가는 깨끗하고 즐거운 여행 플랫폼!</p>
+        <div class="footer-links">
+            <div>◎　♥　f</div>
+            <small>이용약관　　개인정보처리방침　　문의하기</small>
+            <small>© 2025 BinGo Map. All rights reserved.</small>
+        </div>
+        <a class="top-btn" href="#">↑<small>TOP</small></a>
+    </div>
+</footer>
+
+<script>
+const DEMO_USER_ID = 1;
+
+const params = new URLSearchParams(location.search);
+const restaurantId = params.get('restaurantId') || '';
+
+async function loadRestaurant() {
+    const nameEl = document.getElementById('restaurant-name');
+    const sub = document.getElementById('restaurant-sub');
+
+    if (!restaurantId) {
+        nameEl.textContent = '맛집이 지정되지 않았습니다.';
+        sub.textContent = '맛집 상세 페이지의 "리뷰하기" 버튼으로 들어와주세요.';
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/restaurants/${restaurantId}`);
+        if (!res.ok) throw new Error('failed');
+        const r = await res.json();
+        if (!r || !r.name) throw new Error('not found');
+
+        nameEl.textContent = r.name;
+        sub.textContent = `${r.address ?? ''} · 평점 ${(r.rating ?? 0).toFixed(1)}`;
+    } catch (e) {
+        nameEl.textContent = `맛집 #${restaurantId}`;
+        sub.textContent = '맛집 정보를 불러오지 못했습니다.';
+    }
+}
+
+loadRestaurant();
+
+let rating = 0;
+const starPicker = document.getElementById('star-picker');
+const starValue = document.getElementById('star-value');
+starPicker.addEventListener('click', (e) => {
+    const rect = starPicker.getBoundingClientRect();
+    const ratio = (e.clientX - rect.left) / rect.width;
+    rating = Math.max(1, Math.min(5, Math.ceil(ratio * 5)));
+    renderStarPicker();
+});
+function renderStarPicker() {
+    starPicker.textContent = '★★★★★☆☆☆☆☆'.slice(5 - rating, 10 - rating);
+    starValue.textContent = rating ? rating.toFixed(1) : '평점을 선택해주세요';
+}
+
+const contentEl = document.getElementById('content');
+const charCount = document.getElementById('char-count');
+contentEl.addEventListener('input', () => { charCount.textContent = contentEl.value.length; });
+
+let visitPurpose = null;
+document.querySelectorAll('#purpose-chips .chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+        document.querySelectorAll('#purpose-chips .chip').forEach(c => c.classList.remove('selected'));
+        chip.classList.add('selected');
+        visitPurpose = chip.dataset.value;
+    });
+});
+
+let recommendYn = null;
+document.querySelectorAll('#recommend-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('#recommend-toggle button').forEach(b => b.classList.remove('selected-yes', 'selected-no'));
+        recommendYn = btn.dataset.value === 'true';
+        btn.classList.add(recommendYn ? 'selected-yes' : 'selected-no');
+    });
+});
+
+const MAX_PHOTOS = 5;
+let selectedPhotos = [];
+const photoGrid = document.getElementById('photo-grid');
+const photoAdd = document.getElementById('photo-add');
+const photoInput = document.getElementById('photo-input');
+
+photoInput.addEventListener('change', () => {
+    const files = Array.from(photoInput.files || []);
+    for (const file of files) {
+        if (selectedPhotos.length >= MAX_PHOTOS) break;
+        selectedPhotos.push(file);
+    }
+    photoInput.value = '';
+    renderPhotoGrid();
+});
+
+function renderPhotoGrid() {
+    photoGrid.querySelectorAll('.photo-thumb').forEach(el => el.remove());
+    selectedPhotos.forEach((file, idx) => {
+        const url = URL.createObjectURL(file);
+        const thumb = document.createElement('div');
+        thumb.className = 'photo-thumb';
+        thumb.innerHTML = `<img src="${url}" alt="첨부 이미지"><button type="button" class="remove">×</button>`;
+        thumb.querySelector('.remove').addEventListener('click', () => {
+            selectedPhotos.splice(idx, 1);
+            renderPhotoGrid();
+        });
+        photoGrid.insertBefore(thumb, photoAdd);
+    });
+    photoAdd.style.display = selectedPhotos.length >= MAX_PHOTOS ? 'none' : 'flex';
+}
+
+const form = document.getElementById('review-form');
+const submitBtn = document.getElementById('submit-btn');
+
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!restaurantId) { alert('맛집 정보가 없습니다. 맛집 상세 페이지에서 "리뷰하기"로 다시 들어와주세요.'); return; }
+    if (!rating) { alert('별점을 선택해주세요.'); return; }
+    if (!contentEl.value.trim()) { alert('리뷰 내용을 입력해주세요.'); return; }
+
+    const reviewData = {
+        userId: DEMO_USER_ID,
+        restaurantId: Number(restaurantId),
+        rating: rating,
+        content: contentEl.value.trim(),
+        visitDate: document.getElementById('visit-date').value || null,
+        visitTimeSlot: document.getElementById('visit-time-slot').value || null,
+        visitPurpose: visitPurpose,
+        recommendYn: recommendYn
+    };
+
+    const formData = new FormData();
+    formData.append('review', new Blob([JSON.stringify(reviewData)], { type: 'application/json' }));
+    selectedPhotos.forEach(file => formData.append('photos', file));
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '등록 중...';
+
+    try {
+        const res = await fetch('/api/reviews', { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('failed');
+        const created = await res.json();
+        location.href = `/reviews/${created.reviewId}`;
+    } catch (err) {
+        alert('리뷰 등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = '리뷰 등록';
+    }
+});
+
+renderStarPicker();
+</script>
+</body>
+</html>

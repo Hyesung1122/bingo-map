@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>글쓰기 | BinGo Map</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/community/community.css">
+</head>
+<body>
+<header class="header">
+    <div class="header-inner">
+        <a class="logo" href="/">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </a>
+        <nav class="nav">
+            <a href="/">홈</a>
+            <a href="/map">지도</a>
+            <a href="/restaurants">주변 맛집</a>
+            <a href="/favorites">즐겨찾기</a>
+            <a href="/reviews">리뷰</a>
+            <a class="active" href="/community">커뮤니티</a>
+            <a href="/notices">공지사항</a>
+        </nav>
+        <div class="header-actions">
+            <button class="language">🇰🇷 한국어 <span>⌄</span></button>
+            <a class="login" href="/login">로그인</a>
+        </div>
+    </div>
+</header>
+
+<main>
+    <div class="board-wrap" style="max-width:640px;">
+        <div class="board-top"><h2>글쓰기</h2></div>
+
+        <div class="board-write-card">
+            <form id="post-form">
+                <div class="board-field">
+                    <label>제목</label>
+                    <input type="text" id="title" maxlength="200" placeholder="제목을 입력해주세요" required>
+                </div>
+
+                <div class="board-field">
+                    <label>태그 <span style="font-weight:400;color:#999;">(쉼표로 구분, 선택)</span></label>
+                    <input type="text" id="tags" placeholder="예: 쌀국수, 짜조, 베트남">
+                    <div class="hint">입력하면 목록에서 말풍선 태그로 표시돼요.</div>
+                </div>
+
+                <div class="board-field">
+                    <label>내용</label>
+                    <textarea id="content" placeholder="내용을 입력해주세요" required></textarea>
+                </div>
+
+                <button type="submit" class="board-submit-btn" id="submit-btn">등록</button>
+            </form>
+        </div>
+    </div>
+</main>
+
+<footer class="footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </div>
+        <p>BinGo Map은 깨끗한 일본 여행 문화를 응원합니다.<br>모두가 함께 만들어가는 깨끗하고 즐거운 여행 플랫폼!</p>
+        <div class="footer-links">
+            <div>◎　♥　f</div>
+            <small>이용약관　　개인정보처리방침　　문의하기</small>
+            <small>© 2025 BinGo Map. All rights reserved.</small>
+        </div>
+        <a class="top-btn" href="#">↑<small>TOP</small></a>
+    </div>
+</footer>
+
+<script>
+const DEMO_USER_ID = 1; // TODO: 로그인 연동 전까지 데모 사용자 id 사용
+
+const params = new URLSearchParams(location.search);
+const editId = params.get('edit');
+
+if (editId) {
+    document.querySelector('.board-top h2').textContent = '글 수정';
+    document.getElementById('submit-btn').textContent = '수정 완료';
+    (async () => {
+        try {
+            const res = await fetch(`/api/community/${editId}`);
+            if (!res.ok) throw new Error('not found');
+            const p = await res.json();
+            document.getElementById('title').value = p.title || '';
+            document.getElementById('content').value = p.content || '';
+            document.getElementById('tags').value = (p.tags || []).join(', ');
+        } catch (e) {
+            alert('글 정보를 불러오지 못했습니다.');
+        }
+    })();
+}
+
+const form = document.getElementById('post-form');
+const submitBtn = document.getElementById('submit-btn');
+
+form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const title = document.getElementById('title').value.trim();
+    const content = document.getElementById('content').value.trim();
+    const tags = document.getElementById('tags').value.trim();
+
+    if (!title) { alert('제목을 입력해주세요.'); return; }
+    if (!content) { alert('내용을 입력해주세요.'); return; }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = editId ? '수정 중...' : '등록 중...';
+
+    try {
+        const url = editId ? `/api/community/${editId}` : '/api/community';
+        const method = editId ? 'PUT' : 'POST';
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: DEMO_USER_ID, title, content, tags })
+        });
+        if (!res.ok) throw new Error('failed');
+        const saved = await res.json();
+        location.href = `/community/${saved.postId ?? editId}`;
+    } catch (err) {
+        alert(editId ? '수정에 실패했습니다. 잠시 후 다시 시도해주세요.' : '등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        submitBtn.disabled = false;
+        submitBtn.textContent = editId ? '수정 완료' : '등록';
+    }
+});
+</script>
+</body>
+</html>

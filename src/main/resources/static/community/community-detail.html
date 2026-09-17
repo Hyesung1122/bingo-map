@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>게시글 | BinGo Map</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/community/community.css">
+</head>
+<body>
+<header class="header">
+    <div class="header-inner">
+        <a class="logo" href="/">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </a>
+        <nav class="nav">
+            <a href="/">홈</a>
+            <a href="/map">지도</a>
+            <a href="/restaurants">주변 맛집</a>
+            <a href="/favorites">즐겨찾기</a>
+            <a href="/reviews">리뷰</a>
+            <a class="active" href="/community">커뮤니티</a>
+            <a href="/notices">공지사항</a>
+        </nav>
+        <div class="header-actions">
+            <button class="language">🇰🇷 한국어 <span>⌄</span></button>
+            <a class="login" href="/login">로그인</a>
+        </div>
+    </div>
+</header>
+
+<main>
+    <div class="board-wrap" style="max-width:640px;">
+        <a class="back-link" href="/community" style="display:inline-block;margin-bottom:14px;font-size:13px;color:#159b35;font-weight:700;">‹ 목록으로</a>
+
+        <div id="post-detail">
+            <p style="text-align:center;color:#999;">불러오는 중...</p>
+        </div>
+    </div>
+</main>
+
+<footer class="footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </div>
+        <p>BinGo Map은 깨끗한 일본 여행 문화를 응원합니다.<br>모두가 함께 만들어가는 깨끗하고 즐거운 여행 플랫폼!</p>
+        <div class="footer-links">
+            <div>◎　♥　f</div>
+            <small>이용약관　　개인정보처리방침　　문의하기</small>
+            <small>© 2025 BinGo Map. All rights reserved.</small>
+        </div>
+        <a class="top-btn" href="#">↑<small>TOP</small></a>
+    </div>
+</footer>
+
+<script>
+const postId = location.pathname.split('/').pop();
+const box = document.getElementById('post-detail');
+
+async function loadPost() {
+    try {
+        const res = await fetch(`/api/community/${postId}`);
+        if (!res.ok) throw new Error('not found');
+        const p = await res.json();
+        render(p);
+    } catch (e) {
+        box.innerHTML = '<p style="text-align:center;color:#999;">게시글을 찾을 수 없습니다.</p>';
+    }
+}
+
+function render(p) {
+    const dateStr = p.createdAt ? p.createdAt.substring(0, 10) : '';
+    const tags = (p.tags || []).map(t => `<span class="board-tag">${escapeHtml(t)}</span>`).join('');
+
+    box.innerHTML = `
+        ${tags ? `<div class="board-tags">${tags}</div>` : ''}
+        <h1 class="board-detail-title">${escapeHtml(p.title)}</h1>
+        <div class="board-detail-meta">
+            <span>by 회원${p.userId ?? ''} | ${dateStr} | 조회수 ${p.viewCount ?? 0}</span>
+            <span class="actions">
+                <a onclick="location.href='/community/write?edit=${p.postId}'">수정</a>
+                <a onclick="deletePost()">삭제</a>
+            </span>
+        </div>
+        <div class="board-detail-content">${escapeHtml(p.content || '')}</div>
+    `;
+}
+
+async function deletePost() {
+    if (!confirm('이 글을 삭제할까요? 삭제하면 되돌릴 수 없어요.')) return;
+    try {
+        const res = await fetch(`/api/community/${postId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('failed');
+        alert('삭제되었습니다.');
+        location.href = '/community';
+    } catch (e) {
+        alert('삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    }
+}
+
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+
+loadPost();
+</script>
+</body>
+</html>

@@ -1,0 +1,170 @@
+/* 리뷰 기능 전용 스타일 (main.css 위에 얹어서 사용) */
+
+.review-wrap{max-width:720px;margin:0 auto;padding:28px 20px 60px}
+.review-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.review-top h2{font-size:22px;margin:0;font-weight:900}
+.btn-write{background:#159b35;color:#fff;border:none;border-radius:22px;padding:11px 20px;font-weight:800;font-size:13px;cursor:pointer}
+.btn-write:hover{background:#128a2f}
+
+.empty-state{text-align:center;color:#888;padding:70px 10px;font-size:14px}
+
+/* 리뷰 카드 (목록) */
+.review-card{display:flex;gap:14px;padding:18px 4px;border-bottom:1px solid #eee;cursor:pointer}
+.review-card:hover{background:#fafafa}
+.review-card .thumb{width:78px;height:78px;border-radius:10px;object-fit:cover;background:#f0f0f0;flex-shrink:0}
+.review-card .thumb.placeholder{display:flex;align-items:center;justify-content:center;font-size:22px;color:#ccc}
+.review-body{flex:1;min-width:0}
+.review-meta-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.stars{color:#f2a000;font-size:13px;letter-spacing:1px}
+.rating-num{font-weight:800;font-size:13px;color:#222}
+.restaurant-tag{font-size:12px;color:#159b35;font-weight:700}
+.review-content{font-size:13px;color:#333;line-height:1.55;margin:4px 0 8px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.review-foot{display:flex;gap:14px;font-size:11px;color:#999}
+.helpful-btn{border:1px solid #e2e2e2;background:#fff;border-radius:14px;padding:4px 10px;font-size:11px;color:#555;cursor:pointer}
+.helpful-btn.active{background:#e8f7ec;border-color:#159b35;color:#159b35;font-weight:700}
+
+/* 독자 리뷰 카드 (image2 참고 스타일) */
+.reader-review-card{background:#fff;border:1px solid #eee;border-radius:12px;padding:18px;margin-bottom:14px;cursor:pointer}
+.reader-review-card:hover{border-color:#c9e8d0}
+.reader-review-images{display:flex;gap:8px;overflow-x:auto;margin:10px 0}
+.reader-review-images img{width:90px;height:90px;object-fit:cover;border-radius:8px;flex-shrink:0}
+
+/* 작성 화면 */
+.write-card{background:#fff;border:1px solid #eee;border-radius:14px;padding:22px}
+.restaurant-summary{display:flex;justify-content:space-between;align-items:center;padding-bottom:16px;border-bottom:1px solid #f0f0f0;margin-bottom:18px}
+.restaurant-summary h3{margin:0 0 4px;font-size:16px}
+.restaurant-summary .sub{font-size:12px;color:#777}
+.field{margin-bottom:20px}
+.field label{display:block;font-size:13px;font-weight:800;margin-bottom:8px}
+.field .optional{color:#999;font-weight:400;font-size:11px;margin-left:4px}
+
+.star-picker{font-size:30px;letter-spacing:4px;color:#ddd;cursor:pointer;user-select:none}
+.star-picker span.filled{color:#f2a000}
+.star-value{font-size:13px;color:#777;margin-left:10px;vertical-align:middle}
+
+textarea.review-textarea{width:100%;min-height:110px;border:1px solid #ddd;border-radius:10px;padding:12px;font-size:13px;font-family:inherit;resize:vertical}
+.char-count{text-align:right;font-size:11px;color:#aaa;margin-top:4px}
+
+.photo-grid{display:flex;gap:8px;flex-wrap:wrap}
+.photo-thumb{width:72px;height:72px;border-radius:8px;overflow:hidden;position:relative;background:#f4f4f4}
+.photo-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-thumb .remove{position:absolute;top:2px;right:2px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;line-height:18px;cursor:pointer}
+.photo-add{width:72px;height:72px;border:1px dashed #ccc;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#999;font-size:11px;cursor:pointer;background:#fafafa}
+.photo-add span{font-size:20px;line-height:1}
+
+.visit-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.visit-grid input,.visit-grid select{width:100%;border:1px solid #ddd;border-radius:8px;padding:9px 10px;font-size:13px;font-family:inherit}
+.purpose-chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.chip{border:1px solid #ddd;border-radius:16px;padding:7px 14px;font-size:12px;color:#555;cursor:pointer}
+.chip.selected{background:#159b35;color:#fff;border-color:#159b35;font-weight:700}
+
+.recommend-toggle{display:flex;gap:10px}
+.recommend-toggle button{flex:1;padding:12px;border-radius:10px;border:1px solid #ddd;background:#fff;font-weight:700;font-size:13px;cursor:pointer}
+.recommend-toggle button.selected-yes{background:#e8f7ec;border-color:#159b35;color:#159b35}
+.recommend-toggle button.selected-no{background:#fdeeee;border-color:#e05a5a;color:#e05a5a}
+
+.submit-btn{width:100%;background:#159b35;color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer;margin-top:6px}
+.submit-btn:disabled{background:#bcbcbc;cursor:not-allowed}
+
+/* 상세 화면 */
+.detail-card{background:#fff;border:1px solid #eee;border-radius:14px;padding:22px}
+.reviewer-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.avatar{width:38px;height:38px;border-radius:50%;background:#e8f7ec;color:#159b35;display:flex;align-items:center;justify-content:center;font-weight:800}
+.reviewer-name{font-weight:800;font-size:13px}
+.review-date{font-size:11px;color:#999}
+.detail-images{display:flex;gap:8px;overflow-x:auto;margin:14px 0}
+.detail-images img{width:150px;height:150px;object-fit:cover;border-radius:10px;flex-shrink:0}
+.detail-content{font-size:14px;line-height:1.7;color:#333;margin-bottom:16px;white-space:pre-wrap}
+.visit-info-box{background:#f7faf7;border-radius:10px;padding:12px 14px;font-size:12px;color:#555;margin-bottom:16px;display:flex;gap:18px;flex-wrap:wrap}
+.back-link{display:inline-block;margin-bottom:14px;font-size:13px;color:#159b35;font-weight:700}
+
+@media(max-width:600px){
+  .visit-grid{grid-template-columns:1fr}
+}
+
+/* ── 맛집 카드형 목록 (블루리본 스타일 오마주) ── */
+.rv-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.rv-sort select{border:1px solid #ddd;border-radius:18px;padding:8px 14px;font-size:13px;background:#fff;cursor:pointer;}
+.rv-count{color:#888;font-size:13px;margin:6px 0 20px;}
+
+.rv-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:22px 18px;}
+@media(max-width:900px){.rv-grid{grid-template-columns:repeat(2,1fr);}}
+@media(max-width:520px){.rv-grid{grid-template-columns:1fr;}}
+
+.rv-card{cursor:pointer;}
+.rv-thumb-wrap{position:relative;width:100%;aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:#f0f0f0;}
+.rv-thumb-wrap img{width:100%;height:100%;object-fit:cover;display:block;}
+.rv-thumb-wrap.placeholder{display:flex;align-items:center;justify-content:center;font-size:34px;color:#ccc;}
+.rv-badge{position:absolute;top:8px;left:8px;background:rgba(21,155,53,.92);color:#fff;font-size:11px;font-weight:800;padding:3px 8px;border-radius:4px;}
+.rv-bookmark{position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;font-size:13px;}
+
+.rv-name{font-weight:800;font-size:15px;margin:10px 0 2px;}
+.rv-sub-row{display:flex;align-items:center;gap:6px;font-size:12px;color:#777;margin-bottom:6px;}
+.rv-preview{font-size:12px;color:#555;line-height:1.5;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+
+/* ── 맛집 상세(리뷰 모아보기) ── */
+.rd-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;}
+.rd-header h2{font-size:20px;margin:0 0 4px;}
+.rd-gallery{display:flex;gap:8px;overflow-x:auto;margin-bottom:20px;}
+.rd-gallery img{width:180px;height:180px;object-fit:cover;border-radius:10px;flex-shrink:0;background:#f0f0f0;}
+.rd-gallery .placeholder{width:180px;height:180px;border-radius:10px;background:#f0f0f0;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:30px;color:#ccc;}
+
+.rd-pick-box{background:#f4faf5;border:1px solid #dcefe0;border-radius:12px;padding:16px 18px;margin-bottom:24px;}
+.rd-pick-label{color:#159b35;font-weight:800;font-size:13px;margin-bottom:8px;}
+
+.rd-section-title{font-weight:800;font-size:15px;margin:26px 0 12px;}
+
+.rd-review-item{border-bottom:1px solid #eee;padding:16px 2px;}
+.rd-review-item:last-child{border-bottom:none;}
+.rd-review-images{display:flex;gap:6px;margin:8px 0;overflow-x:auto;}
+.rd-review-images img{width:90px;height:90px;object-fit:cover;border-radius:8px;flex-shrink:0;}
+
+/* ── 맛집 상세 2단 레이아웃 (정보 카드 + 메인 콘텐츠) ── */
+.rd-layout{display:grid;grid-template-columns:1fr 280px;gap:28px;align-items:start;}
+@media(max-width:760px){.rd-layout{grid-template-columns:1fr;}}
+.rd-info-card{background:#fff;border:1px solid #eee;border-radius:14px;padding:18px;position:sticky;top:20px;}
+.rd-info-row{display:flex;gap:10px;font-size:13px;color:#444;padding:9px 0;border-bottom:1px solid #f2f2f2;}
+.rd-info-row:last-of-type{border-bottom:none;}
+.rd-info-row .icon{flex-shrink:0;width:18px;text-align:center;}
+.rd-info-row a{color:#159b35;word-break:break-all;}
+.rd-write-btn{width:100%;background:#159b35;color:#fff;border:none;border-radius:10px;padding:13px;font-weight:800;font-size:14px;cursor:pointer;margin-top:12px;}
+.rd-write-btn:hover{background:#128a2f;}
+.rd-category-badge{display:inline-block;background:#eaf6ec;color:#159b35;font-size:12px;font-weight:700;padding:3px 10px;border-radius:12px;margin-bottom:8px;}
+
+/* ── 맛집 상세 v2: 로고+캐러셀+메뉴 ── */
+.rd-top-row{display:flex;align-items:center;gap:14px;margin-bottom:18px;}
+.rd-logo{width:54px;height:54px;border-radius:10px;object-fit:cover;background:#f0f0f0;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-weight:900;color:#159b35;font-size:20px;}
+.rd-top-row .rd-titles{flex:1;}
+.rd-top-row h2{margin:0 0 2px;font-size:19px;}
+.rd-bookmark-btn{width:34px;height:34px;border-radius:50%;border:1px solid #eee;background:#fff;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
+
+.rd-carousel{position:relative;border-radius:12px;overflow:hidden;background:#f0f0f0;height:340px;margin-bottom:20px;}
+.rd-carousel img{width:100%;height:100%;object-fit:cover;display:block;}
+.rd-carousel .placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:40px;color:#ccc;}
+.rd-carousel-btn{position:absolute;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;
+  background:rgba(0,0,0,.45);color:#fff;border:none;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.rd-carousel-btn.prev{left:12px;} .rd-carousel-btn.next{right:12px;}
+.rd-carousel-dots{position:absolute;bottom:10px;left:0;right:0;text-align:center;}
+.rd-carousel-dots span{display:inline-block;width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.5);margin:0 3px;}
+.rd-carousel-dots span.active{background:#fff;}
+
+.rd-intro-box{background:#f4faf5;border:1px solid #dcefe0;border-radius:12px;padding:16px 18px;margin-bottom:24px;font-size:13px;color:#444;line-height:1.6;}
+.rd-intro-label{color:#159b35;font-weight:800;font-size:13px;margin-bottom:8px;}
+
+.rd-menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;}
+@media(max-width:600px){.rd-menu-grid{grid-template-columns:1fr;}}
+.rd-menu-item{display:flex;align-items:baseline;gap:6px;font-size:13px;padding:6px 0;}
+.rd-menu-item .signature{font-size:10px;border:1px solid #159b35;color:#159b35;border-radius:4px;padding:1px 5px;flex-shrink:0;}
+.rd-menu-item .mname{white-space:nowrap;}
+.rd-menu-item .dots{flex:1;border-bottom:1px dashed #ccc;margin:0 4px;height:8px;}
+.rd-menu-item .mprice{white-space:nowrap;font-weight:700;color:#333;}
+
+.rd-sidebar-btns{display:flex;gap:8px;margin-top:12px;}
+.rd-sidebar-btns button{flex:1;border-radius:10px;padding:11px;font-size:13px;font-weight:700;cursor:pointer;}
+.rd-btn-report{background:#fff;border:1px solid #ddd;color:#555;}
+.rd-btn-write{background:#159b35;border:none;color:#fff;}

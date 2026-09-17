@@ -1,0 +1,45 @@
+/* 커뮤니티(자유게시판) 전용 스타일 - image3/4 참고, main.css 위에 얹어서 사용 */
+
+.board-wrap{max-width:720px;margin:0 auto;padding:28px 20px 60px}
+.board-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.board-top h2{font-size:22px;margin:0;font-weight:900}
+.btn-write{background:#159b35;color:#fff;border:none;border-radius:22px;padding:11px 20px;font-weight:800;font-size:13px;cursor:pointer}
+.btn-write:hover{background:#128a2f}
+
+.board-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px}
+.board-search{display:flex;gap:6px}
+.board-search input{border:1px solid #ddd;border-radius:8px;padding:8px 10px;font-size:13px;width:200px}
+.board-search button{border:1px solid #ddd;background:#fafafa;border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer}
+
+.board-list{border-top:1px solid #ddd}
+.board-item{padding:16px 4px;border-bottom:1px solid #eee;cursor:pointer}
+.board-item:hover .board-item-title{color:#159b35}
+.board-tags{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.board-tag{font-size:11px;color:#555;border:1px solid #ddd;border-radius:12px;padding:2px 9px;background:#fafafa}
+.board-item-title{font-size:15px;font-weight:700;color:#222;margin:0 0 6px}
+.board-item-meta{font-size:12px;color:#999}
+
+.board-empty{text-align:center;color:#888;padding:70px 10px;font-size:14px}
+
+.board-pagination{display:flex;justify-content:center;gap:6px;margin-top:20px}
+.board-pagination button{width:30px;height:30px;border:1px solid #ddd;background:#fff;border-radius:6px;font-size:12px;cursor:pointer}
+.board-pagination button.active{background:#159b35;color:#fff;border-color:#159b35;font-weight:700}
+.board-pagination button:disabled{color:#ccc;cursor:not-allowed}
+
+/* 글쓰기 */
+.board-write-card{background:#fff;border:1px solid #eee;border-radius:14px;padding:22px}
+.board-field{margin-bottom:18px}
+.board-field label{display:block;font-size:13px;font-weight:800;margin-bottom:8px}
+.board-field input[type="text"], .board-field textarea{
+  width:100%;border:1px solid #ddd;border-radius:10px;padding:11px 12px;font-size:14px;font-family:inherit}
+.board-field textarea{min-height:220px;resize:vertical;line-height:1.6}
+.board-field .hint{font-size:11px;color:#999;margin-top:4px}
+.board-submit-btn{width:100%;background:#159b35;color:#fff;border:none;border-radius:12px;padding:15px;font-size:15px;font-weight:800;cursor:pointer}
+.board-submit-btn:disabled{background:#bcbcbc;cursor:not-allowed}
+
+/* 상세 */
+.board-detail-title{font-size:20px;font-weight:900;margin:4px 0 10px}
+.board-detail-meta{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #eee;padding-bottom:14px;margin-bottom:20px;font-size:12px;color:#999}
+.board-detail-meta .actions a{color:#888;margin-left:10px;cursor:pointer}
+.board-detail-meta .actions a:hover{color:#159b35}
+.board-detail-content{font-size:14px;line-height:1.8;color:#333;white-space:pre-wrap;min-height:120px}

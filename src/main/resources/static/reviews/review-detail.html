@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>리뷰 상세 | BinGo Map</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/reviews/reviews.css">
+</head>
+<body>
+<header class="header">
+    <div class="header-inner">
+        <a class="logo" href="/">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </a>
+        <nav class="nav">
+            <a href="/">홈</a>
+            <a href="/map">지도</a>
+            <a href="/restaurants">주변 맛집</a>
+            <a href="/favorites">즐겨찾기</a>
+            <a class="active" href="/reviews">리뷰</a>
+            <a href="/community">커뮤니티</a>
+            <a href="/notices">공지사항</a>
+        </nav>
+        <div class="header-actions">
+            <button class="language">🇰🇷 한국어 <span>⌄</span></button>
+            <a class="login" href="/login">로그인</a>
+        </div>
+    </div>
+</header>
+
+<main>
+    <div class="review-wrap" style="max-width:560px;">
+        <a class="back-link" href="/reviews">‹ 리뷰 목록</a>
+
+        <div class="detail-card" id="detail-card">
+            <p style="text-align:center;color:#999;">리뷰를 불러오는 중...</p>
+        </div>
+    </div>
+</main>
+
+<footer class="footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </div>
+        <p>BinGo Map은 깨끗한 일본 여행 문화를 응원합니다.<br>모두가 함께 만들어가는 깨끗하고 즐거운 여행 플랫폼!</p>
+        <div class="footer-links">
+            <div>◎　♥　f</div>
+            <small>이용약관　　개인정보처리방침　　문의하기</small>
+            <small>© 2025 BinGo Map. All rights reserved.</small>
+        </div>
+        <a class="top-btn" href="#">↑<small>TOP</small></a>
+    </div>
+</footer>
+
+<script>
+const reviewId = location.pathname.split('/').pop();
+const card = document.getElementById('detail-card');
+
+const purposeLabel = { '데이트':'데이트','여행':'여행','가족외식':'가족외식','친구모임':'친구모임','기타':'기타' };
+
+function renderStars(rating) {
+    const r = Math.round(rating || 0);
+    return '★★★★★☆☆☆☆☆'.slice(5 - r, 10 - r);
+}
+
+async function loadReview() {
+    try {
+        const res = await fetch(`/api/reviews/${reviewId}`);
+        if (!res.ok) throw new Error('not found');
+        const r = await res.json();
+        render(r);
+    } catch (e) {
+        card.innerHTML = '<p style="text-align:center;color:#999;">리뷰를 찾을 수 없습니다.</p>';
+    }
+}
+
+function render(r) {
+    const dateStr = r.createdAt ? r.createdAt.substring(0, 10) : '';
+    const images = (r.imageUrls || []).map(url => `<img src="${url}" alt="리뷰 사진">`).join('');
+
+    const visitBits = [];
+    if (r.visitDate) visitBits.push(`📅 방문일 ${r.visitDate}`);
+    if (r.visitTimeSlot) visitBits.push(`🕒 ${r.visitTimeSlot}`);
+    if (r.visitPurpose) visitBits.push(`🎯 ${r.visitPurpose}`);
+    if (r.recommendYn !== null && r.recommendYn !== undefined) {
+        visitBits.push(r.recommendYn ? '이 매장을 추천해요 👍' : '이 매장을 추천하지 않아요 👎');
+    }
+
+    card.innerHTML = `
+        <div class="reviewer-row">
+            <div class="avatar">U${r.userId ?? ''}</div>
+            <div>
+                <div class="reviewer-name">회원 ${r.userId ?? ''}</div>
+                <div class="review-date">${dateStr} · 맛집 #${r.restaurantId}</div>
+            </div>
+        </div>
+
+        <div class="review-meta-row">
+            <span class="stars">${renderStars(r.rating)}</span>
+            <span class="rating-num">${(r.rating ?? 0).toFixed(1)}</span>
+        </div>
+
+        ${images ? `<div class="detail-images">${images}</div>` : ''}
+
+        <p class="detail-content">${escapeHtml(r.content || '')}</p>
+
+        ${visitBits.length ? `<div class="visit-info-box">${visitBits.map(b => `<span>${b}</span>`).join('')}</div>` : ''}
+
+        <button class="helpful-btn" id="helpful-btn" style="font-size:13px;padding:9px 16px;">
+            👍 도움이 돼요 <span id="help-count">${r.helpCount ?? 0}</span>
+        </button>
+        <button id="delete-btn" style="float:right;font-size:13px;padding:9px 16px;border:1px solid #e2e2e2;background:#fff;border-radius:14px;color:#e05a5a;cursor:pointer;">
+            🗑 삭제
+        </button>
+    `;
+
+    document.getElementById('helpful-btn').addEventListener('click', markHelpful);
+    document.getElementById('delete-btn').addEventListener('click', deleteReview);
+}
+
+async function deleteReview() {
+    if (!confirm('이 리뷰를 삭제할까요? 삭제하면 되돌릴 수 없어요.')) return;
+
+    const btn = document.getElementById('delete-btn');
+    btn.disabled = true;
+    try {
+        const res = await fetch(`/api/reviews/${reviewId}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('failed');
+        alert('삭제되었습니다.');
+        location.href = '/reviews';
+    } catch (e) {
+        alert('삭제에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        btn.disabled = false;
+    }
+}
+
+async function markHelpful() {
+    const btn = document.getElementById('helpful-btn');
+    btn.disabled = true;
+    try {
+        const res = await fetch(`/api/reviews/${reviewId}/helpful`, { method: 'POST' });
+        if (!res.ok) throw new Error('failed');
+        const r = await res.json();
+        document.getElementById('help-count').textContent = r.helpCount ?? 0;
+        btn.classList.add('active');
+    } catch (e) {
+        btn.disabled = false;
+    }
+}
+
+function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+
+loadReview();
+</script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>커뮤니티 | BinGo Map</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/community/community.css">
+</head>
+<body>
+<header class="header">
+    <div class="header-inner">
+        <a class="logo" href="/">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </a>
+        <nav class="nav">
+            <a href="/">홈</a>
+            <a href="/map">지도</a>
+            <a href="/restaurants">주변 맛집</a>
+            <a href="/favorites">즐겨찾기</a>
+            <a href="/reviews">리뷰</a>
+            <a class="active" href="/community">커뮤니티</a>
+            <a href="/notices">공지사항</a>
+        </nav>
+        <div class="header-actions">
+            <button class="language">🇰🇷 한국어 <span>⌄</span></button>
+            <a class="login" href="/login">로그인</a>
+        </div>
+    </div>
+</header>
+
+<main>
+    <div class="board-wrap">
+        <div class="board-top">
+            <h2>커뮤니티</h2>
+            <button class="btn-write" onclick="location.href='/community/write'">✏️ 글쓰기</button>
+        </div>
+
+        <div class="board-toolbar">
+            <span></span>
+            <div class="board-search">
+                <input type="text" id="keyword" placeholder="제목/내용 검색">
+                <button onclick="search()">검색</button>
+            </div>
+        </div>
+
+        <div class="board-list" id="board-list"></div>
+        <div id="board-empty" class="board-empty" style="display:none;">등록된 글이 없습니다.</div>
+        <div class="board-pagination" id="pagination"></div>
+    </div>
+</main>
+
+<footer class="footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </div>
+        <p>BinGo Map은 깨끗한 일본 여행 문화를 응원합니다.<br>모두가 함께 만들어가는 깨끗하고 즐거운 여행 플랫폼!</p>
+        <div class="footer-links">
+            <div>◎　♥　f</div>
+            <small>이용약관　　개인정보처리방침　　문의하기</small>
+            <small>© 2025 BinGo Map. All rights reserved.</small>
+        </div>
+        <a class="top-btn" href="#">↑<small>TOP</small></a>
+    </div>
+</footer>
+
+<script>
+let currentPage = 0;
+let currentKeyword = '';
+
+function search() {
+    currentKeyword = document.getElementById('keyword').value.trim();
+    currentPage = 0;
+    loadPosts();
+}
+
+document.getElementById('keyword').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') search();
+});
+
+async function loadPosts() {
+    const listEl = document.getElementById('board-list');
+    const emptyEl = document.getElementById('board-empty');
+    const pagerEl = document.getElementById('pagination');
+
+    const url = new URL('/api/community', location.origin);
+    url.searchParams.set('page', currentPage);
+    url.searchParams.set('size', 10);
+    if (currentKeyword) url.searchParams.set('keyword', currentKeyword);
+
+    try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('failed');
+        const data = await res.json();
+        const posts = data.content || [];
+
+        if (!posts.length) {
+            listEl.innerHTML = '';
+            emptyEl.style.display = 'block';
+            pagerEl.innerHTML = '';
+            return;
+        }
+        emptyEl.style.display = 'none';
+
+        listEl.innerHTML = posts.map(p => {
+            const tags = (p.tags || []).map(t => `<span class="board-tag">${escapeHtml(t)}</span>`).join('');
+            const dateStr = p.createdAt ? p.createdAt.substring(0, 10) : '';
+            return `
+            <div class="board-item" onclick="location.href='/community/${p.postId}'">
+                ${tags ? `<div class="board-tags">${tags}</div>` : ''}
+                <p class="board-item-title">${escapeHtml(p.title)}</p>
+                <div class="board-item-meta">by 회원${p.userId ?? ''} | ${dateStr} | 조회수 ${p.viewCount ?? 0}</div>
+            </div>`;
+        }).join('');
+
+        renderPagination(data.totalPages ?? 1, data.number ?? 0);
+    } catch (e) {
+        listEl.innerHTML = '';
+        emptyEl.textContent = '게시글을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
+        emptyEl.style.display = 'block';
+        pagerEl.innerHTML = '';
+    }
+}
+
+function renderPagination(totalPages, current) {
+    const pagerEl = document.getElementById('pagination');
+    if (totalPages <= 1) { pagerEl.innerHTML = ''; return; }
+
+    let html = '';
+    for (let i = 0; i < totalPages; i++) {
+        html += `<button class="${i === current ? 'active' : ''}" onclick="goPage(${i})">${i + 1}</button>`;
+    }
+    pagerEl.innerHTML = html;
+}
+
+function goPage(page) {
+    currentPage = page;
+    loadPosts();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+}
+
+loadPosts();
+</script>
+</body>
+</html>
