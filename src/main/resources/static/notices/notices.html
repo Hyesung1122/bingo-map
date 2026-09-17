@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>공지사항 | BinGo Map</title>
     <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/notices/notices.css">
 </head>
 <body>
 <header class="header">
@@ -37,7 +38,8 @@
     <section class="section">
         <h2 class="section-title">공지사항</h2>
         <div class="title-line"></div>
-        <p style="text-align:center;color:#777;">서비스 공지사항 목록이 여기에 표시됩니다. (개발 예정)</p>
+        <div id="notice-list" class="notice-list"></div>
+        <p id="notice-empty" style="text-align:center;color:#777;" hidden>등록된 공지사항이 없습니다.</p>
     </section>
 </main>
 
@@ -56,5 +58,7 @@
         <a class="top-btn" href="#">↑<small>TOP</small></a>
     </div>
 </footer>
+<script src="/notices/notices.js"></script>
+<script src="/js/header-auth.js"></script>
 </body>
 </html>

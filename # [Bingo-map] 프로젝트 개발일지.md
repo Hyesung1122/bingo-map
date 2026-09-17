@@ -1,468 +1,303 @@
-\# \[Bingo-map] 프로젝트 개발일지
+# [Bingo-map] 프로젝트 개발일지
 
-박주호
-지도 기능 담당
-쓰레기통 & 지도 api 연동해서 기능개발하기
+### 팀원별 담당
 
+**박주호 — 지도 기능 담당**
+쓰레기통 & 지도 API 연동해서 기능 개발하기
 
+**안태건 — 유저 / 로그인 / 회원가입 담당**
+(상세 작업 로그는 하단 "안태건 작업 기록" 섹션 참고)
 
-\### ■ TIP:
+### ■ TIP
 
 작업물 확인 방법:
-
-src>main>java>service>BingoMapApplication.java 에서 RUN
-
-> localhost8080 주소창에 치고 접속
-
-
+`src > main > java > service > BingoMapApplication.java` 에서 RUN
+→ `localhost:8080` 주소창에 치고 접속
 
 AI와 함께 개발을 하는 방법:
+Claude, GPT, Gemini를 사용한다.
 
-Claude, GPT, gemini를 사용한다.
+- **Claude** — 코드 설계, 실질적인 프로그래밍 담당.
+  zip 파일 형태로 줘도 분석이 가능함. 클로드에게 프로젝트를 압축 파일 형태로 만든 다음 분석해달라고 요청한다.
+  이후 본인이 담당하는 개발 파트를 클로드와 함께 만들어 나간다.
+  개발일지를 꼭 쓰면서, 뭐라고 넣었고 뭐라고 나왔는지 기록한다.
+- **GPT** — 프론트엔드(화면), 이미지 생성 등 활용
+- **Gemini** — 연습장. 편하게 대화체로 물어보고 깔끔하게 정리함. 이후 정리한 요청을 GPT, Claude한테 줘서 결과물을 생성한다.
 
+이렇게 하는 이유: Gemini는 사용량 제한이 없다. 하지만 GPT, Claude는 제한이 있다.
+따라서 확신을 가지고 "결과물"을 만들 때만 GPT, Claude를 사용하는 게 좋다.
 
+---
 
-Claude - 코드 설계, 실질적인 프로그래밍 담당.
+## 박주호 작업 기록 (지도 기능)
 
-//zip 파일 형태로 줘도 분석이 가능함.
-
-클로드에게 프로젝트를 알집 형태로 만든다음 분석해달라고 요청한다.
-
-이후 본인이 담당하는 개발 파트를 클로드와 함께 만들어 나간다.
-
-개발일지를 꼭 쓰면서, 뭐라고 넣었고 뭐라고 나왔는지 기록한다.
-
-
-
-GPT - 프론트엔드(화면), 이미지 생성등 활용
-
-
-
-gemini - 연습장. 편하게, 대화체로 물어보고 깔끔하게 정리함.
-
-이후, 정리한 요청을 GPT, Claude한테 줘서 결과물을 생성한다.
-
-
-
-이렇게 하는 이유:
-
-gemini는 사용량 제한이 없다.
-
-하지만 GPT, Claude는 제한이 있다.
-
-따라서 확신을 가지고 "결과물"을 만들때만 GPT, Claude를 사용하는게 좋다.
-
-
-
-\## 09.10 
+### 09.10
 도톤보리 지역의 쓰레기통 위치를 테스트로 가져왔다.
 1. 도톤보리의 실제 배경 지도가 보이도록 수정
 2. 이미지를 불러오는 코드를 지도 타일 코드로 변경
-3. 4개의 쓰레기통 조회완료 
-4. 더 많은 쓰레기통 조회를 위해서 약 3.3km × 3.2km범위로 넓힘
+3. 4개의 쓰레기통 조회완료
+4. 더 많은 쓰레기통 조회를 위해서 약 3.3km × 3.2km 범위로 넓힘
 5. 테스트로 도톤보리 주변 쓰레기통 조회완료
 
-\## 09.11
+### 09.11
 1. 가독성 좋은 지도 스타일로 교체(주요 지명+역 정도만)
-2. OSRM(openrouteservice)api를 가져옴for FOSSGIS
+2. OSRM(openrouteservice) api를 가져옴 for FOSSGIS
 3. api 토대로 길찾기 테스트 완료
-4. 쓰레기통 데이터를 추가했을때,간단한JSON 파일/자체 DB에
-저장후+프론트엔드에서 두 데이터 합치면 되는거 체크.
+4. 쓰레기통 데이터를 추가했을 때, 간단한 JSON 파일/자체 DB에 저장 후 + 프론트엔드에서 두 데이터 합치면 되는 거 체크.
 
-\## 09.14
-1.맛집 데이터 연동을 어떻게 할지 고민(OSM으로 채택)
-2.팀원에게 SQL 파일을 받아 내 Oracle에서 식당 조회해보기
-3.정보가 없는 식당은 추후에 직접 입력예정
+### 09.14
+1. 맛집 데이터 연동을 어떻게 할지 고민(OSM으로 채택)
+2. 팀원에게 SQL 파일을 받아 내 Oracle에서 식당 조회해보기
+3. 정보가 없는 식당은 추후에 직접 입력 예정
 
-\## 09.15
-1.sql 테스트 맛집 파일 받고 연동
-2. (문제)하려했으나? 한글이 깨짐
-3. (해결) SQL 파일을 열 때는 **도구 → 환경설정 → 환경 → 
-  인코딩을 UTF-8로 변경해서 깨짐 방지
-4. 식당 CSS 연결을 추가<link rel="stylesheet" href="/map/bingo-restaurants.css">
-5.식당이 잘 연결되었으나, 쓰레기통 정보 조회가 안됨
-6.(문제)Overpass 공개 서버 쪽문제 (공용 서버라 트래픽이 몰리면 종종 타임아웃이 나버림)
-7.Overpass API 실시간 호출 방식에서 service파일을 새로 생성 후
-WASTE_BIN(새로생성) 테이블을 읽는 방식으로 전면 교체. 
-Overpass 서버가 죽어도 이제 영향 없음
-8.**주의 사항**
-   WasteBinDbLoader 프로그램을 꼭 수동으로
-  한번 실행 시킨후 map을 켜야함
+### 09.15
+1. sql 테스트 맛집 파일 받고 연동
+2. (문제) 한글이 깨짐
+3. (해결) SQL 파일을 열 때는 도구 → 환경설정 → 환경 → 인코딩을 UTF-8로 변경해서 깨짐 방지
+4. 식당 CSS 연결을 추가 `<link rel="stylesheet" href="/map/bingo-restaurants.css">`
+5. 식당이 잘 연결되었으나, 쓰레기통 정보 조회가 안 됨
+6. (문제) Overpass 공개 서버 쪽 문제 (공용 서버라 트래픽이 몰리면 종종 타임아웃이 나버림)
+7. Overpass API 실시간 호출 방식에서 service 파일을 새로 생성 후 WASTE_BIN(새로 생성) 테이블을 읽는 방식으로 전면 교체. Overpass 서버가 죽어도 이제 영향 없음
+8. **주의 사항**: WasteBinDbLoader 프로그램을 꼭 수동으로 한 번 실행시킨 후 map을 켜야 함
 
-\## 09.16
-1.식당 길찾기 버튼옆에 식사 후 쓰레기통 버튼을
-  추가해서 사용자 편의성을 증대
-2.실제 위치를 사용해서 하는 방법 체크완료
-(식당까지는 도보·자전거·자동차 경로를 비교하고, 식사 후 쓰레기통까지는 
-도보 경로를 확인할 수 있도록 구성)
-3.메인페이지의 ‘최적 경로 안내’ 버튼 연결 완료(식당으로 바로 연동)
-4.(문제)구간 전환 시 이전 경로가 사라지는 불편 발견
-(코드를 확인한 결과, 구간을 바꿀 때마다 
-기존 경로를 지우고 출발 위치부터 다시 조회하는 처리가있었음)
-5.(해결)
-식당 구간과 쓰레기통 구간의 출발지, 이동수단, 조회 결과를 각각 기억하도록 수정했다.
-이제 구간을 오갈 때는 이전 결과를 복원하고, 
-‘다시 조회’나 실제 이동 안내를 시작할 때 현재 위치를 새로 확인하도록 구성했다. 가상 출발지를 선택한 경우에도 같은 지도 페이지에서는 선택이 유지되도록 했다.
-6.다음에는 수정 파일을 실제 프로젝트에 적용한 뒤, ‘식당까지 → 식사 후 쓰레기통 → 식당까지’를 
-반복해도 출발지와 경로가 유지되는지 브라우저에서 최종 확인완료
-7.길찾기 화면에서 식당까지<를 눌렀는데 처음부터 쓰레기통이 조회되서 나오는데,
-이건 어색하니 식당까지 버튼을 눌렀을땐, 현재위치or가상위치에서 식당까지만 나오게함
-8.긴급)기존 현재 사용하는 MapLibre 5.6.2와 호환되지 않는 위치 갱신 방식 때문에, 
-드래그할 때 배경은 멈추고 마커·경로만 이동했음.
-수정)MapLibre 5.x에 맞는 방식으로 위치를 갱신해서 배경·마커·경로가 함께 움직여.
+### 09.16
+1. 식당 길찾기 버튼 옆에 식사 후 쓰레기통 버튼을 추가해서 사용자 편의성을 증대
+2. 실제 위치를 사용해서 하는 방법 체크 완료 (식당까지는 도보·자전거·자동차 경로를 비교하고, 식사 후 쓰레기통까지는 도보 경로를 확인할 수 있도록 구성)
+3. 메인페이지의 '최적 경로 안내' 버튼 연결 완료(식당으로 바로 연동)
+4. (문제) 구간 전환 시 이전 경로가 사라지는 불편 발견 (구간을 바꿀 때마다 기존 경로를 지우고 출발 위치부터 다시 조회하는 처리가 있었음)
+5. (해결) 식당 구간과 쓰레기통 구간의 출발지, 이동수단, 조회 결과를 각각 기억하도록 수정. 구간을 오갈 때는 이전 결과를 복원하고, '다시 조회'나 실제 이동 안내를 시작할 때 현재 위치를 새로 확인하도록 구성. 가상 출발지를 선택한 경우에도 같은 지도 페이지에서는 선택이 유지되도록 함
+6. 수정 파일을 실제 프로젝트에 적용한 뒤, '식당까지 → 식사 후 쓰레기통 → 식당까지'를 반복해도 출발지와 경로가 유지되는지 브라우저에서 최종 확인 완료
+7. 길찾기 화면에서 '식당까지'를 눌렀는데 처음부터 쓰레기통이 조회되어 나오는 문제 → 식당까지 버튼을 눌렀을 땐 현재위치/가상위치에서 식당까지만 나오게 함
+8. (긴급) 기존 사용하는 MapLibre 5.6.2와 호환되지 않는 위치 갱신 방식 때문에, 드래그할 때 배경은 멈추고 마커·경로만 이동하는 문제 → MapLibre 5.x에 맞는 방식으로 위치를 갱신해서 배경·마커·경로가 함께 움직이도록 수정
 
-\## 09.17
-1. 기존 도톤보리에서 오사카시로 쓰레기통 위치 확대완료
-2.지도 이동 가능 범위를 도톤보리 좁은 박스에서 
-→ 오사카시 전체를 넉넉히 포함하는 범위로 확장완료
-3. 오사카시로 확대 후 테이크아웃 가능한 맛집 추가완료
-4. but,OSM에 원천적으로 존재하지 않는 식당
-데이터들은 일일히 채우거나 위치만 보여주는 편으로 변경해야함
+### 09.17
+1. 기존 도톤보리에서 오사카시로 쓰레기통 위치 확대 완료
+2. 지도 이동 가능 범위를 도톤보리 좁은 박스에서 → 오사카시 전체를 넉넉히 포함하는 범위로 확장 완료
+3. 오사카시로 확대 후 테이크아웃 가능한 맛집 추가 완료
+4. but, OSM에 원천적으로 존재하지 않는 식당 데이터들은 일일이 채우거나 위치만 보여주는 편으로 변경해야 함
 
+---
 
+## 안태건 작업 기록 (유저 / 로그인 / 회원가입)
 
-\### ■ 과제
+### 2026-09-10
+유저, 로그인, 회원가입 기능 만들기
+
+**추가한 파일**
+- entity/User.java — TB_USER 테이블 매핑
+- repository/UserRepository.java — 이메일 조회/중복확인
+- sql/tb_user_ddl.sql — TB_USER 테이블 생성 SQL
+- dto/SignupRequestDto.java — 회원가입 폼 데이터
+- exception/SignupException.java — 가입 실패 예외
+- service/SignupService.java — 가입 처리 로직
+- dto/LoginRequestDto.java — 로그인 폼 데이터
+- exception/LoginException.java — 로그인 실패 예외
+- service/LoginService.java — 로그인 처리 로직
+- dto/SessionResponseDto.java — 로그인 상태 응답
+- controller/SessionController.java — 로그인 상태 API
+- static/js/header-auth.js — 헤더 로그인 상태 표시
+- static/auth/auth.js — 에러/성공 메시지 표시
+
+**수정한 파일**
+- controller/SignupController.java — POST /signup 추가
+- controller/LoginController.java — POST /login, GET /logout 추가
+- build.gradle — 암호화, Oracle 11g 방언 의존성 추가
+- application.yaml — Oracle 11g용 dialect 설정
+- static/auth/auth.css — 알림 박스 스타일 추가
+- 정적 페이지 8개 — header-auth.js 스크립트 태그 삽입
+
+내일 질문할 내용: 어제 추가한 기능에 대해서 설명해줘. 그리고 연결한 데이터베이스
+
+추가할 기능: 로그인 실패 시 아래 빨간 텍스트로 실패한 이유와 다시 "아이디 또는 비밀번호가 올바르지 않습니다. 입력한 정보를 다시 확인해 주세요." 텍스트 출력하기
+
+### 2026-09-11
+추가한 기능
+- 마이페이지
+- 로그인 실패 시 빨간 텍스트로 실패 사유 안내: "아이디 또는 비밀번호가 올바르지 않습니다. 입력한 정보를 다시 확인해 주세요."
+- 닉네임 기능 추가
+
+추가할 기능
+- 관리자 계정 만들기
+- 관리자 페이지 작성
+- 마이페이지 "참여응원"이 아니라 "받은좋아요"로 바꾸기
+
+### 2026-09-14
+추가한 기능: 관리자 페이지 제작
+
+### 2026-09-15
+- 유저관리 기능 제작
+- 공지사항 작성 및 관리 기능 제작
+- 정보 수정 기능
+
+### 2026-09-16
+질문할 것
+1. 회원가입할 때 비밀번호 재설정을 위한 본인인증 질문을 만들기 (ex. 처음으로 키웠던 동물의 이름, 부모님의 이름 등)
+2. 가려져 있는 비밀번호 눈 모양 표시 누르면 보이도록 작동되게 변경
+
+---
+
+### ■ 과제
 
 뼈대 만들기:
+- 주변맛집
+- 즐겨찾기
+- 리뷰
+- 공지사항 페이지들 만들기
 
-주변맛집
-
-즐겨찾기
-
-리뷰
-
-공지사항 페이지들 만들기
-
-
-
-\### ■ 문제점
+### ■ 문제점
 
 map의 html, css가 생각한 이미지와 다르다.
 
-DO:
-
-GPT랑 같이 map.css, map.html을 다시 만들었다.
-
-> 맵 자체를 png로 만들어야 한다고 함.
-
->> 쓰레기통 참조 api에서 좀더 많은 정보를 가져와야 할까?
-
-* 내 생각에는, 아이콘/영역/쓰레기통/등등 아이콘을 만들어놓고
-* 지도를 그릴때마다 맞춰서 저장해둔 이미지로 그리는 식으로 해야할 것 같다.
-
-
-
-\### ■ 공통 개발환경
-
-
-
-\* IDE: IntelliJ IDEA 2026.1.4
-
-\* OS: Windows
-
-\* Java: 17.0.19
-
-\* Spring Boot: 4.1.1
-
-\* Build: Gradle
-
-\* DB: Oracle Database 11g
-
-\* Oracle Version: 11.2.0.1.0 (64-bit)
-
-\* 연수원 교육환경과 동일한 DB 환경으로 통일
-
-
-
-\### ■ GitHub
-
-
-
-\* BinGo Map 대표 아이콘 변경 완료
-
-\* GitHub Organization 생성 완료
-
-\* 팀 프로젝트 Repository 생성 완료
-
-
-
-\### ■ Spring Boot 프로젝트 환경 구축
-
-
-
-\* Spring Boot 프로젝트 생성 및 기본 구조 설정 완료
-
-\* Java 17 개발환경 설정 완료
-
-\* Gradle 기반 프로젝트 구성 완료
-
-\* Oracle JDBC 드라이버 설정 완료
-
-\* `application.yml`에 Oracle DB 연결 정보 설정 완료
-
-\* Spring Data JPA 기본 설정 완료
-
-\* Spring Boot 실행 및 Oracle Database 연결 확인 완료
-
-\* HikariCP 정상 작동 확인
-
-\* Hibernate 정상 초기화 확인
-
-\* Oracle Database 연결 정상 확인
-
-\* 서버 `8080` 포트 정상 실행 확인
-
-
-
-\### ■ 메인페이지 구현
-
-
-
-\* BinGo Map 메인페이지 HTML/CSS 구현 완료
-
-\* `src/main/resources/static/index.html` 구성
-
-\* 메인페이지 디자인 및 레이아웃 구현 완료
-
-\* Header / Hero 영역 구현
-
-\* 주요 기능 영역 구현
-
-\* 인기 테이크아웃 맛집 영역 구현
-
-\* 이용 방법 영역 구현
-
-\* Footer 구현
-
-\* 메인페이지 이미지 리소스 구성 완료
-
-\* `http://localhost:8080/` 접속 및 정상 출력 확인
-
-
-
-\### ■ 지도 페이지 구현
-
-
-
-\* 지도 페이지 기본 구조 구현
-
-\* `src/main/resources/static/map/map.html` 생성
-
-\* `src/main/resources/static/map/map.css` 생성
-
-\* 메인페이지의 지도 메뉴와 지도 페이지 연결 준비
-
-\* 오사카 도톤보리 지역을 지도 중심 지역으로 설정
-
-\* 지도 중심 좌표 설정
-
-
-
-&#x20; \* Latitude: `34.6687`
-
-&#x20; \* Longitude: `135.5013`
-
-\* Leaflet 기반 지도 구현
-
-\* OpenStreetMap 지도 타일 연동
-
-\* 지도 확대/축소 기능 구현
-
-\* 현재 위치 버튼 구현
-
-\* 좌측 검색 및 필터 UI 구현
-
-\* 쓰레기통 목록 UI 구현
-
-\* 지도 마커 및 마커 팝업 UI 구현
-
-
-
-\### ■ 지도 URL 및 Controller
-
-
-
-\* `/map` 경로로 지도 페이지에 접근하는 방식으로 변경
-
-\* `MapController`를 통해 `/map` 요청 처리 예정
-
-\* `/map` → `map/map.html` 연결 구조로 구성
-
-\* `map.html`을 직접 입력하지 않고 `http://localhost:8080/map`으로 접근하는 구조로 변경
-
-
-
-\### ■ OpenStreetMap / 쓰레기통 데이터 조사
-
-
-
-\* 일본 정부 공공데이터 API가 아닌 \*\*OpenStreetMap 데이터 기반 방식\*\*으로 결정
-
-\* OpenStreetMap의 \*\*Overpass API\*\*를 이용해 쓰레기통 위치 데이터 조회 예정
-
-\* Overpass API Endpoint 확인
-
-\* `amenity=waste\_basket` 태그를 여행자용 쓰레기통 데이터의 핵심 조건으로 선정
-
-\* `amenity=recycling`은 재활용 시설 데이터이므로 별도 분류 대상으로 검토
-
-\* Overpass Turbo를 이용하여 실제 OSM 쓰레기통 데이터가 존재하는지 확인하는 방식 검토 완료
-
-
-
-\### ■ 지도 데이터 처리 방향
-
-
+DO: GPT랑 같이 map.css, map.html을 다시 만들었다.
+- 맵 자체를 png로 만들어야 한다고 함.
+  - 쓰레기통 참조 api에서 좀더 많은 정보를 가져와야 할까?
+- 내 생각에는, 아이콘/영역/쓰레기통 등등 아이콘을 만들어놓고 지도를 그릴 때마다 맞춰서 저장해둔 이미지로 그리는 식으로 해야 할 것 같다.
+
+### ■ 공통 개발환경
+
+- IDE: IntelliJ IDEA 2026.1.4
+- OS: Windows
+- Java: 17.0.19
+- Spring Boot: 4.1.1
+- Build: Gradle
+- DB: Oracle Database 11g
+- Oracle Version: 11.2.0.1.0 (64-bit)
+- 연수원 교육환경과 동일한 DB 환경으로 통일
+
+### ■ GitHub
+
+- BinGo Map 대표 아이콘 변경 완료
+- GitHub Organization 생성 완료
+- 팀 프로젝트 Repository 생성 완료
+
+### ■ Spring Boot 프로젝트 환경 구축
+
+- Spring Boot 프로젝트 생성 및 기본 구조 설정 완료
+- Java 17 개발환경 설정 완료
+- Gradle 기반 프로젝트 구성 완료
+- Oracle JDBC 드라이버 설정 완료
+- `application.yml`에 Oracle DB 연결 정보 설정 완료
+- Spring Data JPA 기본 설정 완료
+- Spring Boot 실행 및 Oracle Database 연결 확인 완료
+- HikariCP 정상 작동 확인
+- Hibernate 정상 초기화 확인
+- Oracle Database 연결 정상 확인
+- 서버 8080 포트 정상 실행 확인
+
+### ■ 메인페이지 구현
+
+- BinGo Map 메인페이지 HTML/CSS 구현 완료
+- `src/main/resources/static/index.html` 구성
+- 메인페이지 디자인 및 레이아웃 구현 완료
+- Header / Hero 영역 구현
+- 주요 기능 영역 구현
+- 인기 테이크아웃 맛집 영역 구현
+- 이용 방법 영역 구현
+- Footer 구현
+- 메인페이지 이미지 리소스 구성 완료
+- `http://localhost:8080/` 접속 및 정상 출력 확인
+
+### ■ 지도 페이지 구현
+
+- 지도 페이지 기본 구조 구현
+- `src/main/resources/static/map/map.html` 생성
+- `src/main/resources/static/map/map.css` 생성
+- 메인페이지의 지도 메뉴와 지도 페이지 연결 준비
+- 오사카 도톤보리 지역을 지도 중심 지역으로 설정
+- 지도 중심 좌표 설정
+  - Latitude: `34.6687`
+  - Longitude: `135.5013`
+- Leaflet 기반 지도 구현
+- OpenStreetMap 지도 타일 연동
+- 지도 확대/축소 기능 구현
+- 현재 위치 버튼 구현
+- 좌측 검색 및 필터 UI 구현
+- 쓰레기통 목록 UI 구현
+- 지도 마커 및 마커 팝업 UI 구현
+
+### ■ 지도 URL 및 Controller
+
+- `/map` 경로로 지도 페이지에 접근하는 방식으로 변경
+- `MapController`를 통해 `/map` 요청 처리 예정
+- `/map` → `map/map.html` 연결 구조로 구성
+- `map.html`을 직접 입력하지 않고 `http://localhost:8080/map`으로 접근하는 구조로 변경
+
+### ■ OpenStreetMap / 쓰레기통 데이터 조사
+
+- 일본 정부 공공데이터 API가 아닌 **OpenStreetMap 데이터 기반 방식**으로 결정
+- OpenStreetMap의 **Overpass API**를 이용해 쓰레기통 위치 데이터 조회 예정
+- Overpass API Endpoint 확인
+- `amenity=waste_basket` 태그를 여행자용 쓰레기통 데이터의 핵심 조건으로 선정
+- `amenity=recycling`은 재활용 시설 데이터이므로 별도 분류 대상으로 검토
+- Overpass Turbo를 이용하여 실제 OSM 쓰레기통 데이터가 존재하는지 확인하는 방식 검토 완료
+
+### ■ 지도 데이터 처리 방향
 
 최종적으로 다음 구조로 개발하기로 결정:
 
-
-
 ```text
-
 OpenStreetMap
-
-&#x20;     ↓
-
+     ↓
 Overpass API
-
-&#x20;     ↓
-
+     ↓
 Spring Boot
-
-&#x20;     ↓
-
+     ↓
 /api/bins
-
-&#x20;     ↓
-
+     ↓
 map.html
-
-&#x20;     ↓
-
+     ↓
 지도 위 실제 쓰레기통 마커
-
 ```
 
+- 지도 이미지를 직접 만들어서 사용하는 방식이 아니라 **실제 지도 데이터를 받아서 표시하는 방식**으로 결정
+- 지도 배경은 OpenStreetMap을 사용
+- 쓰레기통 위치는 Overpass API에서 실제 좌표 데이터를 받아 마커로 표시
+- 지도 UI는 BinGo Map에서 직접 HTML/CSS로 구현
+- 오사카 도톤보리 주변을 우선 테스트 지역으로 설정
 
-
-\* 지도 이미지를 직접 만들어서 사용하는 방식이 아니라 \*\*실제 지도 데이터를 받아서 표시하는 방식\*\*으로 결정
-
-\* 지도 배경은 OpenStreetMap을 사용
-
-\* 쓰레기통 위치는 Overpass API에서 실제 좌표 데이터를 받아 마커로 표시
-
-\* 지도 UI는 BinGo Map에서 직접 HTML/CSS로 구현
-
-\* 오사카 도톤보리 주변을 우선 테스트 지역으로 설정
-
-
-
-\### ■ 현재 프로젝트 구조
-
-
+### ■ 현재 프로젝트 구조
 
 ```text
-
 src
-
 └── main
-
-&#x20;   ├── java
-
-&#x20;   │   └── com.bingomap.bingo\_map
-
-&#x20;   │       └── BingoMapApplication.java
-
-&#x20;   │
-
-&#x20;   └── resources
-
-&#x20;       ├── static
-
-&#x20;       │   ├── css
-
-&#x20;       │   │   └── main.css
-
-&#x20;       │   │
-
-&#x20;       │   ├── images
-
-&#x20;       │   │   ├── feature-community.png
-
-&#x20;       │   │   ├── feature-food.png
-
-&#x20;       │   │   ├── feature-map.png
-
-&#x20;       │   │   ├── feature-route.png
-
-&#x20;       │   │   ├── food-karaage.png
-
-&#x20;       │   │   ├── food-okonomiyaki.png
-
-&#x20;       │   │   ├── food-taiyaki.png
-
-&#x20;       │   │   ├── food-takoyaki.png
-
-&#x20;       │   │   ├── food-yakisoba.png
-
-&#x20;       │   │   └── hero-right.png
-
-&#x20;       │   │
-
-&#x20;       │   ├── map
-
-&#x20;       │   │   ├── map.html
-
-&#x20;       │   │   └── map.css
-
-&#x20;       │   │
-
-&#x20;       │   └── index.html
-
-&#x20;       │
-
-&#x20;       └── application.yml
-
+    ├── java
+    │   └── com.bingomap.bingo_map
+    │       └── BingoMapApplication.java
+    │
+    └── resources
+        ├── static
+        │   ├── css
+        │   │   └── main.css
+        │   │
+        │   ├── images
+        │   │   ├── feature-community.png
+        │   │   ├── feature-food.png
+        │   │   ├── feature-map.png
+        │   │   ├── feature-route.png
+        │   │   ├── food-karaage.png
+        │   │   ├── food-okonomiyaki.png
+        │   │   ├── food-taiyaki.png
+        │   │   ├── food-takoyaki.png
+        │   │   ├── food-yakisoba.png
+        │   │   └── hero-right.png
+        │   │
+        │   ├── map
+        │   │   ├── map.html
+        │   │   └── map.css
+        │   │
+        │   └── index.html
+        │
+        └── application.yml
 ```
 
+### ■ 다음 개발 예정
 
-
-\### ■ 다음 개발 예정
-
-
-
-\* `/map` Controller 구현 및 정상 연결 확인
-
-\* `/api/bins` API 구현
-
-\* Overpass API 연동
-
-\* 오사카 도톤보리 주변 `amenity=waste\_basket` 실제 데이터 조회
-
-\* 조회한 쓰레기통 좌표를 JSON으로 반환
-
-\* `map.html`에서 `/api/bins` 호출
-
-\* 실제 쓰레기통 위치를 지도 위 마커로 표시
-
-\* 마커 클릭 시 쓰레기통 정보 표시
-
-\* 검색/필터 기능과 실제 데이터 연결
-
-\* 지도 UI를 참고 이미지처럼 단순하고 깔끔한 형태로 조정
-
-\* 메인페이지 → `/map` 이동 정상 작동 확인
-
-\* 이후 Oracle DB 저장 구조 및 JPA 연동 검토
-
-
-
-\### ■ 현재 핵심 목표
-
-
-
-\*\*오사카 도톤보리의 실제 지도 위에 Overpass API에서 받아온 실제 쓰레기통 위치 데이터를 BinGo Map 자체 UI로 표시하는 것.\*\*
-
-
-
+- `/map` Controller 구현 및 정상 연결 확인
+- `/api/bins` API 구현
+- Overpass API 연동
+- 오사카 도톤보리 주변 `amenity=waste_basket` 실제 데이터 조회
+- 조회한 쓰레기통 좌표를 JSON으로 반환
+- `map.html`에서 `/api/bins` 호출
+- 실제 쓰레기통 위치를 지도 위 마커로 표시
+- 마커 클릭 시 쓰레기통 정보 표시
+-

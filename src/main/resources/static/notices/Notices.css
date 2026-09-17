@@ -1,0 +1,7 @@
+.notice-list{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:10px;}
+.notice-item{background:#fff;border:1px solid #ececec;border-radius:12px;overflow:hidden;}
+.notice-item-head{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;cursor:pointer;}
+.notice-item-title{font-size:14px;font-weight:800;}
+.notice-item-date{font-size:12px;color:#999;}
+.notice-item-body{display:none;padding:0 20px 18px;font-size:13px;color:#555;white-space:pre-wrap;line-height:1.6;border-top:1px solid #f2f2f2;}
+.notice-item.open .notice-item-body{display:block;padding-top:14px;}
