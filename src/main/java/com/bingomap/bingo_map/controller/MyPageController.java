@@ -2,6 +2,8 @@ package com.bingomap.bingo_map.controller;
 
 import com.bingomap.bingo_map.dto.MyPageResponseDto;
 import com.bingomap.bingo_map.dto.MyPageUpdateRequestDto;
+import com.bingomap.bingo_map.dto.UserSettingsResponseDto;
+import com.bingomap.bingo_map.dto.UserSettingsUpdateDto;
 import com.bingomap.bingo_map.entity.User;
 import com.bingomap.bingo_map.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -84,6 +86,33 @@ public class MyPageController {
         }
 
         return ResponseEntity.ok(toDto(user));
+    }
+
+    // 설정(알림/위치정보) 조회
+    @GetMapping("/api/mypage/settings")
+    @ResponseBody
+    public ResponseEntity<?> getSettings(HttpServletRequest request) {
+        User user = currentUser(request);
+        if (user == null) {
+            return ResponseEntity.status(401).body(Map.of("message", "로그인이 필요합니다."));
+        }
+        return ResponseEntity.ok(new UserSettingsResponseDto(user.isNotifyEmail(), user.isLocationEnabled()));
+    }
+
+    // 설정(알림/위치정보) 저장
+    @PutMapping("/api/mypage/settings")
+    @ResponseBody
+    public ResponseEntity<?> updateSettings(@RequestBody UserSettingsUpdateDto dto, HttpServletRequest request) {
+        User user = currentUser(request);
+        if (user == null) {
+            return ResponseEntity.status(401).body(Map.of("message", "로그인이 필요합니다."));
+        }
+
+        user.setNotifyEmail(dto.isNotifyEmail() ? "Y" : "N");
+        user.setLocationEnabled(dto.isLocationEnabled() ? "Y" : "N");
+        userRepository.save(user);
+
+        return ResponseEntity.ok(new UserSettingsResponseDto(user.isNotifyEmail(), user.isLocationEnabled()));
     }
 
     private User currentUser(HttpServletRequest request) {

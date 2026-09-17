@@ -41,3 +41,18 @@
 .mypage-empty{font-size:13px;color:#999;text-align:center;padding:26px 6px;}
 
 @media(max-width:800px){.mypage-layout{grid-template-columns:1fr;}.mypage-sidebar{display:none;}.mypage-stats{grid-template-columns:repeat(2,1fr);}.mypage-recent{grid-template-columns:1fr;}.mypage-profile{flex-wrap:wrap;}.mypage-edit-btn{margin-left:0;}}
+
+.settings-row{display:flex;align-items:center;justify-content:space-between;gap:16px;}
+.settings-row-text b{display:block;font-size:14px;margin-bottom:4px;}
+.settings-row-text span{font-size:12px;color:#888;}
+
+.settings-switch{position:relative;display:inline-block;width:44px;height:26px;flex-shrink:0;}
+.settings-switch input{opacity:0;width:0;height:0;}
+.settings-switch-track{position:absolute;cursor:pointer;inset:0;background:#ddd;border-radius:26px;transition:.2s;}
+.settings-switch-track:before{content:"";position:absolute;height:20px;width:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;}
+.settings-switch input:checked + .settings-switch-track{background:#20a53b;}
+.settings-switch input:checked + .settings-switch-track:before{transform:translateX(18px);}
+
+.settings-save-message{font-size:13px;font-weight:700;margin:8px 0 0;min-height:16px;}
+.settings-save-message.error{color:#e0392b;}
+.settings-save-message.success{color:#159b35;}

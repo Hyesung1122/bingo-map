@@ -41,6 +41,9 @@ document.addEventListener("DOMContentLoaded", function () {
         tabSections.forEach((section) => {
             section.hidden = section.id !== "tab-" + tabName;
         });
+        if (tabName === "settings") {
+            loadSettings();
+        }
     }
 
     navLinks.forEach((link) => {
@@ -119,4 +122,88 @@ document.addEventListener("DOMContentLoaded", function () {
                 errorEl.textContent = "수정 중 오류가 발생했습니다. 다시 시도해주세요.";
             });
     });
+
+    // 4) 설정 탭: 다크모드 / 알림 / 위치정보
+    const darkModeToggle = document.getElementById("setting-dark-mode");
+    const notifyToggle = document.getElementById("setting-notify-email");
+    const locationToggle = document.getElementById("setting-location");
+    const locationCheckPanel = document.getElementById("location-check-panel");
+    const locationResult = document.getElementById("location-result");
+    const saveMessageEl = document.getElementById("settings-save-message");
+
+    let settingsLoaded = false;
+
+    function showSaveMessage(text, isError) {
+        saveMessageEl.textContent = text;
+        saveMessageEl.className = "settings-save-message " + (isError ? "error" : "success");
+    }
+
+    // 다크모드는 서버 저장 없이 즉시 적용 + localStorage에 기억
+    darkModeToggle.addEventListener("change", function () {
+        const isDark = darkModeToggle.checked;
+        document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+        localStorage.setItem("bingomap-theme", isDark ? "dark" : "light");
+    });
+
+    // 알림/위치 설정은 서버에 저장
+    function saveServerSettings() {
+        fetch("/api/mypage/settings", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                notifyEmail: notifyToggle.checked,
+                locationEnabled: locationToggle.checked,
+            }),
+        })
+            .then(async (res) => {
+                const data = await res.json();
+                if (!res.ok) {
+                    showSaveMessage(data.message || "저장에 실패했습니다.", true);
+                    return;
+                }
+                showSaveMessage("설정이 저장되었습니다.", false);
+            })
+            .catch(() => showSaveMessage("저장 중 오류가 발생했습니다.", true));
+    }
+
+    notifyToggle.addEventListener("change", saveServerSettings);
+    locationToggle.addEventListener("change", function () {
+        locationCheckPanel.hidden = !locationToggle.checked;
+        locationResult.textContent = "";
+        saveServerSettings();
+    });
+
+    document.getElementById("location-check-btn").addEventListener("click", function () {
+        if (!navigator.geolocation) {
+            locationResult.textContent = "이 브라우저는 위치 정보 기능을 지원하지 않습니다.";
+            return;
+        }
+        locationResult.textContent = "위치 확인 중...";
+        navigator.geolocation.getCurrentPosition(
+            function (pos) {
+                locationResult.textContent =
+                    "현재 위치: 위도 " + pos.coords.latitude.toFixed(5) +
+                    ", 경도 " + pos.coords.longitude.toFixed(5);
+            },
+            function () {
+                locationResult.textContent = "위치 권한이 거부되었거나 확인할 수 없습니다.";
+            }
+        );
+    });
+
+    function loadSettings() {
+        // 다크모드는 localStorage 기준으로 스위치 상태만 맞춰줌
+        darkModeToggle.checked = localStorage.getItem("bingomap-theme") === "dark";
+
+        if (settingsLoaded) return; // 알림/위치는 서버에서 한 번만 불러오면 충분
+        fetch("/api/mypage/settings")
+            .then((res) => res.json())
+            .then((data) => {
+                notifyToggle.checked = data.notifyEmail;
+                locationToggle.checked = data.locationEnabled;
+                locationCheckPanel.hidden = !data.locationEnabled;
+                settingsLoaded = true;
+            })
+            .catch(() => showSaveMessage("설정을 불러오지 못했습니다.", true));
+    }
 });

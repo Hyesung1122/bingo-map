@@ -167,9 +167,50 @@
 
             <section id="tab-settings" class="mypage-tab-content" hidden>
                 <h2>설정</h2>
-                <div class="mypage-panel">
-                    <p class="mypage-empty">설정 기능은 준비 중입니다.</p>
+
+                <div class="mypage-panel settings-row">
+                    <div class="settings-row-text">
+                        <b>다크모드</b>
+                        <span>화면을 어두운 톤으로 바꿔서 표시합니다</span>
+                    </div>
+                    <label class="settings-switch">
+                        <input type="checkbox" id="setting-dark-mode">
+                        <span class="settings-switch-track"></span>
+                    </label>
                 </div>
+
+                <div class="mypage-panel settings-row">
+                    <div class="settings-row-text">
+                        <b>알림 설정</b>
+                        <span>이메일로 알림 받기 (실제 발송 기능은 추후 연동 예정)</span>
+                    </div>
+                    <label class="settings-switch">
+                        <input type="checkbox" id="setting-notify-email">
+                        <span class="settings-switch-track"></span>
+                    </label>
+                </div>
+
+                <div class="mypage-panel settings-row">
+                    <div class="settings-row-text">
+                        <b>위치 정보 사용</b>
+                        <span>지도에서 내 위치 기반 서비스를 사용합니다</span>
+                    </div>
+                    <label class="settings-switch">
+                        <input type="checkbox" id="setting-location">
+                        <span class="settings-switch-track"></span>
+                    </label>
+                </div>
+
+                <div class="mypage-panel" id="location-check-panel" hidden>
+                    <div class="settings-row-text" style="margin-bottom:10px;">
+                        <b>현재 위치 확인</b>
+                        <span>브라우저 위치 권한을 허용하면 아래에 좌표가 표시됩니다</span>
+                    </div>
+                    <button type="button" id="location-check-btn" class="mypage-edit-btn">현재 위치 확인하기</button>
+                    <p class="mypage-sub-info" id="location-result" style="margin-top:10px;"></p>
+                </div>
+
+                <p class="settings-save-message" id="settings-save-message"></p>
             </section>
 
         </div>

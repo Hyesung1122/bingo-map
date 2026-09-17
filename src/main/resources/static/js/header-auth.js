@@ -1,4 +1,14 @@
 /**
+ * 다크모드는 화면이 다 그려지기 전에 최대한 빨리 적용해서 밝은 화면이 잠깐 보였다가
+ * 어두워지는 깜빡임을 막는다. localStorage에 저장된 값을 읽어 <html>에 표시한다.
+ */
+(function () {
+    if (localStorage.getItem("bingomap-theme") === "dark") {
+        document.documentElement.setAttribute("data-theme", "dark");
+    }
+})();
+
+/**
  * 페이지 로드 시 /api/session을 호출해서 로그인 상태를 확인하고,
  * 로그인 상태면 헤더의 "로그인" 버튼을 "{이름}님" + "로그아웃"으로 바꿔준다.
  * 모든 페이지 <body> 하단에 <script src="/js/header-auth.js"></script> 를 넣어서 사용한다.
