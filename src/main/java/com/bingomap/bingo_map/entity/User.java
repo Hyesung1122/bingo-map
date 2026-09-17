@@ -8,12 +8,11 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * TB_USER 테이블과 매핑되는 Entity
- * - Oracle 11g는 IDENTITY 컬럼을 지원하지 않아 시퀀스(SEQ_TB_USER) 방식을 사용한다.
- *   (실제 테이블/시퀀스는 resources/sql/tb_user_ddl.sql 참고, ddl-auto: none 이라 직접 실행 필요)
+ * users 테이블과 매핑되는 Entity
+ * - 실제 DDL: BinGoMap_ORACLE_query_태건.txt (테이블명 users, 시퀀스 users_seq)
  */
 @Entity
-@Table(name = "TB_USER")
+@Table(name = "users")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -21,12 +20,15 @@ public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "seq_user")
-    @SequenceGenerator(name = "seq_user", sequenceName = "SEQ_TB_USER", allocationSize = 1)
-    @Column(name = "USER_ID")
+    @SequenceGenerator(name = "seq_user", sequenceName = "users_seq", allocationSize = 1)
+    @Column(name = "id")
     private Long userId;
 
     @Column(name = "NAME", nullable = false, length = 50)
     private String name;
+
+    @Column(name = "NICKNAME", nullable = false, unique = true, length = 30)
+    private String nickname;
 
     @Column(name = "EMAIL", nullable = false, unique = true, length = 100)
     private String email;
@@ -42,6 +44,17 @@ public class User {
     @Column(name = "SNS_TYPE", length = 20)
     private String snsType;
 
+    // USER(일반회원) / ADMIN(관리자)
+    @Column(name = "ROLE", length = 10)
+    private String role;
+
+    // 비밀번호 재설정 시 본인확인용 질문/답변(답변은 해시로 저장)
+    @Column(name = "SECURITY_QUESTION", length = 100)
+    private String securityQuestion;
+
+    @Column(name = "SECURITY_ANSWER", length = 255)
+    private String securityAnswer;
+
     @Column(name = "CREATED_AT", updatable = false)
     private LocalDateTime createdAt;
 
@@ -51,10 +64,14 @@ public class User {
         if (this.snsType == null) {
             this.snsType = "NONE";
         }
+        if (this.role == null) {
+            this.role = "USER";
+        }
     }
 
-    public User(String name, String email, String password, String nationality, String snsType) {
+    public User(String name, String nickname, String email, String password, String nationality, String snsType) {
         this.name = name;
+        this.nickname = nickname;
         this.email = email;
         this.password = password;
         this.nationality = nationality;

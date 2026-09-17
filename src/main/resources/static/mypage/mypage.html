@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>마이페이지 | BinGo Map</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/mypage/mypage.css">
+</head>
+<body>
+<header class="header">
+    <div class="header-inner">
+        <a class="logo" href="/">
+            <span class="logo-mark">♜</span>
+            <span>
+          <strong>BinGo Map</strong>
+          <small>Clean &amp; Gourmet</small>
+        </span>
+        </a>
+
+        <nav class="nav">
+            <a href="/">홈</a>
+            <a href="/map">지도</a>
+            <a href="/restaurants">주변 맛집</a>
+            <a href="/favorites">즐겨찾기</a>
+            <a href="/reviews">리뷰</a>
+            <a href="/notices">공지사항</a>
+        </nav>
+
+        <div class="header-actions">
+            <button class="language">🇰🇷 한국어 <span>⌄</span></button>
+            <a class="login" href="/login">로그인</a>
+        </div>
+    </div>
+</header>
+
+<main>
+    <div class="mypage-layout">
+        <aside class="mypage-sidebar">
+            <h3>마이페이지</h3>
+            <nav class="mypage-nav">
+                <a href="#" class="active" data-tab="profile">회원 정보</a>
+                <a href="#" data-tab="reviews">내가 쓴 리뷰</a>
+                <a href="#" data-tab="reports">작성한 제보</a>
+                <a href="#" data-tab="favorites">즐겨찾기 관리</a>
+                <a href="#" data-tab="notifications">알림</a>
+                <a href="#" data-tab="settings">설정</a>
+            </nav>
+        </aside>
+
+        <div class="mypage-main">
+
+            <section id="tab-profile" class="mypage-tab-content">
+                <h2>회원 정보</h2>
+
+                <div class="mypage-profile">
+                    <div class="mypage-avatar" id="mypage-avatar">U</div>
+
+                    <div class="mypage-profile-body">
+                        <div class="mypage-name-row">
+                            <p class="mypage-name" id="mypage-name">불러오는 중...</p>
+                            <span class="mypage-badge" id="mypage-badge">일반회원</span>
+                        </div>
+                        <div class="mypage-sub-info">
+                            <span>닉네임 <b id="mypage-nickname">-</b></span>
+                            <span id="mypage-email"></span>
+                            <span>국적 <b id="mypage-nationality">-</b></span>
+                            <span>가입일 <b id="mypage-joined">-</b></span>
+                        </div>
+                    </div>
+
+                    <button type="button" class="mypage-edit-btn" id="mypage-edit-btn">정보 수정</button>
+                </div>
+
+                <div id="mypage-edit-panel" class="mypage-edit-panel" hidden>
+                    <h3>정보 수정</h3>
+
+                    <div class="mypage-edit-row">
+                        <label for="edit-name">이름</label>
+                        <input type="text" id="edit-name">
+                    </div>
+                    <div class="mypage-edit-row">
+                        <label for="edit-nickname">닉네임</label>
+                        <input type="text" id="edit-nickname">
+                    </div>
+                    <div class="mypage-edit-row">
+                        <label for="edit-nationality">국적</label>
+                        <select id="edit-nationality">
+                            <option value="대한민국">대한민국</option>
+                            <option value="미국">미국</option>
+                            <option value="일본">일본</option>
+                        </select>
+                    </div>
+
+                    <p class="mypage-edit-error" id="mypage-edit-error"></p>
+
+                    <div class="mypage-edit-actions">
+                        <button type="button" class="mypage-edit-btn mypage-save-btn" id="mypage-save-btn">저장</button>
+                        <button type="button" class="mypage-edit-btn" id="mypage-cancel-btn">취소</button>
+                    </div>
+                </div>
+
+                <div class="mypage-stats">
+                    <div class="mypage-stat-card">
+                        <span class="num">0</span>
+                        <span class="label">작성한 리뷰</span>
+                    </div>
+                    <div class="mypage-stat-card">
+                        <span class="num">0</span>
+                        <span class="label">작성한 제보</span>
+                    </div>
+                    <div class="mypage-stat-card">
+                        <span class="num">0</span>
+                        <span class="label">즐겨찾기</span>
+                    </div>
+                    <div class="mypage-stat-card">
+                        <span class="num">0</span>
+                        <span class="label">받은 좋아요</span>
+                    </div>
+                </div>
+
+                <div class="mypage-recent">
+                    <div class="mypage-panel">
+                        <div class="mypage-panel-head">
+                            <b>최근 작성한 리뷰</b>
+                            <a href="#" data-tab-link="reviews">더보기</a>
+                        </div>
+                        <p class="mypage-empty">아직 작성한 리뷰가 없습니다.<br>리뷰 기능은 곧 연동될 예정이에요.</p>
+                    </div>
+                    <div class="mypage-panel">
+                        <div class="mypage-panel-head">
+                            <b>최근 제보 내역</b>
+                            <a href="#" data-tab-link="reports">더보기</a>
+                        </div>
+                        <p class="mypage-empty">아직 제보한 내역이 없습니다.<br>제보 기능은 곧 연동될 예정이에요.</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="tab-reviews" class="mypage-tab-content" hidden>
+                <h2>내가 쓴 리뷰</h2>
+                <div class="mypage-panel">
+                    <p class="mypage-empty">아직 작성한 리뷰가 없습니다.<br>리뷰 기능은 곧 연동될 예정이에요.</p>
+                </div>
+            </section>
+
+            <section id="tab-reports" class="mypage-tab-content" hidden>
+                <h2>작성한 제보</h2>
+                <div class="mypage-panel">
+                    <p class="mypage-empty">아직 제보한 내역이 없습니다.<br>제보 기능은 곧 연동될 예정이에요.</p>
+                </div>
+            </section>
+
+            <section id="tab-favorites" class="mypage-tab-content" hidden>
+                <h2>즐겨찾기 관리</h2>
+                <div class="mypage-panel">
+                    <p class="mypage-empty">아직 즐겨찾기한 항목이 없습니다.<br>즐겨찾기 기능은 곧 연동될 예정이에요.</p>
+                </div>
+            </section>
+
+            <section id="tab-notifications" class="mypage-tab-content" hidden>
+                <h2>알림</h2>
+                <div class="mypage-panel">
+                    <p class="mypage-empty">아직 받은 알림이 없습니다.</p>
+                </div>
+            </section>
+
+            <section id="tab-settings" class="mypage-tab-content" hidden>
+                <h2>설정</h2>
+                <div class="mypage-panel">
+                    <p class="mypage-empty">설정 기능은 준비 중입니다.</p>
+                </div>
+            </section>
+
+        </div>
+    </div>
+</main>
+
+<footer class="footer">
+    <div class="footer-inner">
+        <div class="footer-brand">
+            <span class="logo-mark">♜</span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
+        </div>
+        <p>BinGo Map은 깨끗한 일본 여행 문화를 응원합니다.<br>모두가 함께 만들어가는 깨끗하고 즐거운 여행 플랫폼!</p>
+        <div class="footer-links">
+            <div>◎　♥　f</div>
+            <small>이용약관　　개인정보처리방침　　문의하기</small>
+            <small>© 2025 BinGo Map. All rights reserved.</small>
+        </div>
+        <a class="top-btn" href="#">↑<small>TOP</small></a>
+    </div>
+</footer>
+<script src="/mypage/mypage.js"></script>
+<script src="/js/header-auth.js"></script>
+</body>
+</html>
