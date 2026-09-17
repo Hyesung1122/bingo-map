@@ -14,19 +14,18 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 
 /**
- * Overpass API에서 쓰레기통 데이터를 가져와 오라클 WASTE_BIN 테이블에 1회 적재하는 도구.
+ * Overpass API에서 "오사카시 전체" 쓰레기통 데이터를 가져와 WASTE_BIN 테이블에 적재.
  *
- * 사용법: IntelliJ에서 이 파일 열고 main() 옆 ▶ 버튼 눌러서 실행.
- * Spring 서버를 켤 필요 없음. OSM_ID가 UNIQUE라서 여러 번 실행해도 중복 저장 안 됨.
+ * 도톤보리 버전과 차이점:
+ * - 좌표 박스(BBOX) 대신 행정구역 이름(area["name"="大阪市"])으로 지정 → 경계가 정확함
+ * - 도시 단위라 응답이 커질 수 있어 Overpass timeout(90초)과 자바 read timeout(130초)을 늘림
+ * - 데이터가 많아질 걸 대비해 배치(batch) INSERT로 변경
  *
- * 도시를 늘릴 때: 아래 CITY, BBOX 값만 바꿔서 다시 실행하면 됨 (기존 데이터는 그대로 유지).
- * 분류 규칙은 WasteBinService와 동일하게 맞춰둠 (recycling:cans / recycling:glass_bottles 기준).
- *
- * 실행 전에 sql/05_create_waste_bin_if_missing.sql을 먼저 실행해서 테이블을 만들어야 함.
+ * 실행 방법은 기존과 동일: IntelliJ에서 main() 옆 ▶ 실행.
+ * OSM_ID가 UNIQUE라서, 도톤보리 때 넣은 7건은 자동으로 건너뛰고 나머지만 새로 들어감.
  */
 public class WasteBinDbLoader {
 
-    // application.yaml과 동일한 접속 정보
     private static final String DB_URL = "jdbc:oracle:thin:@//localhost:1521/orcl";
     private static final String DB_USER = "scott";
     private static final String DB_PASSWORD = "tiger";
@@ -37,21 +36,23 @@ public class WasteBinDbLoader {
             "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
     };
 
-    // 도톤보리 및 인근 (WasteBinService와 동일한 범위)
-    private static final String BBOX = "34.655,135.485,34.685,135.520";
+    // 행정구역 이름으로 오사카시 전체 지정. 다른 시로 넓힐 땐 이 이름만 바꾸면 됨.
+    private static final String AREA_NAME = "大阪市";
     private static final String CITY = "osaka";
 
     public static void main(String[] args) throws Exception {
 
         String query = """
-                [out:json][timeout:25];
+                [out:json][timeout:90];
+                area["name"="%s"]["boundary"="administrative"]["admin_level"="7"]->.searchArea;
                 (
-                  node["amenity"="waste_basket"](%s);
-                  node["amenity"="recycling"](%s);
+                  node["amenity"="waste_basket"](area.searchArea);
+                  node["amenity"="recycling"](area.searchArea);
                 );
                 out body;
-                """.formatted(BBOX, BBOX);
+                """.formatted(AREA_NAME);
 
+        System.out.println(AREA_NAME + " 데이터 요청 중... (도시 단위라 몇십 초 걸릴 수 있어요)");
         String response = callOverpassWithFallback(query);
         if (response == null) {
             System.out.println("모든 Overpass 서버 응답 실패. 잠시 후 다시 시도해주세요.");
@@ -63,14 +64,17 @@ public class WasteBinDbLoader {
         JsonNode elements = root.get("elements");
 
         if (elements == null || !elements.isArray() || elements.isEmpty()) {
-            System.out.println("Overpass 응답에 데이터가 없습니다.");
+            System.out.println("Overpass 응답에 데이터가 없습니다. AREA_NAME 철자를 확인해보세요.");
             return;
         }
+
+        System.out.println("Overpass 응답 받음: " + elements.size() + "건. DB 적재 시작...");
 
         int inserted = 0;
         int skipped = 0;
 
         try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+            conn.setAutoCommit(false);
 
             String insertSql = """
                     INSERT INTO WASTE_BIN (BIN_ID, OSM_ID, NAME, CATEGORY, ADDRESS, LATITUDE, LONGITUDE, CITY)
@@ -83,6 +87,7 @@ public class WasteBinDbLoader {
 
             try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
 
+                int batchCount = 0;
                 for (JsonNode el : elements) {
                     long osmId = el.get("id").asLong();
                     double lat = el.get("lat").asDouble();
@@ -107,25 +112,37 @@ public class WasteBinDbLoader {
                     ps.setDouble(6, lon);
                     ps.setString(7, CITY);
                     ps.setLong(8, osmId);
+                    ps.addBatch();
+                    batchCount++;
 
-                    int rows = ps.executeUpdate();
-                    if (rows > 0) {
-                        inserted++;
-                    } else {
-                        skipped++; // 이미 있어서 건너뜀
+                    // 500건마다 한 번씩 배치 실행 (한 번에 너무 몰아서 처리하지 않도록)
+                    if (batchCount % 500 == 0) {
+                        int[] results = ps.executeBatch();
+                        for (int r : results) {
+                            if (r > 0 || r == java.sql.Statement.SUCCESS_NO_INFO) inserted++;
+                            else skipped++;
+                        }
+                        conn.commit();
+                        System.out.println("  ... " + batchCount + "건 처리 중");
                     }
                 }
+                int[] results = ps.executeBatch();
+                for (int r : results) {
+                    if (r > 0 || r == java.sql.Statement.SUCCESS_NO_INFO) inserted++;
+                    else skipped++;
+                }
+                conn.commit();
             }
         }
 
-        System.out.println("완료! 새로 저장: " + inserted + "건, 이미 있어서 건너뜀: " + skipped + "건");
+        System.out.println("완료! 새로 저장 시도: " + inserted + "건, 이미 있어서 건너뜀: " + skipped + "건");
+        System.out.println("(정확한 최종 건수는 DB에서 SELECT COUNT(*) FROM WASTE_BIN; 으로 확인하세요)");
     }
 
     /**
      * amenity=waste_basket        → general (일반쓰레기)
      * amenity=recycling + 캔/유리  → can (캔/병)
      * amenity=recycling (그 외)   → recycle (재활용)
-     * WasteBinService.classifyCategory와 동일한 규칙.
      */
     private static String classifyCategory(String amenity, JsonNode tags) {
         if (!"recycling".equals(amenity)) {
@@ -186,7 +203,7 @@ public class WasteBinDbLoader {
         conn.setRequestMethod("POST");
         conn.setDoOutput(true);
         conn.setConnectTimeout(10_000);
-        conn.setReadTimeout(30_000);
+        conn.setReadTimeout(130_000); // Overpass timeout(90s)보다 넉넉하게
 
         try (OutputStream os = conn.getOutputStream()) {
             os.write(body.getBytes(StandardCharsets.UTF_8));
