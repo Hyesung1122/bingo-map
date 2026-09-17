@@ -44,7 +44,12 @@
             <form action="/signup" method="post">
                 <div class="auth-field">
                     <span class="icon-left">👤</span>
-                    <input type="text" name="name" placeholder="이름(닉네임)을 입력하세요" required>
+                    <input type="text" name="name" placeholder="이름을 입력하세요" required>
+                </div>
+
+                <div class="auth-field">
+                    <span class="icon-left">😊</span>
+                    <input type="text" name="nickname" placeholder="닉네임을 입력하세요 (2~12자)" required>
                 </div>
 
                 <div class="auth-field">
@@ -64,6 +69,23 @@
                     <button type="button" class="icon-right" aria-label="비밀번호 표시">👁</button>
                 </div>
 
+                <div class="auth-field">
+                    <span class="icon-left">❓</span>
+                    <select name="securityQuestion" required>
+                        <option value="" disabled selected>비밀번호 재설정용 질문을 선택하세요</option>
+                        <option value="처음으로 키웠던 반려동물의 이름은?">처음으로 키웠던 반려동물의 이름은?</option>
+                        <option value="어머니의 성함은?">어머니의 성함은?</option>
+                        <option value="아버지의 성함은?">아버지의 성함은?</option>
+                        <option value="졸업한 초등학교 이름은?">졸업한 초등학교 이름은?</option>
+                        <option value="가장 좋아하는 음식은?">가장 좋아하는 음식은?</option>
+                    </select>
+                </div>
+
+                <div class="auth-field">
+                    <span class="icon-left">💬</span>
+                    <input type="text" name="securityAnswer" placeholder="질문에 대한 답변을 입력하세요" required>
+                </div>
+
                 <label class="auth-terms">
                     <input type="checkbox" name="agreeTerms" required>
                     <span>이용약관 및 개인정보처리방침에 동의합니다</span>
@@ -71,14 +93,6 @@
 
                 <button type="submit" class="auth-submit">회원가입</button>
             </form>
-
-            <div class="auth-divider">또는</div>
-
-            <div class="auth-social">
-                <button type="button">G 구글로 가입</button>
-                <button type="button"> 애플로 가입</button>
-                <button type="button">💬 카카오로 가입</button>
-            </div>
 
             <p class="auth-footer-link">이미 계정이 있으신가요? <a href="/login">로그인하기</a></p>
         </div>
@@ -100,5 +114,7 @@
         <a class="top-btn" href="#">↑<small>TOP</small></a>
     </div>
 </footer>
+<script src="/auth/auth.js"></script>
+<script src="/js/header-auth.js"></script>
 </body>
 </html>
