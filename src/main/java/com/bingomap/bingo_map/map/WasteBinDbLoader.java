@@ -77,12 +77,12 @@ public class WasteBinDbLoader {
             conn.setAutoCommit(false);
 
             String insertSql = """
-                    INSERT INTO WASTE_BIN (BIN_ID, OSM_ID, NAME, CATEGORY, ADDRESS, LATITUDE, LONGITUDE, CITY)
-                    SELECT SEQ_WASTE_BIN.NEXTVAL, ?, ?, ?, ?, ?, ?, ?
-                    FROM DUAL
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM WASTE_BIN WHERE OSM_ID = ?
-                    )
+                    INSERT INTO WASTE_BIN (OSM_ID, NAME, CATEGORY, ADDRESS, LATITUDE, LONGITUDE, CITY)
+                     SELECT ?, ?, ?, ?, ?, ?, ?
+                     FROM DUAL
+                     WHERE NOT EXISTS (
+                         SELECT 1 FROM WASTE_BIN WHERE OSM_ID = ?
+                     )
                     """;
 
             try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
