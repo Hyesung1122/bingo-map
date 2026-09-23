@@ -32,7 +32,7 @@ public class RestaurantDbLoaderHOME {
 
     private static final String DB_URL = "jdbc:oracle:thin:@//localhost:1521/xe";
     private static final String DB_USER = "scott";
-    private static final String DB_PASSWORD = "tiger";
+    private static final String DB_PASSWORD = "1234";
 
     private static final String[] OVERPASS_URLS = {
             "https://overpass-api.de/api/interpreter",
@@ -110,16 +110,18 @@ public class RestaurantDbLoaderHOME {
             conn.setAutoCommit(false);
 
             String insertSql = """
-                    INSERT INTO RESTAURANT (
-                        RESTAURANT_ID, OSM_ID, NAME, CATEGORY, TAGS,
-                        ADDRESS, LATITUDE, LONGITUDE, OPENING_HOURS, PHONE, WEBSITE_URL
-                    )
-                    SELECT SEQ_RESTAURANT.NEXTVAL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                    FROM DUAL
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM RESTAURANT WHERE OSM_ID = ?
-                    )
-                    """;
+        INSERT INTO RESTAURANT (
+            RESTAURANT_ID, OSM_ID, NAME, CATEGORY, TAGS,
+            ADDRESS, LATITUDE, LONGITUDE, OPENING_HOURS, PHONE, WEBSITE_URL,
+            IS_PUBLISHED, CREATED_AT, UPDATED_AT
+        )
+        SELECT SEQ_RESTAURANT.NEXTVAL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+               'N', SYSTIMESTAMP, SYSTIMESTAMP
+        FROM DUAL
+        WHERE NOT EXISTS (
+            SELECT 1 FROM RESTAURANT WHERE OSM_ID = ?
+        )
+        """;
 
             try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
 
@@ -182,10 +184,15 @@ public class RestaurantDbLoaderHOME {
     }
 
     private static String mapCategory(String cuisineRaw) {
-        if (cuisineRaw == null) return "기타";
-        // cuisine은 세미콜론으로 여러 값이 붙기도 함 (예: "coffee_shop;sandwich") → 첫 값만 사용
-        String first = cuisineRaw.split(";")[0].trim().toLowerCase();
-        return CUISINE_MAP.getOrDefault(first, cuisineRaw);
+        if (cuisineRaw == null || cuisineRaw.isBlank()) {
+            return "기타";
+        }
+
+        String first = cuisineRaw.split(";", 2)[0]
+                .trim()
+                .toLowerCase(java.util.Locale.ROOT);
+
+        return CUISINE_MAP.getOrDefault(first, "기타");
     }
 
     private static String extractAddress(JsonNode tags) {

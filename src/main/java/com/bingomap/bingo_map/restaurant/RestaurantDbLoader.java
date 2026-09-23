@@ -110,16 +110,18 @@ public class RestaurantDbLoader {
             conn.setAutoCommit(false);
 
             String insertSql = """
-                    INSERT INTO RESTAURANT (
-                        RESTAURANT_ID, OSM_ID, NAME, CATEGORY, TAGS,
-                        ADDRESS, LATITUDE, LONGITUDE, OPENING_HOURS, PHONE, WEBSITE_URL
-                    )
-                    SELECT SEQ_RESTAURANT.NEXTVAL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-                    FROM DUAL
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM RESTAURANT WHERE OSM_ID = ?
-                    )
-                    """;
+        INSERT INTO RESTAURANT (
+            RESTAURANT_ID, OSM_ID, NAME, CATEGORY, TAGS,
+            ADDRESS, LATITUDE, LONGITUDE, OPENING_HOURS, PHONE, WEBSITE_URL,
+            IS_PUBLISHED, CREATED_AT, UPDATED_AT
+        )
+        SELECT SEQ_RESTAURANT.NEXTVAL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+               'N', SYSTIMESTAMP, SYSTIMESTAMP
+        FROM DUAL
+        WHERE NOT EXISTS (
+            SELECT 1 FROM RESTAURANT WHERE OSM_ID = ?
+        )
+        """;
 
             try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
 

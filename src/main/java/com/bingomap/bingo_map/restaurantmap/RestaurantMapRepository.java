@@ -23,8 +23,9 @@ public class RestaurantMapRepository {
                PHONE, PRICE_RANGE, WEBSITE_URL, SEAT_INFO, RESERVATION_INFO,
                PAYMENT_METHODS, LANGUAGES, MAIN_IMAGE_URL,
                MENU_NAME, MENU_DESCRIPTION, MENU_PRICE, MENU_IMAGE_URL
-        FROM RESTAURANT
-        ORDER BY RESTAURANT_ID
+            FROM RESTAURANT
+            WHERE IS_PUBLISHED = 'Y'
+            ORDER BY RESTAURANT_ID
         """;
 
     public List<Place> findAll() { return jdbc.query(SQL, (rs, index) -> read(rs)); }
