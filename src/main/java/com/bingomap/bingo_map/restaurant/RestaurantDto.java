@@ -33,6 +33,7 @@ public class RestaurantDto {
     private String menuDescription;
     private String menuPrice;
     private String menuImageUrl;
+    private String region;
 
     public RestaurantDto(Restaurant restaurant) {
         this.restaurantId = restaurant.getId();
