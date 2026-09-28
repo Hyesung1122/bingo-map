@@ -1,0 +1,200 @@
+====================================================
+BinGo Map - 로컬 Oracle DB 테이블 세팅 (최종본)
+(SCOTT / TIGER 계정 기준, 팀원 전체 동일하게 진행)
+====================================================
+
+사용법
+1. SQL Developer에서 SCOTT/TIGER로 접속
+2. 새 SQL 워크시트 열기
+3. 아래 전체를 복사(Ctrl+C) -> 워크시트에 붙여넣기(Ctrl+V)
+4. F5 눌러서 전체 실행 (Ctrl+Enter 아님, 꼭 F5)
+5. 마지막 SELECT 결과에 아래 9개가 뜨면 성공
+   BONUS, DEPT, EMP, SALGRADE (원래 SCOTT 계정 기본 테이블, 무시해도 됨)
+   FAVORITES, NOTICES, RESTAURANTS, REVIEWS, USERS (우리가 만든 5개)
+
+주의: 아래 DROP 구문이 포함되어 있어서, 이미 같은 이름의 테이블이 있으면
+지우고 새로 만듭니다. 몇 번을 실행해도 항상 깨끗한 상태로 다시 만들어지니
+에러 걱정 없이 여러 번 실행하셔도 됩니다.
+
+
+----------------------------------------------------
+여기서부터 복사
+----------------------------------------------------
+
+DROP TABLE reviews CASCADE CONSTRAINTS;
+DROP TABLE favorites CASCADE CONSTRAINTS;
+DROP TABLE notices CASCADE CONSTRAINTS;
+DROP TABLE restaurants CASCADE CONSTRAINTS;
+DROP TABLE users CASCADE CONSTRAINTS;
+DROP SEQUENCE users_seq;
+DROP SEQUENCE favorites_seq;
+DROP SEQUENCE reviews_seq;
+DROP SEQUENCE restaurants_seq;
+DROP SEQUENCE notices_seq;
+
+CREATE SEQUENCE users_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE users (
+    id          NUMBER          NOT NULL,
+    email       VARCHAR2(100)   NOT NULL,
+    password    VARCHAR2(255)   NOT NULL,
+    name        VARCHAR2(50)    NOT NULL,
+    role        VARCHAR2(20)    DEFAULT 'USER' NOT NULL,
+    created_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_users PRIMARY KEY (id),
+    CONSTRAINT uq_users_email UNIQUE (email),
+    CONSTRAINT ck_users_role CHECK (role IN ('USER', 'ADMIN'))
+);
+
+CREATE OR REPLACE TRIGGER users_bi
+    BEFORE INSERT ON users
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT users_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+
+CREATE SEQUENCE restaurants_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE restaurants (
+    id          NUMBER          NOT NULL,
+    name        VARCHAR2(200)   NOT NULL,
+    category    VARCHAR2(50),
+    address     VARCHAR2(300),
+    latitude    NUMBER          NOT NULL,
+    longitude   NUMBER          NOT NULL,
+    image_url   VARCHAR2(300),
+    created_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_restaurants PRIMARY KEY (id)
+);
+
+CREATE OR REPLACE TRIGGER restaurants_bi
+    BEFORE INSERT ON restaurants
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT restaurants_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+
+CREATE SEQUENCE favorites_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE favorites (
+    id          NUMBER          NOT NULL,
+    user_id     NUMBER          NOT NULL,
+    target_type VARCHAR2(20)    NOT NULL,
+    target_id   VARCHAR2(100)   NOT NULL,
+    target_name VARCHAR2(200),
+    created_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_favorites PRIMARY KEY (id),
+    CONSTRAINT fk_favorites_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT ck_favorites_target_type CHECK (target_type IN ('WASTE_BIN', 'RESTAURANT')),
+    CONSTRAINT uq_favorites_target UNIQUE (user_id, target_type, target_id)
+);
+
+CREATE OR REPLACE TRIGGER favorites_bi
+    BEFORE INSERT ON favorites
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT favorites_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+
+CREATE SEQUENCE reviews_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE reviews (
+    id          NUMBER          NOT NULL,
+    user_id     NUMBER          NOT NULL,
+    target_type VARCHAR2(20)    NOT NULL,
+    target_id   VARCHAR2(100)   NOT NULL,
+    rating      NUMBER(1)       NOT NULL,
+    content     VARCHAR2(1000),
+    created_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_reviews PRIMARY KEY (id),
+    CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT ck_reviews_target_type CHECK (target_type IN ('WASTE_BIN', 'RESTAURANT')),
+    CONSTRAINT ck_reviews_rating CHECK (rating BETWEEN 1 AND 5)
+);
+
+CREATE OR REPLACE TRIGGER reviews_bi
+    BEFORE INSERT ON reviews
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT reviews_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+
+CREATE SEQUENCE notices_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE notices (
+    id          NUMBER          NOT NULL,
+    author_id   NUMBER          NOT NULL,
+    title       VARCHAR2(200)   NOT NULL,
+    content     CLOB            NOT NULL,
+    view_count  NUMBER          DEFAULT 0 NOT NULL,
+    created_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_notices PRIMARY KEY (id),
+    CONSTRAINT fk_notices_author FOREIGN KEY (author_id) REFERENCES users (id)
+);
+
+CREATE OR REPLACE TRIGGER notices_bi
+    BEFORE INSERT ON notices
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT notices_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+
+SELECT table_name FROM user_tables ORDER BY table_name;
+
+----------------------------------------------------
+여기까지 복사
+----------------------------------------------------
+
+
+----------------------------------------------------
+결과 확인 (선택, 트리거까지 다 붙었는지 재확인하고 싶으면)
+----------------------------------------------------
+SELECT trigger_name, status FROM user_triggers ORDER BY trigger_name;
+
+-> favorites_bi, notices_bi, restaurants_bi, reviews_bi, users_bi
+   5개 전부 STATUS가 ENABLED면 완전히 끝난 것
+
+
+----------------------------------------------------
+붙여넣을 때 주의 (에디터에서 전체가 주석(--)처리 되는 경우)
+----------------------------------------------------
+메모장/편집기에 따라 복사 시 앞에 "--"가 자동으로 붙어서 전체가
+주석 처리된 상태로 붙여넣어지는 경우가 있습니다. 붙여넣은 후
+줄 앞에 "--"가 붙어 있으면 안 됩니다(맨 위 주석 설명 줄 제외).
+그런 상태로 실행되면 아무 것도 안 만들어지거나 뒤죽박죽 꼬이니,
+반드시 붙여넣은 내용을 한 번 훑어보고 실행하세요.
+
+
+----------------------------------------------------
+주의사항
+----------------------------------------------------
+- WasteBin(쓰레기통) 테이블은 일부러 안 만듭니다. Overpass API로 실시간 조회하는
+  구조라 DB에 저장하지 않는 게 원래 설계입니다.
+- users.password 컬럼에는 코드에서 반드시 암호화(BCrypt)한 값만 넣어야 합니다.
+- 각자 로컬 DB라 데이터는 안 섞이지만, 테이블 구조는 이 스크립트 기준으로
+  전원 동일하게 맞춰주세요.
