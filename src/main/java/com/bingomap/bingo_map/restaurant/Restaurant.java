@@ -1,5 +1,6 @@
 package com.bingomap.bingo_map.restaurant;
 
+import com.bingomap.bingo_map.entity.BaseEntity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -10,7 +11,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-public class Restaurant {
+public class Restaurant extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "SEQ_RESTAURANT_GEN")
@@ -64,4 +65,9 @@ public class Restaurant {
 
     @Column(name = "MENU_IMAGE_URL")
     private String menuImageUrl;
+
+    // 공개 여부: "Y"면 지도·목록에 노출, "N"이면 DB에는 있지만 화면에는 안 나오는 비공개 후보 상태
+    // (DB 컬럼에 DEFAULT 'N'이 걸려 있어서, 이 필드를 안 채워도 새로 저장되는 식당은 자동으로 N이 됨)
+    @Column(name = "IS_PUBLISHED")
+    private String isPublished;
 }

@@ -1,0 +1,478 @@
+DROP TABLE reviews CASCADE CONSTRAINTS;
+DROP TABLE favorites CASCADE CONSTRAINTS;
+DROP TABLE notices CASCADE CONSTRAINTS;
+DROP TABLE restaurants CASCADE CONSTRAINTS;
+DROP TABLE users CASCADE CONSTRAINTS;
+DROP SEQUENCE users_seq;
+DROP SEQUENCE favorites_seq;
+DROP SEQUENCE reviews_seq;
+DROP SEQUENCE restaurants_seq;
+DROP SEQUENCE notices_seq;
+
+-- ============================================================
+-- TABLE 목록
+-- USERS
+-- RESTAURANTS
+-- REVIEWS
+-- FAVORITES
+-- NOTICES
+-- (WASTE_BIN — 박주호 담당, 스키마 확보되면 여기 순서에 추가 예정)
+-- ============================================================
+
+-- 0918/kdk/팀 쿼리/수정/유저 구분 텍스트 삽입
+-- ============================================================
+-- USERS
+-- 안태건
+-- ============================================================
+CREATE SEQUENCE users_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE users (
+    id                  NUMBER          NOT NULL,
+    name                VARCHAR2(50)    NOT NULL,
+    nickname            VARCHAR2(30),
+    email               VARCHAR2(100)   NOT NULL,
+    password            VARCHAR2(255)   NOT NULL,
+    nationality         VARCHAR2(50),
+    sns_type            VARCHAR2(20),
+    role                VARCHAR2(20)    DEFAULT 'USER' NOT NULL,
+    security_question   VARCHAR2(100),
+    security_answer     VARCHAR2(255),
+    notify_email        VARCHAR2(1),
+    location_enabled    VARCHAR2(1),
+    created_at          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+
+    CONSTRAINT pk_users PRIMARY KEY (id),
+    CONSTRAINT uq_users_email UNIQUE (email),
+    CONSTRAINT ck_users_role CHECK (role IN ('USER', 'ADMIN'))
+);
+
+CREATE OR REPLACE TRIGGER users_bi
+    BEFORE INSERT ON users
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT users_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+-- 0918/kdk/팀 쿼리 수정/레스토랑 파트 구분 텍스트 삽입
+-- ============================================================
+-- RESTAURANTS
+-- 장준환
+-- ============================================================
+
+CREATE SEQUENCE restaurants_seq
+    START WITH 1
+    INCREMENT BY 1
+    NOCACHE;
+
+CREATE TABLE restaurants (
+    id                  NUMBER          NOT NULL,
+    name                VARCHAR2(100)   NOT NULL,
+    category            VARCHAR2(50),
+    tags                VARCHAR2(200),
+    rating              NUMBER(3,1),
+    review_count        NUMBER(10),
+    description         VARCHAR2(1000),
+    address             VARCHAR2(300),
+    latitude            NUMBER(10,7),
+    longitude           NUMBER(10,7),
+    opening_hours       VARCHAR2(100),
+    phone               VARCHAR2(50),
+    price_range         VARCHAR2(50),
+    website_url         VARCHAR2(300),
+    seat_info           VARCHAR2(100),
+    reservation_info    VARCHAR2(100),
+    payment_methods     VARCHAR2(200),
+    languages           VARCHAR2(200),
+    main_image_url      VARCHAR2(500),
+
+    menu_name           VARCHAR2(100),
+    menu_description    VARCHAR2(500),
+    menu_price          VARCHAR2(50),
+    menu_image_url      VARCHAR2(500),
+
+    created_at          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+
+    CONSTRAINT pk_restaurants
+        PRIMARY KEY (id)
+);
+
+CREATE OR REPLACE TRIGGER restaurants_bi
+    BEFORE INSERT ON restaurants
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT restaurants_seq.NEXTVAL
+        INTO :NEW.id
+        FROM dual;
+    END IF;
+END;
+/
+
+-- 0918/kdk/팀 쿼리/수정/즐겨찾기 파트 구분 텍스트 삽입
+-- ============================================================
+-- FAVORITES
+-- 공통
+-- ============================================================
+
+CREATE SEQUENCE favorites_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE favorites (
+    id          NUMBER          NOT NULL,
+    user_id     NUMBER          NOT NULL,
+    target_type VARCHAR2(20)    NOT NULL,
+    target_id   VARCHAR2(100)   NOT NULL,
+    target_name VARCHAR2(200),
+    created_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_favorites PRIMARY KEY (id),
+    CONSTRAINT fk_favorites_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT ck_favorites_target_type CHECK (target_type IN ('WASTE_BIN', 'RESTAURANT')),
+    CONSTRAINT uq_favorites_target UNIQUE (user_id, target_type, target_id)
+);
+
+CREATE OR REPLACE TRIGGER favorites_bi
+    BEFORE INSERT ON favorites
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT favorites_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+-- 0918/kdk/팀 쿼리/수정/리뷰 파트 구분 텍스트 삽입
+-- ============================================================
+-- REVIEWS
+-- 유해성
+-- ※ rating: 0.5 단위 별점 지원 (NUMBER(2,1) + 0.5 단위 CHECK)
+-- ============================================================
+
+CREATE SEQUENCE reviews_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE reviews (
+    id          NUMBER          NOT NULL,
+    user_id     NUMBER          NOT NULL,
+    target_type VARCHAR2(20)    NOT NULL,
+    target_id   VARCHAR2(100)   NOT NULL,
+    rating      NUMBER(2,1)     NOT NULL,
+    content     VARCHAR2(1000),
+    created_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_reviews PRIMARY KEY (id),
+    CONSTRAINT fk_reviews_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT ck_reviews_target_type CHECK (target_type IN ('WASTE_BIN', 'RESTAURANT')),
+    CONSTRAINT ck_reviews_rating CHECK (rating BETWEEN 1 AND 5),
+    CONSTRAINT ck_reviews_rating_half CHECK (MOD(rating * 2, 1) = 0)
+);
+
+CREATE OR REPLACE TRIGGER reviews_bi
+    BEFORE INSERT ON reviews
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT reviews_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+-- 0918/kdk/팀 쿼리/수정/공지사항 파트 구분 텍스트 삽입
+-- ============================================================
+-- NOTICES
+-- 안태건
+-- ============================================================
+CREATE SEQUENCE notices_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE notices (
+    id          NUMBER          NOT NULL,
+    author_id   NUMBER          NOT NULL,
+    title       VARCHAR2(200)   NOT NULL,
+    content     CLOB            NOT NULL,
+    view_count  NUMBER          DEFAULT 0 NOT NULL,
+    created_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_notices PRIMARY KEY (id),
+    CONSTRAINT fk_notices_author FOREIGN KEY (author_id) REFERENCES users (id)
+);
+
+CREATE OR REPLACE TRIGGER notices_bi
+    BEFORE INSERT ON notices
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT notices_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+-- ============================================================
+-- (TODO) WASTE_BIN — 박주호 담당
+-- Overpass API 타임아웃 대응으로 DB 캐싱 방식 전환 시 만든 테이블.
+-- 스키마(컬럼/타입) 확보되는 대로 이 위치에 CREATE SEQUENCE + CREATE TABLE
+-- + CREATE OR REPLACE TRIGGER 블록 추가 예정.
+-- ============================================================
+
+-- 0918/kdk/팀 쿼리/추가/데이터 생성 파트
+-- ============================================================
+-- INSERT(데이터 입력)
+-- USER : 5개
+-- RESTAURANT : 5개
+-- REVIEW : 5개
+-- ============================================================
+
+-- ============================================================
+-- USER 테스트 데이터
+-- ============================================================
+
+-- 관리자
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    users_seq.NEXTVAL,
+    '안태건', '알레띠NO7', 'atg1234@gmail.com', '안태건1234',
+    '한국', 'X', 'ADMIN', NULL, NULL, NULL, NULL
+);
+
+-- 회원 | 계정 4개
+
+-- 유저1 곽동곤 | 이메일 알림, 위치 정보 YES
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    users_seq.NEXTVAL,
+    '곽동곤', '고재팬', 'kdk1234@gmail.com', '곽동곤1234',
+    '한국', 'X', 'USER', NULL, NULL, 'Y', 'Y'
+);
+
+-- 유저2 박주호 | 이메일 알림, 위치 정보 NO
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    users_seq.NEXTVAL,
+    '박주호', '주호누오', 'pjh1234@gmail.com', '박주호1234',
+    '한국', 'X', 'USER', NULL, NULL, 'N', 'N'
+);
+
+-- 유저3 유해성 | 일본
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    users_seq.NEXTVAL,
+    '유해성', '유해성입니다', 'YHS1234@gmail.com', '유해성1234',
+    '일본', 'X', 'USER', NULL, NULL, NULL, NULL
+);
+
+-- 유저4 장준환 | 미국
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    users_seq.NEXTVAL,
+    '장준환', '주난쥬난', 'jjh1234@gmail.com', '장준환1234',
+    '미국', 'X', 'USER', NULL, NULL, NULL, NULL
+);
+
+-- ============================================================
+-- RESTAURANT 테스트 데이터
+-- ============================================================
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url
+) VALUES (
+    restaurants_seq.NEXTVAL,
+    '쿠쿠루 도톤보리 본점', '타코야끼', '도톤보리,타코야끼,오사카맛집',
+    4.6, 1248,
+    '겉은 바삭, 속은 촉촉! 도톤보리 대표 타코야끼 맛집',
+    '1-10-5 Dotonbori, Chuo-ku, Osaka',
+    34.668729, 135.501294,
+    '09:00 - 21:00', '+81-6-6212-7381', '¥500 - ¥1,500', 'https://www.kukurutei.com',
+    '20석', '예약 불가 (현장 대기)', '현금, 신용카드, 전자화폐', '일본어, 한국어 메뉴판',
+    '/images/food-takoyaki.png',
+    '명물 타코야끼 (8개)', '쿠쿠루만의 특제 육즙이 가득한 시그니처 메뉴',
+    '¥850',
+    -- via.placeholder.com은 서비스 종료된 도메인 — 데모 전 실제 이미지 경로로 교체 필요
+    'https://via.placeholder.com/64?text=Takoyaki'
+);
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url
+) VALUES (
+    restaurants_seq.NEXTVAL,
+    '야끼소바 산페이', '야끼소바', '야끼소바,철판요리,감칠맛',
+    4.4, 892,
+    '특제 소스의 깊은 감칠맛이 살아있는 전통 철판 야끼소바 전문점',
+    '1-7-14 Dotonbori, Chuo-ku, Osaka',
+    34.668900, 135.502100,
+    '10:30 - 20:30', '+81-6-6211-1234', '¥700 - ¥1,200', 'https://www.sanpei-osaka.jp',
+    '15석 (카운터석)', '예약 불가', '현금, 신용카드', '일본어, 영어',
+    '/images/food-yakisoba.png',
+    '특제 소스 야끼소바', '진한 특제 소스와 쫄깃한 면발의 조화',
+    '¥900',
+    'https://via.placeholder.com/64?text=Yakisoba'
+);
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url
+) VALUES (
+    restaurants_seq.NEXTVAL,
+    '오코노미야끼 치보 도톤보리빌딩점', '오코노미야끼', '오코노미야끼,철판구이,웨이팅맛집',
+    4.5, 1102,
+    '풍미 가득한 일본 정통 부침개! 눈앞에서 구워주는 인기 오코노미야끼 매장',
+    '1-5-5 Dotonbori, Chuo-ku, Osaka',
+    34.668500, 135.503200,
+    '11:00 - 21:30', '+81-6-6212-2211', '¥1,000 - ¥2,500', 'https://www.chibo.com',
+    '50석 (테이블 및 다찌석)', '전화 예약 가능', '현금, 신용카드, 모바일페이', '한국어 지원 (다국어 키오스크)',
+    '/images/food-okonomiyaki.png',
+    '치보 믹스 오코노미야끼', '새우, 오징어, 돼지고기가 모두 들어간 베스트 메뉴',
+    '¥1,580',
+    'https://via.placeholder.com/64?text=Okonomiyaki'
+);
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url
+) VALUES (
+    restaurants_seq.NEXTVAL,
+    '도톤보리 타이야끼', '붕어빵', '길거리간식,붕어빵,디저트',
+    4.3, 567,
+    '국산 팥과 바삭한 크러스트의 조화! 따끈하게 즐기는 테이크아웃 붕어빵',
+    '1-8-22 Dotonbori, Chuo-ku, Osaka',
+    34.668350, 135.500800,
+    '10:00 - 19:00', '+81-6-6213-9876', '¥300 - ¥600', NULL,
+    '없음 (테이크아웃 전용)', '예약 불가', '현금 전용', '일본어 메뉴',
+    '/images/food-taiyaki.png',
+    '통단팥 붕어빵', '달콤하고 부드러운 팥이 꽉 찬 인기 간식',
+    '¥300',
+    'https://via.placeholder.com/64?text=Taiyaki'
+);
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url
+) VALUES (
+    restaurants_seq.NEXTVAL,
+    '카라아게 타로', '닭튀김', '치킨,가라아게,맥주안주',
+    4.4, 734,
+    '바삭한 튀김옷 속 육즙이 가득! 특제 마늘 간장 소스로 버무린 정통 일본식 닭튀김',
+    '2-2-1 Nanba, Chuo-ku, Osaka',
+    34.667800, 135.500200,
+    '11:00 - 21:00', '+81-6-6631-5544', '¥600 - ¥1,000', 'https://www.karaage-taro.jp',
+    '10석', '예약 불가', '현금, 신용카드', '일본어, 영어',
+    '/images/food-karaage.png',
+    '카라아게 타로 (오리지널)', '겉은 바삭하고 속은 촉촉한 대표 닭튀김',
+    '¥680',
+    'https://via.placeholder.com/64?text=Karaage'
+);
+
+COMMIT;
+
+-- ============================================================
+-- REVIEWS 테스트 데이터
+-- (user_id / target_id / rating / content 매칭 재확인 완료)
+-- ============================================================
+
+-- 리뷰 1 : 안태건 → 쿠쿠루 도톤보리 본점
+INSERT INTO reviews (id, user_id, target_type, target_id, rating, content)
+VALUES (reviews_seq.NEXTVAL, 1, 'RESTAURANT', '1', 3,
+        '그닥이던데.. 오바임.. ㅋㅋ');
+
+-- 리뷰 2 : 곽동곤 → 야끼소바 산페이
+INSERT INTO reviews (id, user_id, target_type, target_id, rating, content)
+VALUES (reviews_seq.NEXTVAL, 2, 'RESTAURANT', '2', 1,
+        '라멘집인줄 알고 갔네 아 ** !!');
+
+-- 리뷰 3 : 박주호 → 오코노미야끼 치보 도톤보리빌딩점
+INSERT INTO reviews (id, user_id, target_type, target_id, rating, content)
+VALUES (reviews_seq.NEXTVAL, 3, 'RESTAURANT', '3', 5,
+        '맛있어요오오오오오ㅗ');
+
+-- 리뷰 4 : 유해성 → 도톤보리 타이야끼 (원래 의도대로 3.5점 복원)
+INSERT INTO reviews (id, user_id, target_type, target_id, rating, content)
+VALUES (reviews_seq.NEXTVAL, 4, 'RESTAURANT', '4', 3.5,
+        '타이야끼인가.. 조금은 아직 어렵습니다..');
+
+-- 리뷰 5 : 장준환 → 카라아게 타로
+INSERT INTO reviews (id, user_id, target_type, target_id, rating, content)
+VALUES (reviews_seq.NEXTVAL, 5, 'RESTAURANT', '5', 5,
+        '맛있어서 먹다가 울었음 ㅠㅠ');
+
+COMMIT;
+
+-- ============================================================
+-- SELECT(조회)
+-- ============================================================
+
+-- USERS
+SELECT
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled,
+    created_at, updated_at
+FROM users
+ORDER BY id;
+
+-- RESTAURANTS (요약)
+SELECT id, name, category, menu_name, menu_price
+FROM restaurants
+ORDER BY id;
+
+SELECT COUNT(*) AS total_count FROM restaurants;
+
+SELECT table_name FROM user_tables ORDER BY table_name;
+
+-- RESTAURANTS (전체)
+SELECT
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url, created_at, updated_at
+FROM restaurants
+ORDER BY id;
+
+-- REVIEWS (작성자+식당+별점+내용, 정합성 확인용)
+SELECT
+    r.id,
+    u.name AS 작성자,
+    res.name AS 식당명,
+    r.rating AS 별점,
+    r.content AS 내용,
+    r.created_at AS 작성일
+FROM reviews r
+JOIN users u
+    ON r.user_id = u.id
+JOIN restaurants res
+    ON r.target_id = TO_CHAR(res.id)
+WHERE r.target_type = 'RESTAURANT'
+ORDER BY r.id;
