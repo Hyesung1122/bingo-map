@@ -40,6 +40,27 @@
 .mypage-panel-head a{font-size:12px;color:#159b35;font-weight:700;}
 .mypage-empty{font-size:13px;color:#999;text-align:center;padding:26px 6px;}
 
+.my-review-card{display:flex;gap:14px;padding:14px 0;border-bottom:1px solid #f0f0f0;}
+.my-review-card:last-child{border-bottom:none;}
+.my-review-thumb{width:56px;height:56px;border-radius:10px;background:#f3f3f3;background-size:cover;background-position:center;flex-shrink:0;}
+.my-review-body{flex:1;min-width:0;}
+.my-review-top{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.my-review-restaurant{font-weight:800;font-size:14px;}
+.my-review-rating{color:#159b35;font-weight:800;font-size:13px;white-space:nowrap;}
+.my-review-content{font-size:13px;color:#555;margin:4px 0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.my-review-meta{font-size:11px;color:#999;}
+
+.my-report-card{display:flex;justify-content:space-between;gap:12px;padding:14px 0;border-bottom:1px solid #f0f0f0;}
+.my-report-card:last-child{border-bottom:none;}
+.my-report-body b{font-size:14px;}
+.my-report-body p{font-size:12px;color:#666;margin:4px 0;}
+.my-report-meta{font-size:11px;color:#999;}
+.my-report-reject-reason{font-size:11px;color:#c0392b;margin-top:4px;}
+.my-report-status{font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;white-space:nowrap;height:fit-content;}
+.my-report-status.pending{background:#fff7e6;color:#a5720b;}
+.my-report-status.approved{background:#e9f8ee;color:#159b35;}
+.my-report-status.rejected{background:#fdecec;color:#c0392b;}
+
 @media(max-width:800px){.mypage-layout{grid-template-columns:1fr;}.mypage-sidebar{display:none;}.mypage-stats{grid-template-columns:repeat(2,1fr);}.mypage-recent{grid-template-columns:1fr;}.mypage-profile{flex-wrap:wrap;}.mypage-edit-btn{margin-left:0;}}
 
 .settings-row{display:flex;align-items:center;justify-content:space-between;gap:16px;}

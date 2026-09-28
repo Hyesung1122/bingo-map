@@ -15,6 +15,7 @@ public class CommunityPostResponseDto {
     private Integer viewCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    private long commentCount;
 
     public CommunityPostResponseDto(CommunityPost post) {
         this.postId = post.getPostId();
@@ -40,4 +41,6 @@ public class CommunityPostResponseDto {
     public Integer getViewCount() { return viewCount; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public long getCommentCount() { return commentCount; }
+    public void setCommentCount(long commentCount) { this.commentCount = commentCount; }
 }

@@ -1,5 +1,7 @@
 package com.bingomap.bingo_map.user.admin;
 
+import com.bingomap.bingo_map.report.BinReport;
+import com.bingomap.bingo_map.report.BinReportRepository;
 import com.bingomap.bingo_map.user.LoginController;
 import com.bingomap.bingo_map.user.User;
 import com.bingomap.bingo_map.user.UserRepository;
@@ -23,9 +25,11 @@ public class AdminController {
     private static final DateTimeFormatter JOINED_FORMAT = DateTimeFormatter.ofPattern("yyyy.MM.dd");
 
     private final UserRepository userRepository;
+    private final BinReportRepository binReportRepository;
 
-    public AdminController(UserRepository userRepository) {
+    public AdminController(UserRepository userRepository, BinReportRepository binReportRepository) {
         this.userRepository = userRepository;
+        this.binReportRepository = binReportRepository;
     }
 
     // 관리자 페이지 진입: 로그인 안 했거나 관리자가 아니면 튕겨냄
@@ -38,7 +42,7 @@ public class AdminController {
     }
 
     // 관리자 대시보드 통계 API
-    // memberCount만 실제 값이고 나머지는 쓰레기통/맛집/제보 기능이 아직 없어서 0으로 고정된 자리표시값
+    // memberCount, pendingReportCount는 실제 값. binCount/restaurantCount는 아직 담당 기능이 없어서 0 고정.
     @GetMapping("/api/admin/dashboard")
     @ResponseBody
     public AdminDashboardResponseDto dashboard(HttpServletRequest request) {
@@ -46,7 +50,8 @@ public class AdminController {
             return null;
         }
         long memberCount = userRepository.count();
-        return new AdminDashboardResponseDto(memberCount, 0, 0, 0);
+        long pendingReportCount = binReportRepository.countByStatus(BinReport.STATUS_PENDING);
+        return new AdminDashboardResponseDto(memberCount, 0, 0, pendingReportCount);
     }
 
     // 전체 회원 목록 조회

@@ -7,7 +7,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "RESTAURANT")
+//0928 kdk 리팩토링
+@Table(name = "restaurants")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -15,10 +16,10 @@ public class Restaurant extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "SEQ_RESTAURANT_GEN")
-    @SequenceGenerator(name = "SEQ_RESTAURANT_GEN", sequenceName = "SEQ_RESTAURANT", allocationSize = 1)
-    @Column(name = "RESTAURANT_ID")
-    private Long id;
+    @SequenceGenerator(name = "SEQ_RESTAURANT_GEN", sequenceName = "restaurants_seq", allocationSize = 1)  // SEQ_RESTAURANT → restaurants_seq
+    @Column(name = "id")
 
+    private Long id;
     private String name;
     private String category;
     private String tags;

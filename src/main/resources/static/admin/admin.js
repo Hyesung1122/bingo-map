@@ -23,6 +23,29 @@ document.addEventListener("DOMContentLoaded", function () {
             window.location.href = "/login";
         });
 
+    // 1-1) 대시보드 '제보 검수 대기 목록' 미리보기 (보류 중인 것 상위 5개)
+    function loadDashboardPendingReports() {
+        fetch("/api/admin/reports")
+            .then((res) => (res.ok ? res.json() : []))
+            .then((list) => {
+                const pending = list.filter((r) => r.status === "PENDING").slice(0, 5);
+                const el = document.getElementById("dashboard-pending-reports");
+                if (!pending.length) {
+                    el.innerHTML = '<p class="admin-empty">보류 중인 제보가 없습니다.</p>';
+                    return;
+                }
+                el.innerHTML = pending.map((r) => (
+                    '<p class="admin-message">' +
+                    "[" + (categoryLabel[r.category] || r.category) + "] " +
+                    escapeHtml(r.name || r.address || (r.latitude + ", " + r.longitude)) +
+                    " · " + escapeHtml(r.reporterName) + " · " + r.createdAt +
+                    "</p>"
+                )).join("");
+            })
+            .catch(() => {});
+    }
+    loadDashboardPendingReports();
+
     // 내 이메일 확인 (본인 계정은 권한변경/삭제 버튼 비활성화하기 위함)
     fetch("/api/mypage/me")
         .then((res) => res.text())
@@ -50,6 +73,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         if (tabName === "settings") {
             loadSettings();
+        }
+        if (tabName === "reports") {
+            loadReports();
         }
     }
 
@@ -163,6 +189,126 @@ document.addEventListener("DOMContentLoaded", function () {
                 .catch(() => showMessage("삭제 중 오류가 발생했습니다.", true));
         }
     });
+
+    // 3-1) 쓰레기통 제보 관리: 목록 로드 / 렌더 / 개별·일괄 승인·반려·보류
+    const reportTbody = document.getElementById("report-table-body");
+    const reportEmptyEl = document.getElementById("report-empty");
+    const reportMessageEl = document.getElementById("report-message");
+    const reportSelectAll = document.getElementById("report-select-all");
+
+    const statusLabel = { PENDING: "보류중", APPROVED: "승인됨", REJECTED: "반려됨" };
+    const statusClass = { PENDING: "pending", APPROVED: "approved", REJECTED: "rejected" };
+    const categoryLabel = { general: "일반", recycle: "재활용", can: "캔/병" };
+
+    function showReportMessage(text, isError) {
+        reportMessageEl.textContent = text;
+        reportMessageEl.className = "admin-message " + (isError ? "error" : "success");
+    }
+
+    function loadReports() {
+        fetch("/api/admin/reports")
+            .then((res) => res.json())
+            .then((list) => renderReports(list))
+            .catch(() => showReportMessage("제보 목록을 불러오지 못했습니다.", true));
+    }
+
+    function renderReports(list) {
+        reportTbody.innerHTML = "";
+        reportEmptyEl.hidden = list.length > 0;
+        reportSelectAll.checked = false;
+
+        list.forEach((r) => {
+            const location = r.address || (r.latitude.toFixed(5) + ", " + r.longitude.toFixed(5));
+            const content = r.name || r.description || "-";
+            const isPending = r.status === "PENDING";
+
+            const tr = document.createElement("tr");
+            tr.innerHTML = `
+                <td><input type="checkbox" class="report-checkbox" value="${r.reportId}"></td>
+                <td><span class="admin-role-badge ${statusClass[r.status]}">${statusLabel[r.status]}</span></td>
+                <td>${categoryLabel[r.category] || r.category}</td>
+                <td title="${escapeHtml(r.description || "")}">${escapeHtml(content)}</td>
+                <td>${escapeHtml(location)}</td>
+                <td>${escapeHtml(r.reporterName)} (${escapeHtml(r.reporterNickname)})</td>
+                <td>${r.createdAt}</td>
+                <td>
+                    <div class="admin-row-actions">
+                        <button class="promote" data-action="approve" data-id="${r.reportId}" ${!isPending ? "disabled" : ""}>승인</button>
+                        <button class="delete" data-action="reject" data-id="${r.reportId}" ${!isPending ? "disabled" : ""}>반려</button>
+                        <button data-action="hold" data-id="${r.reportId}" ${isPending ? "disabled" : ""}>보류로</button>
+                    </div>
+                </td>
+            `;
+            reportTbody.appendChild(tr);
+        });
+    }
+
+    function updateReportStatus(id, status, rejectReason) {
+        return fetch(`/api/admin/reports/${id}/status`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: status, rejectReason: rejectReason || null }),
+        }).then(async (res) => {
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || "처리에 실패했습니다.");
+            return data;
+        });
+    }
+
+    reportSelectAll.addEventListener("change", function () {
+        document.querySelectorAll(".report-checkbox").forEach((cb) => (cb.checked = reportSelectAll.checked));
+    });
+
+    reportTbody.addEventListener("click", function (e) {
+        const btn = e.target.closest("button[data-action]");
+        if (!btn) return;
+        const id = btn.dataset.id;
+        const action = btn.dataset.action;
+
+        if (action === "approve") {
+            updateReportStatus(id, "APPROVED")
+                .then(() => { showReportMessage("승인되었습니다.", false); loadReports(); })
+                .catch((err) => showReportMessage(err.message, true));
+        }
+        if (action === "reject") {
+            const reason = prompt("반려 사유를 입력해주세요.");
+            if (reason === null) return;
+            if (!reason.trim()) { showReportMessage("반려 사유를 입력해주세요.", true); return; }
+            updateReportStatus(id, "REJECTED", reason.trim())
+                .then(() => { showReportMessage("반려되었습니다.", false); loadReports(); })
+                .catch((err) => showReportMessage(err.message, true));
+        }
+        if (action === "hold") {
+            updateReportStatus(id, "PENDING")
+                .then(() => { showReportMessage("보류 상태로 되돌렸습니다.", false); loadReports(); })
+                .catch((err) => showReportMessage(err.message, true));
+        }
+    });
+
+    function selectedReportIds() {
+        return [...document.querySelectorAll(".report-checkbox:checked")].map((cb) => cb.value);
+    }
+
+    document.getElementById("report-bulk-approve").addEventListener("click", function () {
+        const ids = selectedReportIds();
+        if (!ids.length) { showReportMessage("승인할 제보를 선택해주세요.", true); return; }
+        Promise.all(ids.map((id) => updateReportStatus(id, "APPROVED")))
+            .then(() => { showReportMessage(ids.length + "건 승인되었습니다.", false); loadReports(); })
+            .catch((err) => showReportMessage(err.message, true));
+    });
+
+    document.getElementById("report-bulk-reject").addEventListener("click", function () {
+        const ids = selectedReportIds();
+        if (!ids.length) { showReportMessage("반려할 제보를 선택해주세요.", true); return; }
+        const reason = prompt("반려 사유를 입력해주세요. (선택한 " + ids.length + "건에 동일하게 적용됩니다)");
+        if (reason === null) return;
+        if (!reason.trim()) { showReportMessage("반려 사유를 입력해주세요.", true); return; }
+        Promise.all(ids.map((id) => updateReportStatus(id, "REJECTED", reason.trim())))
+            .then(() => { showReportMessage(ids.length + "건 반려되었습니다.", false); loadReports(); })
+            .catch((err) => showReportMessage(err.message, true));
+    });
+
+    document.getElementById("report-refresh-btn").addEventListener("click", loadReports);
 
     // 4) 공지사항 관리: 목록 로드 / 작성 / 수정 / 삭제
     const noticeTbody = document.getElementById("notice-table-body");

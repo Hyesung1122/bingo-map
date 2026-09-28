@@ -16,9 +16,11 @@ import java.util.stream.Collectors;
 public class CommunityPostService {
 
     private final CommunityPostRepository repository;
+    private final CommunityCommentRepository commentRepository;
 
-    public CommunityPostService(CommunityPostRepository repository) {
+    public CommunityPostService(CommunityPostRepository repository, CommunityCommentRepository commentRepository) {
         this.repository = repository;
+        this.commentRepository = commentRepository;
     }
 
     /**
@@ -40,10 +42,16 @@ public class CommunityPostService {
         int end = Math.min(start + pageable.getPageSize(), all.size());
 
         List<CommunityPostResponseDto> pageContent = all.subList(start, end).stream()
-                .map(CommunityPostResponseDto::new)
+                .map(this::toDtoWithCommentCount)
                 .collect(Collectors.toList());
 
         return new PageImpl<>(pageContent, pageable, all.size());
+    }
+
+    private CommunityPostResponseDto toDtoWithCommentCount(CommunityPost post) {
+        CommunityPostResponseDto dto = new CommunityPostResponseDto(post);
+        dto.setCommentCount(commentRepository.countByPostId(post.getPostId()));
+        return dto;
     }
 
     /** 게시글 상세 (조회할 때마다 조회수 1 증가). */
@@ -51,7 +59,7 @@ public class CommunityPostService {
     public CommunityPostResponseDto getPost(Long postId) {
         CommunityPost post = findOrThrow(postId);
         post.increaseViewCount();
-        return new CommunityPostResponseDto(post);
+        return toDtoWithCommentCount(post);
     }
 
     @Transactional

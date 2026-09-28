@@ -33,6 +33,7 @@
             border: 1px solid #badbcc;
         }
     </style>
+    <script src="/js/header-auth.js"></script>
 </head>
 <body>
 
@@ -78,21 +79,7 @@
             <h2>로그인</h2>
             <p class="auth-sub">BinGo Map과 함께 깨끗한 여행을 시작하세요</p>
 
-            <!--
-                [1. 회원가입 완료 직후 안내창]
-                - th:if: 파라미터(URL 쿼리스트링)에 ?registered=true 가 붙어 있을 때만 연초록 환영 상자를 표시합니다.
-            -->
-            <div class="auth-alert alert-success" th:if="${param.registered}">
-                회원가입이 완료되었습니다! 로그인해 주세요.
-            </div>
-
-            <!--
-                [2. 로그인 실패 에러 안내창]
-                - th:if: 비밀번호나 이메일이 틀려 서버에서 errorMessage를 넘겨줬을 때만 빨간 경고창을 표시합니다.
-            -->
-            <div class="auth-alert alert-error" th:if="${errorMessage != null}" th:text="${errorMessage}">
-                이메일 또는 비밀번호가 일치하지 않습니다.
-            </div>
+            <!-- 로그인 실패 / 회원가입 완료 안내는 /auth/auth.js 가 URL(?error=, ?signup=success)을 읽어서 표시합니다. -->
 
             <!--
                 [로그인 정보 전송 폼 (Form: 입력한 아이디와 비밀번호를 하나로 묶어 서버로 쏘아 올리는 서류 봉투)]
@@ -112,7 +99,7 @@
                     <span class="icon-left">🔒</span>
                     <input type="password" id="loginPassword" name="password" placeholder="비밀번호를 입력하세요" required>
                     <!-- 눈동자 아이콘 클릭 시 비밀번호 텍스트 보이기/숨기기 토글(Toggle: 스위치처럼 껐다 켜는 기능) -->
-                    <button type="button" class="icon-right" onclick="togglePasswordVisibility('loginPassword', this)" aria-label="비밀번호 표시">👁</button>
+                    <button type="button" class="icon-right" aria-label="비밀번호 표시">👁</button>
                 </div>
 
                 <!-- 비밀번호 분실 시 재설정 링크 -->
@@ -155,5 +142,6 @@
         <a class="top-btn" href="#">↑<small>TOP</small></a>
     </div>
 </footer>
+<script src="/auth/auth.js"></script>
 </body>
 </html>

@@ -88,7 +88,9 @@
                         <b>제보 검수 대기 목록</b>
                         <a href="#" data-tab-link="reports">더보기</a>
                     </div>
-                    <p class="admin-empty">아직 연동된 제보 데이터가 없습니다.<br>쓰레기통 제보 기능이 완성되면 이 목록에 표시됩니다.</p>
+                    <div id="dashboard-pending-reports">
+                        <p class="admin-empty">보류 중인 제보가 없습니다.</p>
+                    </div>
                 </div>
 
                 <div class="admin-panel">
@@ -102,24 +104,27 @@
             <section id="tab-reports" class="admin-tab-content" hidden>
                 <h2>쓰레기통 제보 관리</h2>
                 <div class="admin-panel">
+                    <p class="admin-message" id="report-message"></p>
                     <table class="admin-table">
                         <thead>
                         <tr>
-                            <th><input type="checkbox" disabled></th>
+                            <th><input type="checkbox" id="report-select-all"></th>
+                            <th>상태</th>
                             <th>제보 유형</th>
                             <th>내용</th>
                             <th>위치</th>
                             <th>제보자</th>
                             <th>제보일</th>
+                            <th>관리</th>
                         </tr>
                         </thead>
-                        <tbody></tbody>
+                        <tbody id="report-table-body"></tbody>
                     </table>
-                    <p class="admin-empty">아직 연동된 제보 데이터가 없습니다.<br>쓰레기통 제보 기능이 완성되면 이 목록에 표시됩니다.</p>
+                    <p class="admin-empty" id="report-empty" hidden>접수된 제보가 없습니다.</p>
                     <div class="admin-actions">
-                        <button type="button" class="approve" disabled>선택 승인</button>
-                        <button type="button" class="reject" disabled>선택 반려</button>
-                        <button type="button" disabled>새로고침</button>
+                        <button type="button" class="approve" id="report-bulk-approve">선택 승인</button>
+                        <button type="button" class="reject" id="report-bulk-reject">선택 반려</button>
+                        <button type="button" id="report-refresh-btn">새로고침</button>
                     </div>
                 </div>
             </section>

@@ -30,6 +30,124 @@ document.addEventListener("DOMContentLoaded", function () {
             window.location.href = "/login";
         });
 
+    // 1-1) 통계 카드 (작성한 리뷰 / 받은 좋아요 등)
+    fetch("/api/mypage/stats")
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+            if (!data) return;
+            document.getElementById("stat-review-count").textContent = data.reviewCount;
+            document.getElementById("stat-report-count").textContent = data.reportCount;
+            document.getElementById("stat-favorite-count").textContent = data.favoriteCount;
+            document.getElementById("stat-help-count").textContent = data.helpCountTotal;
+        })
+        .catch(() => {});
+
+    // 1-2) 내가 쓴 리뷰 (프로필 탭 '최근 작성한 리뷰' + 리뷰 탭 전체 목록에서 공용으로 사용)
+    let myReviewsCache = null;
+
+    function renderStars(rating) {
+        if (rating === null || rating === undefined) return "-";
+        return "★ " + rating.toFixed(1);
+    }
+
+    function reviewCardHtml(review) {
+        const thumbStyle = review.thumbnailUrl
+            ? ' style="background-image:url(\'' + review.thumbnailUrl + '\')"'
+            : "";
+        return (
+            '<div class="my-review-card">' +
+            '<div class="my-review-thumb"' + thumbStyle + '></div>' +
+            '<div class="my-review-body">' +
+            '<div class="my-review-top">' +
+            '<span class="my-review-restaurant">' + review.restaurantName + "</span>" +
+            '<span class="my-review-rating">' + renderStars(review.rating) + "</span>" +
+            "</div>" +
+            '<p class="my-review-content">' + review.content + "</p>" +
+            '<span class="my-review-meta">' + review.createdAt + " · 도움이 돼요 " + review.helpCount + "</span>" +
+            "</div>" +
+            "</div>"
+        );
+    }
+
+    function renderRecentReviews(reviews) {
+        const el = document.getElementById("recent-reviews-list");
+        if (!reviews.length) {
+            el.innerHTML = '<p class="mypage-empty">아직 작성한 리뷰가 없습니다.<br>맛집 페이지에서 첫 리뷰를 남겨보세요.</p>';
+            return;
+        }
+        el.innerHTML = reviews.slice(0, 3).map(reviewCardHtml).join("");
+    }
+
+    function renderAllReviews(reviews) {
+        const el = document.getElementById("reviews-tab-panel");
+        if (!reviews.length) {
+            el.innerHTML = '<p class="mypage-empty">아직 작성한 리뷰가 없습니다.<br>맛집 페이지에서 첫 리뷰를 남겨보세요.</p>';
+            return;
+        }
+        el.innerHTML = reviews.map(reviewCardHtml).join("");
+    }
+
+    function loadMyReviews() {
+        if (myReviewsCache) {
+            return Promise.resolve(myReviewsCache);
+        }
+        return fetch("/api/mypage/reviews")
+            .then((res) => (res.ok ? res.json() : []))
+            .then((data) => {
+                myReviewsCache = data || [];
+                return myReviewsCache;
+            })
+            .catch(() => []);
+    }
+
+    loadMyReviews().then(renderRecentReviews);
+
+    // 1-3) 작성한 제보 (제보 탭 전용, 프로필 탭에는 별도 미리보기 없음)
+    let myReportsCache = null;
+
+    const reportStatusLabel = { PENDING: "보류중", APPROVED: "승인됨", REJECTED: "반려됨" };
+    const reportStatusClass = { PENDING: "pending", APPROVED: "approved", REJECTED: "rejected" };
+    const reportCategoryLabel = { general: "일반", recycle: "재활용", can: "캔/병" };
+
+    function reportCardHtml(r) {
+        const rejectHtml = r.status === "REJECTED" && r.rejectReason
+            ? '<p class="my-report-reject-reason">반려 사유: ' + r.rejectReason + "</p>"
+            : "";
+        return (
+            '<div class="my-report-card">' +
+            '<div class="my-report-body">' +
+            "<b>" + (r.name || (reportCategoryLabel[r.category] || r.category) + " 쓰레기통") + "</b>" +
+            '<p>' + (r.address || (r.latitude.toFixed(5) + ", " + r.longitude.toFixed(5))) + "</p>" +
+            '<span class="my-report-meta">' + r.createdAt + "</span>" +
+            rejectHtml +
+            "</div>" +
+            '<span class="my-report-status ' + reportStatusClass[r.status] + '">' + reportStatusLabel[r.status] + "</span>" +
+            "</div>"
+        );
+    }
+
+    function renderReports(reports) {
+        const el = document.getElementById("reports-tab-panel");
+        if (!reports.length) {
+            el.innerHTML = '<p class="mypage-empty">아직 제보한 내역이 없습니다.<br><a href="/report">쓰레기통 위치 제보하러 가기</a></p>';
+            return;
+        }
+        el.innerHTML = reports.map(reportCardHtml).join("");
+    }
+
+    function loadMyReports() {
+        if (myReportsCache) {
+            return Promise.resolve(myReportsCache);
+        }
+        return fetch("/api/reports/mine")
+            .then((res) => (res.ok ? res.json() : []))
+            .then((data) => {
+                myReportsCache = data || [];
+                return myReportsCache;
+            })
+            .catch(() => []);
+    }
+
     // 2) 사이드바 메뉴 클릭 -> 페이지 이동 없이 해당 탭만 보여주기
     const navLinks = document.querySelectorAll(".mypage-nav a[data-tab]");
     const tabSections = document.querySelectorAll(".mypage-tab-content");
@@ -43,6 +161,12 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         if (tabName === "settings") {
             loadSettings();
+        }
+        if (tabName === "reviews") {
+            loadMyReviews().then(renderAllReviews);
+        }
+        if (tabName === "reports") {
+            loadMyReports().then(renderReports);
         }
     }
 

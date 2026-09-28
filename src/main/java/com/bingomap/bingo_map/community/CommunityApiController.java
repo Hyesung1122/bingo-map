@@ -8,14 +8,18 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/community")
 public class CommunityApiController {
 
     private final CommunityPostService service;
+    private final CommunityCommentService commentService;
 
-    public CommunityApiController(CommunityPostService service) {
+    public CommunityApiController(CommunityPostService service, CommunityCommentService commentService) {
         this.service = service;
+        this.commentService = commentService;
     }
 
     /** 게시글 목록. page/size/keyword 로 페이징 및 검색. 최신순 정렬. */
@@ -28,7 +32,7 @@ public class CommunityApiController {
         return service.getPosts(keyword, pageable);
     }
 
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     public CommunityPostResponseDto getPost(@PathVariable Long id) {
         return service.getPost(id);
     }
@@ -38,14 +42,33 @@ public class CommunityApiController {
         return ResponseEntity.status(HttpStatus.CREATED).body(service.create(request));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping("/{id:\\d+}")
     public CommunityPostResponseDto edit(@PathVariable Long id, @RequestBody CommunityPostRequestDto request) {
         return service.edit(id, request);
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:\\d+}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         service.delete(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // ── 댓글 ──
+
+    @GetMapping("/{postId:\\d+}/comments")
+    public List<CommentResponseDto> getComments(@PathVariable Long postId) {
+        return commentService.getComments(postId);
+    }
+
+    @PostMapping("/{postId:\\d+}/comments")
+    public ResponseEntity<CommentResponseDto> createComment(@PathVariable Long postId,
+                                                              @RequestBody CommentRequestDto request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(commentService.create(postId, request));
+    }
+
+    @DeleteMapping("/comments/{commentId:\\d+}")
+    public ResponseEntity<Void> deleteComment(@PathVariable Long commentId) {
+        commentService.delete(commentId);
         return ResponseEntity.noContent().build();
     }
 }

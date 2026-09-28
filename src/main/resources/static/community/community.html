@@ -112,7 +112,7 @@ async function loadPosts() {
             <div class="board-item" onclick="location.href='/community/${p.postId}'">
                 ${tags ? `<div class="board-tags">${tags}</div>` : ''}
                 <p class="board-item-title">${escapeHtml(p.title)}</p>
-                <div class="board-item-meta">by 회원${p.userId ?? ''} | ${dateStr} | 조회수 ${p.viewCount ?? 0}</div>
+                <div class="board-item-meta">by 회원${p.userId ?? ''} | ${dateStr} | 조회수 ${p.viewCount ?? 0} | 댓글 ${p.commentCount ?? 0}</div>
             </div>`;
         }).join('');
 

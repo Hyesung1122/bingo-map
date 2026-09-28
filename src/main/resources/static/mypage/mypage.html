@@ -102,19 +102,19 @@
 
                 <div class="mypage-stats">
                     <div class="mypage-stat-card">
-                        <span class="num">0</span>
+                        <span class="num" id="stat-review-count">0</span>
                         <span class="label">작성한 리뷰</span>
                     </div>
                     <div class="mypage-stat-card">
-                        <span class="num">0</span>
+                        <span class="num" id="stat-report-count">0</span>
                         <span class="label">작성한 제보</span>
                     </div>
                     <div class="mypage-stat-card">
-                        <span class="num">0</span>
+                        <span class="num" id="stat-favorite-count">0</span>
                         <span class="label">즐겨찾기</span>
                     </div>
                     <div class="mypage-stat-card">
-                        <span class="num">0</span>
+                        <span class="num" id="stat-help-count">0</span>
                         <span class="label">받은 좋아요</span>
                     </div>
                 </div>
@@ -125,7 +125,9 @@
                             <b>최근 작성한 리뷰</b>
                             <a href="#" data-tab-link="reviews">더보기</a>
                         </div>
-                        <p class="mypage-empty">아직 작성한 리뷰가 없습니다.<br>리뷰 기능은 곧 연동될 예정이에요.</p>
+                        <div id="recent-reviews-list">
+                            <p class="mypage-empty">아직 작성한 리뷰가 없습니다.<br>맛집 페이지에서 첫 리뷰를 남겨보세요.</p>
+                        </div>
                     </div>
                     <div class="mypage-panel">
                         <div class="mypage-panel-head">
@@ -139,15 +141,15 @@
 
             <section id="tab-reviews" class="mypage-tab-content" hidden>
                 <h2>내가 쓴 리뷰</h2>
-                <div class="mypage-panel">
-                    <p class="mypage-empty">아직 작성한 리뷰가 없습니다.<br>리뷰 기능은 곧 연동될 예정이에요.</p>
+                <div class="mypage-panel" id="reviews-tab-panel">
+                    <p class="mypage-empty">아직 작성한 리뷰가 없습니다.<br>맛집 페이지에서 첫 리뷰를 남겨보세요.</p>
                 </div>
             </section>
 
             <section id="tab-reports" class="mypage-tab-content" hidden>
                 <h2>작성한 제보</h2>
-                <div class="mypage-panel">
-                    <p class="mypage-empty">아직 제보한 내역이 없습니다.<br>제보 기능은 곧 연동될 예정이에요.</p>
+                <div class="mypage-panel" id="reports-tab-panel">
+                    <p class="mypage-empty">아직 제보한 내역이 없습니다.<br><a href="/report">쓰레기통 위치 제보하러 가기</a></p>
                 </div>
             </section>
 

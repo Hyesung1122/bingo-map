@@ -24,6 +24,7 @@
             text-align: center;
         }
     </style>
+    <script src="/js/header-auth.js"></script>
 </head>
 <body>
 
@@ -64,14 +65,7 @@
             <h2>회원가입</h2>
             <p class="auth-sub">BinGo Map 회원이 되어 깨끗한 여행을 시작하세요</p>
 
-            <!--
-                [서버 검증 에러 메시지 표시 구역]
-                - th:if: 타임리프의 조건문 태그 (errorMessage 데이터가 서버로부터 넘어왔을 때만 이 태그를 화면에 띄움)
-                - th:text: 서버가 넘겨준 에러 메시지 글자("이미 사용 중인 이메일입니다" 등)를 화면에 꽂아 넣음
-            -->
-            <div class="error-alert" th:if="${errorMessage != null}" th:text="${errorMessage}">
-                에러 안내 메시지가 들어갑니다.
-            </div>
+            <!-- 에러 메시지는 /auth/auth.js 가 URL(?error=)을 읽어서 제출 버튼 아래에 표시합니다. -->
 
             <!--
                 [회원가입 전송 폼 (Form: 사용자가 입력한 값들을 한 번에 묶어서 서버로 보내는 서류 봉투)]
@@ -105,14 +99,14 @@
                     <span class="icon-left">🔒</span>
                     <input type="password" id="password" name="password" placeholder="비밀번호를 입력하세요" required>
                     <!-- 눈동자 아이콘 클릭 시 비밀번호 텍스트 보이기/숨기기 토글(Toggle: 껐다 켰다 하는 스위치 기능) -->
-                    <button type="button" class="icon-right" onclick="togglePasswordVisibility('password', this)" aria-label="비밀번호 표시">👁</button>
+                    <button type="button" class="icon-right" aria-label="비밀번호 표시">👁</button>
                 </div>
 
                 <!-- 4. 비밀번호 확인 입력 칸 (오타 방지용 확인 검사 필드) -->
                 <div class="auth-field">
                     <span class="icon-left">🔒</span>
                     <input type="password" id="passwordConfirm" name="passwordConfirm" placeholder="비밀번호를 다시 입력하세요" required>
-                    <button type="button" class="icon-right" onclick="togglePasswordVisibility('passwordConfirm', this)" aria-label="비밀번호 표시">👁</button>
+                    <button type="button" class="icon-right" aria-label="비밀번호 표시">👁</button>
                 </div>
 
                 <label class="auth-terms">
@@ -153,5 +147,6 @@
         <a class="top-btn" href="#">↑<small>TOP</small></a>
     </div>
 </footer>
+<script src="/auth/auth.js"></script>
 </body>
 </html>
