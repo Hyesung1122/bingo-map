@@ -134,7 +134,7 @@ public class WasteBinDbLoader {
                 conn.commit();
             }
         }
-
+        //0928 포크 브랜치 테스트
         System.out.println("완료! 새로 저장 시도: " + inserted + "건, 이미 있어서 건너뜀: " + skipped + "건");
         System.out.println("(정확한 최종 건수는 DB에서 SELECT COUNT(*) FROM WASTE_BIN; 으로 확인하세요)");
     }
