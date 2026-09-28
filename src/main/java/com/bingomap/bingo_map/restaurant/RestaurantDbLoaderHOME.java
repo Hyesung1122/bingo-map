@@ -28,11 +28,11 @@ import java.util.Map;
  *
  * 실행 방법: IntelliJ에서 main() 옆 ▶ 실행 (기존 도구들과 동일).
  */
-public class RestaurantDbLoader {
+public class RestaurantDbLoaderHOME {
 
-    private static final String DB_URL = "jdbc:oracle:thin:@//localhost:1521/orcl";
+    private static final String DB_URL = "jdbc:oracle:thin:@//localhost:1521/xe";
     private static final String DB_USER = "scott";
-    private static final String DB_PASSWORD = "tiger";
+    private static final String DB_PASSWORD = "1234";
 
     private static final String[] OVERPASS_URLS = {
             "https://overpass-api.de/api/interpreter",
@@ -184,10 +184,15 @@ public class RestaurantDbLoader {
     }
 
     private static String mapCategory(String cuisineRaw) {
-        if (cuisineRaw == null) return "기타";
-        // cuisine은 세미콜론으로 여러 값이 붙기도 함 (예: "coffee_shop;sandwich") → 첫 값만 사용
-        String first = cuisineRaw.split(";")[0].trim().toLowerCase();
-        return CUISINE_MAP.getOrDefault(first, cuisineRaw);
+        if (cuisineRaw == null || cuisineRaw.isBlank()) {
+            return "기타";
+        }
+
+        String first = cuisineRaw.split(";", 2)[0]
+                .trim()
+                .toLowerCase(java.util.Locale.ROOT);
+
+        return CUISINE_MAP.getOrDefault(first, "기타");
     }
 
     private static String extractAddress(JsonNode tags) {

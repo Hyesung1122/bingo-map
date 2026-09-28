@@ -8,9 +8,15 @@ spring:
     cache: false
 
   datasource:
-    url: jdbc:oracle:thin:@//localhost:1521/orcl
+    # --- 집 (xe) ---
+    url: jdbc:oracle:thin:@//localhost:1521/xe
+    password: 1234
+
+    # --- 학원 (orcl) ---
+    # url: jdbc:oracle:thin:@//localhost:1521/orcl
+    # password: tiger
+
     username: scott
-    password: tiger
     driver-class-name: oracle.jdbc.OracleDriver
 
   jpa:

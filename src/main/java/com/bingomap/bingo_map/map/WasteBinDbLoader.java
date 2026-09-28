@@ -77,12 +77,12 @@ public class WasteBinDbLoader {
             conn.setAutoCommit(false);
 
             String insertSql = """
-                    INSERT INTO WASTE_BIN (BIN_ID, OSM_ID, NAME, CATEGORY, ADDRESS, LATITUDE, LONGITUDE, CITY)
-                    SELECT SEQ_WASTE_BIN.NEXTVAL, ?, ?, ?, ?, ?, ?, ?
-                    FROM DUAL
-                    WHERE NOT EXISTS (
-                        SELECT 1 FROM WASTE_BIN WHERE OSM_ID = ?
-                    )
+                    INSERT INTO WASTE_BIN (OSM_ID, NAME, CATEGORY, ADDRESS, LATITUDE, LONGITUDE, CITY)
+                     SELECT ?, ?, ?, ?, ?, ?, ?
+                     FROM DUAL
+                     WHERE NOT EXISTS (
+                         SELECT 1 FROM WASTE_BIN WHERE OSM_ID = ?
+                     )
                     """;
 
             try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
@@ -134,7 +134,7 @@ public class WasteBinDbLoader {
                 conn.commit();
             }
         }
-
+        //0928 포크 브랜치 테스트
         System.out.println("완료! 새로 저장 시도: " + inserted + "건, 이미 있어서 건너뜀: " + skipped + "건");
         System.out.println("(정확한 최종 건수는 DB에서 SELECT COUNT(*) FROM WASTE_BIN; 으로 확인하세요)");
     }
