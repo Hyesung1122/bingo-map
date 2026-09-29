@@ -512,7 +512,7 @@ BEGIN
                 SELECT  4, '도톤보리 타이야끼', 'たい焼き', '1-8-22', 34.668350, 135.500800 FROM DUAL UNION ALL
                 SELECT  5, '카라아게 타로', 'からあげ', '2-2-1', 34.667800, 135.500200 FROM DUAL UNION ALL
                 SELECT  6, 'エミュリボン', NULL, '2-13-5', NULL, NULL FROM DUAL UNION ALL
-                SELECT  7, 'ギャムドカ페', NULL, '2-8', NULL, NULL FROM DUAL UNION ALL
+                SELECT  7, 'ギャムドカフェ', NULL, '2-8', NULL, NULL FROM DUAL UNION ALL
                 SELECT  8, 'ポケモンカフェ', NULL, '3-1-1', NULL, NULL FROM DUAL UNION ALL
                 SELECT  9, '本宮的茶 大阪 (BEN GONG''S TEA)', NULL, '21-30-1F', NULL, NULL FROM DUAL UNION ALL
                 SELECT 10, '癒ロイド', NULL, '2-4-8', NULL, NULL FROM DUAL UNION ALL
