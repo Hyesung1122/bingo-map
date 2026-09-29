@@ -504,6 +504,84 @@ BEGIN
              WHERE target_type = 'RESTAURANT'
                AND content LIKE '[BinGo TEST REVIEW 25]%';
 
+            INSERT INTO reviews (
+                id,
+                user_id,
+                target_type,
+                target_id,
+                rating,
+                content,
+                visit_date,
+                visit_time_slot,
+                visit_purpose,
+                recommend_yn,
+                help_count,
+                created_at,
+                updated_at
+            )
+            SELECT
+                SEQ_REVIEW.NEXTVAL,
+                v_user_id,
+                'RESTAURANT',
+                TO_CHAR(restaurant_id),
+                4.0,
+                '[BinGo TEST REVIEW 25] ' || requested_name || ' - OSM 식당 연결 확인용 테스트 리뷰입니다.',
+                TRUNC(SYSDATE) - MOD(seq_no, 7),
+                CASE MOD(seq_no, 3)
+                    WHEN 0 THEN 'DINNER'
+                    WHEN 1 THEN 'LUNCH'
+                    ELSE 'AFTERNOON'
+                END,
+                'TRAVEL',
+                1,
+                0,
+                SYSTIMESTAMP,
+                SYSTIMESTAMP
+            FROM MATCHED;
+
+            DBMS_OUTPUT.PUT_LINE('APPLY_OK - TEST REVIEW 25 inserted.');
+            DBMS_OUTPUT.PUT_LINE('INSERTED_ROWS=' || SQL%ROWCOUNT);
+            DBMS_OUTPUT.PUT_LINE('Review the result and execute COMMIT; in this connection.');
+        EXCEPTION
+            WHEN OTHERS THEN
+                ROLLBACK TO BEFORE_REVIEW_25;
+                RAISE;
+        END;
+    ELSE
+        RAISE_APPLICATION_ERROR(-20100, 'Use PREVIEW or APPLY only.');
+    END IF;
+END;
+/
+
+PROMPT ===== CURRENT TEST REVIEW COUNT =====
+SELECT COUNT(*) AS TEST_REVIEW_COUNT
+FROM reviews
+WHERE target_type = 'RESTAURANT'
+  AND content LIKE '[BinGo TEST REVIEW 25]%';
+
+SELECT
+    r.review_id AS REVIEW_ID,
+    r.target_id,
+    r.rating,
+    r.content,
+    r.created_at
+FROM (
+    SELECT
+        rv.id AS review_id,
+        rv.target_id,
+        rv.rating,
+        rv.content,
+        rv.created_at,
+        ROW_NUMBER() OVER (ORDER BY rv.id DESC) AS rn
+    FROM reviews rv
+    WHERE rv.target_type = 'RESTAURANT'
+      AND rv.content LIKE '[BinGo TEST REVIEW 25]%'
+) r
+WHERE r.rn <= 25
+ORDER BY r.review_id;
+
+UNDEFINE BINGO_REVIEW_MODE
+SET VERIFY ON
             WITH
             TARGETS(seq_no, requested_name, alt_name, address_key, target_lat, target_lon) AS (
                 SELECT  1, '쿠쿠루 도톤보리 본점', 'くくる', '1-10-5', 34.668729, 135.501294 FROM DUAL UNION ALL
@@ -638,81 +716,3 @@ BEGIN
                   AND restaurant_id IS NOT NULL
                   AND match_score > 0
             )
-            INSERT INTO reviews (
-                id,
-                user_id,
-                target_type,
-                target_id,
-                rating,
-                content,
-                visit_date,
-                visit_time_slot,
-                visit_purpose,
-                recommend_yn,
-                help_count,
-                created_at,
-                updated_at
-            )
-            SELECT
-                SEQ_REVIEW.NEXTVAL,
-                v_user_id,
-                'RESTAURANT',
-                TO_CHAR(restaurant_id),
-                4.0,
-                '[BinGo TEST REVIEW 25] ' || requested_name || ' - OSM 식당 연결 확인용 테스트 리뷰입니다.',
-                TRUNC(SYSDATE) - MOD(seq_no, 7),
-                CASE MOD(seq_no, 3)
-                    WHEN 0 THEN 'DINNER'
-                    WHEN 1 THEN 'LUNCH'
-                    ELSE 'AFTERNOON'
-                END,
-                'TRAVEL',
-                1,
-                0,
-                SYSTIMESTAMP,
-                SYSTIMESTAMP
-            FROM MATCHED;
-
-            DBMS_OUTPUT.PUT_LINE('APPLY_OK - TEST REVIEW 25 inserted.');
-            DBMS_OUTPUT.PUT_LINE('INSERTED_ROWS=' || SQL%ROWCOUNT);
-            DBMS_OUTPUT.PUT_LINE('Review the result and execute COMMIT; in this connection.');
-        EXCEPTION
-            WHEN OTHERS THEN
-                ROLLBACK TO BEFORE_REVIEW_25;
-                RAISE;
-        END;
-    ELSE
-        RAISE_APPLICATION_ERROR(-20100, 'Use PREVIEW or APPLY only.');
-    END IF;
-END;
-/
-
-PROMPT ===== CURRENT TEST REVIEW COUNT =====
-SELECT COUNT(*) AS TEST_REVIEW_COUNT
-FROM reviews
-WHERE target_type = 'RESTAURANT'
-  AND content LIKE '[BinGo TEST REVIEW 25]%';
-
-SELECT
-    r.review_id AS REVIEW_ID,
-    r.target_id,
-    r.rating,
-    r.content,
-    r.created_at
-FROM (
-    SELECT
-        rv.id AS review_id,
-        rv.target_id,
-        rv.rating,
-        rv.content,
-        rv.created_at,
-        ROW_NUMBER() OVER (ORDER BY rv.id DESC) AS rn
-    FROM reviews rv
-    WHERE rv.target_type = 'RESTAURANT'
-      AND rv.content LIKE '[BinGo TEST REVIEW 25]%'
-) r
-WHERE r.rn <= 25
-ORDER BY r.review_id;
-
-UNDEFINE BINGO_REVIEW_MODE
-SET VERIFY ON
