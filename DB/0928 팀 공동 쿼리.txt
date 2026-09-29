@@ -1,5 +1,5 @@
 -- ============================================================
--- BinGo Map 팀 통합 DB 스크립트 (v7)
+-- BinGo Map 팀 통합 DB 스크립트 (v8) //즐겨찾기 가상 데이터 추가 - kdk / 0929
 -- ============================================================
 
 -- 기존 객체 정리 (없어도 에러 없이 통과)
@@ -667,7 +667,7 @@ INSERT INTO notices (id, author_id, title, content, view_count)
 VALUES (5, 1, '다국어 지원 예정 안내', '일본어·영어 지원을 준비 중입니다. 조금만 기다려 주세요.', 7);
 
 -- ============================================================
--- [v5 추가] 맛집 메뉴 테스트 데이터 (식당 1~5, 식당당 2개 / 대표메뉴 1개)
+-- [v5 추가] 맛집 메뉴 테스트 데이터 (식당 1~5, 식당당 2개 / 대표메뉴 1개) //0929 kdk 테이블 수정하기
 -- ============================================================
 INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE) VALUES (1, 1, '명물 타코야끼 (8개)', '¥850', 1);
 INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE) VALUES (2, 1, '타코야끼 (12개)', '¥1,200', 0);
@@ -681,7 +681,7 @@ INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATUR
 INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE) VALUES (10, 5, '카라아게 (마늘 간장)', '¥720', 0);
 
 -- ============================================================
--- [v5 추가] 리뷰 테스트 데이터 (TB_REVIEW) - v4 reviews의 5건과 같은 내용
+-- [v5 추가] 리뷰 테스트 데이터 (TB_REVIEW) - v4 reviews의 5건과 같은 내용 //0929 kdk 테이블 수정 - 리뷰 테이블이랑 다름
 -- ============================================================
 INSERT INTO TB_REVIEW (REVIEW_ID, USER_ID, RESTAURANT_ID, RATING, CONTENT, VISIT_DATE, VISIT_TIME_SLOT, VISIT_PURPOSE, RECOMMEND_YN, HELP_COUNT)
 VALUES (1, 1, 1, 3, '그닥이던데.. 오바임.. ㅋㅋ', TRUNC(SYSDATE) - 10, '점심 11:00~14:00', '여행', 0, 2);
@@ -695,7 +695,7 @@ INSERT INTO TB_REVIEW (REVIEW_ID, USER_ID, RESTAURANT_ID, RATING, CONTENT, VISIT
 VALUES (5, 5, 5, 5, '맛있어서 먹다가 울었음 ㅠㅠ', TRUNC(SYSDATE) - 2, '점심 11:00~14:00', '가족외식', 1, 3);
 
 -- ============================================================
--- [v5 추가] 커뮤니티 게시글 테스트 데이터 (TB_COMMUNITY_POST)
+-- [v5 추가] 커뮤니티 게시글 테스트 데이터 (TB_COMMUNITY_POST) //0929 kdk 테이블 수정하기(팀 db 설계랑 다름) 
 -- ============================================================
 INSERT INTO TB_COMMUNITY_POST (POST_ID, USER_ID, TITLE, CONTENT, TAGS, VIEW_COUNT)
 VALUES (1, 2, '도톤보리 쓰레기통 어디에 있나요?', '글리코 간판 근처에서 먹고 나서 쓰레기 버릴 곳을 못 찾겠어요. 아시는 분 계신가요?', '도톤보리,쓰레기통', 25);

@@ -1,0 +1,295 @@
+﻿-- BinGo Map / 식당 DB 간단 통합본 / Oracle 11g 및 XE
+-- SQL Developer에서 앱과 같은 계정 접속을 선택하고 파일 전체 F5.
+-- 학원에 식당이 이미 있어도 사용하는 준비 파일입니다. 기존 데이터/ID를 삭제하지 않습니다.
+-- 없으면 빈 테이블 생성, 있으면 필요한 컬럼/제약 보완 + 문자열 길이 확장.
+-- 기존 IS_PUBLISHED Y/N은 유지합니다. 해당 컬럼이 처음 생기면 기존 행도 N입니다.
+-- 기존 시퀀스는 초기화하지 않습니다. 실제 OSM 데이터 수집이나 공개 선별은 하지 않습니다.
+-- 실행 전 앱/Loader를 중지하고 미완료 SQL 편집은 저장하거나 취소하세요.
+-- DDL은 자동 커밋됩니다. 중간 오류 시 전체 변경을 ROLLBACK할 수 있는 파일은 아닙니다.
+-- 같은 PL/SQL 블록으로 묶어 준비 실패 후 길이 확장이 계속 실행되지 않게 했습니다.
+-- ORA- 오류 없이 SETUP_OK가 나오는지 확인하세요.
+SET SERVEROUTPUT ON
+SET DEFINE OFF
+
+SELECT USER AS CONNECTED_USER,
+       SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') AS CURRENT_SCHEMA,
+       SYS_CONTEXT('USERENV', 'DB_NAME') AS DB_NAME
+FROM DUAL;
+
+DECLARE
+    V_EXISTS NUMBER;
+    V_BEFORE_ROWS NUMBER := 0;
+    V_AFTER_ROWS NUMBER;
+    V_OSM_ROWS NUMBER;
+    V_PUBLIC_ROWS NUMBER;
+    V_COUNT NUMBER;
+    V_START NUMBER;
+    V_TYPE VARCHAR2(128);
+    V_LENGTH NUMBER;
+    V_NULLABLE VARCHAR2(1);
+
+    FUNCTION HAS_COLUMN(P_NAME VARCHAR2) RETURN BOOLEAN IS
+        N NUMBER;
+    BEGIN
+        SELECT COUNT(*) INTO N FROM USER_TAB_COLUMNS
+        WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = P_NAME;
+        RETURN N > 0;
+    END;
+
+    PROCEDURE ADD_COLUMN_IF_MISSING(P_NAME VARCHAR2, P_DEFINITION VARCHAR2) IS
+    BEGIN
+        IF NOT HAS_COLUMN(P_NAME) THEN
+            EXECUTE IMMEDIATE 'ALTER TABLE RESTAURANT ADD (' || P_NAME || ' ' || P_DEFINITION || ')';
+            DBMS_OUTPUT.PUT_LINE('ADDED: ' || P_NAME);
+        END IF;
+    END;
+    PROCEDURE WIDEN_OSM_COLUMNS IS
+        v_modifications VARCHAR2(32767);
+        v_count PLS_INTEGER := 0;
+
+        PROCEDURE add_definition(p_name VARCHAR2, p_definition VARCHAR2) IS
+        BEGIN
+            IF v_count > 0 THEN
+                v_modifications := v_modifications || ', ';
+            END IF;
+            v_modifications := v_modifications || p_name || ' ' || p_definition;
+            v_count := v_count + 1;
+        END;
+
+        PROCEDURE widen_char_column(p_name VARCHAR2, p_min_chars PLS_INTEGER) IS
+            v_type USER_TAB_COLUMNS.DATA_TYPE%TYPE;
+            v_chars USER_TAB_COLUMNS.CHAR_LENGTH%TYPE;
+            v_used USER_TAB_COLUMNS.CHAR_USED%TYPE;
+            v_target PLS_INTEGER;
+        BEGIN
+            SELECT DATA_TYPE, CHAR_LENGTH, CHAR_USED
+              INTO v_type, v_chars, v_used
+              FROM USER_TAB_COLUMNS
+             WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = p_name;
+
+            IF v_type <> 'VARCHAR2' THEN
+                RAISE_APPLICATION_ERROR(-20001, p_name || ': expected VARCHAR2, found ' || v_type);
+            END IF;
+
+            -- BYTE 정의를 CHAR로 바꿀 때도 기존 선언 길이보다 작게 만들지 않습니다.
+            v_target := GREATEST(v_chars, p_min_chars);
+            IF v_used <> 'C' OR v_chars < v_target THEN
+                add_definition(p_name, 'VARCHAR2(' || TO_CHAR(v_target, 'FM9990') || ' CHAR)');
+            END IF;
+        END;
+
+        PROCEDURE widen_address IS
+            v_type USER_TAB_COLUMNS.DATA_TYPE%TYPE;
+            v_bytes USER_TAB_COLUMNS.DATA_LENGTH%TYPE;
+            v_chars USER_TAB_COLUMNS.CHAR_LENGTH%TYPE;
+            v_used USER_TAB_COLUMNS.CHAR_USED%TYPE;
+        BEGIN
+            SELECT DATA_TYPE, DATA_LENGTH, CHAR_LENGTH, CHAR_USED
+              INTO v_type, v_bytes, v_chars, v_used
+              FROM USER_TAB_COLUMNS
+             WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = 'ADDRESS';
+
+            IF v_type <> 'VARCHAR2' THEN
+                RAISE_APPLICATION_ERROR(-20002, 'ADDRESS: expected VARCHAR2, found ' || v_type);
+            END IF;
+
+            IF v_bytes < 4000 OR (v_used = 'C' AND v_chars < 4000) THEN
+                add_definition('ADDRESS', 'VARCHAR2(4000 BYTE)');
+            END IF;
+        END;
+    BEGIN
+        IF SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') <> USER THEN
+            RAISE_APPLICATION_ERROR(-20003, 'Connect as the RESTAURANT table owner without changing CURRENT_SCHEMA.');
+        END IF;
+
+        widen_char_column('NAME', 255);
+        widen_char_column('CATEGORY', 255);
+        widen_char_column('TAGS', 255);
+        widen_char_column('OPENING_HOURS', 1000);
+        widen_char_column('PHONE', 255);
+        widen_char_column('WEBSITE_URL', 1000);
+        widen_address;
+
+        IF v_count = 0 THEN
+            DBMS_OUTPUT.PUT_LINE('OK: column lengths already meet these requirements.');
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('ALTER TABLE RESTAURANT MODIFY (' || v_modifications || ')');
+            EXECUTE IMMEDIATE 'ALTER TABLE RESTAURANT MODIFY (' || v_modifications || ')';
+            DBMS_OUTPUT.PUT_LINE('OK: RESTAURANT string column lengths updated.');
+        END IF;
+    END;
+BEGIN
+    IF SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') <> USER THEN
+        RAISE_APPLICATION_ERROR(-20009, 'Connect directly as the RESTAURANT owner without changing CURRENT_SCHEMA.');
+    END IF;
+    SELECT COUNT(*) INTO V_EXISTS FROM USER_TABLES WHERE TABLE_NAME = 'RESTAURANT';
+
+    -- 먼저 데이터/컬럼 충돌을 점검합니다. 기존 자료를 임의로 고치지 않습니다.
+    IF V_EXISTS = 1 THEN
+        EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM RESTAURANT' INTO V_BEFORE_ROWS;
+        FOR COL IN (
+            SELECT COLUMN_VALUE AS NAME FROM TABLE(SYS.ODCIVARCHAR2LIST(
+                'RESTAURANT_ID', 'NAME', 'CATEGORY', 'TAGS', 'RATING', 'REVIEW_COUNT',
+                'DESCRIPTION', 'ADDRESS', 'LATITUDE', 'LONGITUDE', 'OPENING_HOURS',
+                'PHONE', 'PRICE_RANGE', 'WEBSITE_URL', 'SEAT_INFO', 'RESERVATION_INFO',
+                'PAYMENT_METHODS', 'LANGUAGES', 'MAIN_IMAGE_URL', 'MENU_NAME',
+                'MENU_DESCRIPTION', 'MENU_PRICE', 'MENU_IMAGE_URL'))
+        ) LOOP
+            IF NOT HAS_COLUMN(COL.NAME) THEN
+                RAISE_APPLICATION_ERROR(-20001, 'Unexpected RESTAURANT schema. Missing: ' || COL.NAME);
+            END IF;
+        END LOOP;
+
+        FOR COL IN (
+            SELECT COLUMN_VALUE AS NAME FROM TABLE(SYS.ODCIVARCHAR2LIST(
+                'NAME', 'CATEGORY', 'TAGS', 'ADDRESS', 'OPENING_HOURS', 'PHONE', 'WEBSITE_URL'))
+        ) LOOP
+            SELECT DATA_TYPE INTO V_TYPE FROM USER_TAB_COLUMNS
+            WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = COL.NAME;
+            IF V_TYPE <> 'VARCHAR2' THEN
+                RAISE_APPLICATION_ERROR(-20010, COL.NAME || ' must be VARCHAR2. Review schema before setup.');
+            END IF;
+        END LOOP;
+
+        IF HAS_COLUMN('OSM_ID') THEN
+            SELECT DATA_TYPE INTO V_TYPE FROM USER_TAB_COLUMNS
+            WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = 'OSM_ID';
+            IF V_TYPE <> 'NUMBER' THEN
+                RAISE_APPLICATION_ERROR(-20002, 'OSM_ID must be NUMBER. No automatic type conversion.');
+            END IF;
+            EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM (SELECT OSM_ID FROM RESTAURANT WHERE OSM_ID IS NOT NULL GROUP BY OSM_ID HAVING COUNT(*) > 1)' INTO V_COUNT;
+            IF V_COUNT > 0 THEN
+                RAISE_APPLICATION_ERROR(-20003, 'Duplicate OSM_ID groups found. Review duplicates first.');
+            END IF;
+        END IF;
+
+        IF HAS_COLUMN('IS_PUBLISHED') THEN
+            SELECT DATA_TYPE, CHAR_LENGTH INTO V_TYPE, V_LENGTH FROM USER_TAB_COLUMNS
+            WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = 'IS_PUBLISHED';
+            IF V_TYPE NOT IN ('CHAR', 'VARCHAR2') OR V_LENGTH <> 1 THEN
+                RAISE_APPLICATION_ERROR(-20004, 'IS_PUBLISHED must be CHAR(1) or VARCHAR2(1).');
+            END IF;
+            EXECUTE IMMEDIATE q'[SELECT COUNT(*) FROM RESTAURANT WHERE IS_PUBLISHED IS NULL OR IS_PUBLISHED NOT IN ('Y', 'N')]' INTO V_COUNT;
+            IF V_COUNT > 0 THEN
+                RAISE_APPLICATION_ERROR(-20005, 'IS_PUBLISHED has NULL or invalid values. Review first.');
+            END IF;
+        END IF;
+
+        FOR COL IN (SELECT COLUMN_VALUE AS NAME FROM TABLE(SYS.ODCIVARCHAR2LIST('CREATED_AT', 'UPDATED_AT'))) LOOP
+            IF HAS_COLUMN(COL.NAME) THEN
+                SELECT DATA_TYPE INTO V_TYPE FROM USER_TAB_COLUMNS
+                WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = COL.NAME;
+                IF V_TYPE NOT LIKE 'TIMESTAMP%' THEN
+                    RAISE_APPLICATION_ERROR(-20006, COL.NAME || ' must be TIMESTAMP.');
+                END IF;
+                EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM RESTAURANT WHERE ' || COL.NAME || ' IS NULL' INTO V_COUNT;
+                IF V_COUNT > 0 THEN
+                    RAISE_APPLICATION_ERROR(-20007, COL.NAME || ' contains NULL. Review first.');
+                END IF;
+            END IF;
+        END LOOP;
+    ELSE
+        EXECUTE IMMEDIATE q'~CREATE TABLE RESTAURANT (
+    RESTAURANT_ID      NUMBER(19) PRIMARY KEY,
+    NAME               VARCHAR2(255 CHAR) NOT NULL,
+    CATEGORY           VARCHAR2(255 CHAR),
+    TAGS               VARCHAR2(255 CHAR),
+    RATING             NUMBER(3,1),
+    REVIEW_COUNT       NUMBER(10),
+    DESCRIPTION        VARCHAR2(1000),
+    ADDRESS            VARCHAR2(4000 BYTE),
+    LATITUDE           NUMBER(10,7),
+    LONGITUDE          NUMBER(10,7),
+    OPENING_HOURS      VARCHAR2(1000 CHAR),
+    PHONE              VARCHAR2(255 CHAR),
+    PRICE_RANGE        VARCHAR2(50),
+    WEBSITE_URL        VARCHAR2(1000 CHAR),
+    SEAT_INFO          VARCHAR2(100),
+    RESERVATION_INFO   VARCHAR2(100),
+    PAYMENT_METHODS    VARCHAR2(200),
+    LANGUAGES          VARCHAR2(200),
+    MAIN_IMAGE_URL     VARCHAR2(500),
+    MENU_NAME          VARCHAR2(100),
+    MENU_DESCRIPTION   VARCHAR2(500),
+    MENU_PRICE         VARCHAR2(50),
+    MENU_IMAGE_URL     VARCHAR2(500),
+    OSM_ID             NUMBER(19),
+    IS_PUBLISHED       CHAR(1) DEFAULT 'N' NOT NULL,
+    CREATED_AT         TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    UPDATED_AT         TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT UQ_RESTAURANT_OSM_ID UNIQUE (OSM_ID),
+    CONSTRAINT CK_RESTAURANT_IS_PUBLISHED CHECK (IS_PUBLISHED IN ('Y', 'N'))
+)~';
+        DBMS_OUTPUT.PUT_LINE('CREATED EMPTY TABLE: RESTAURANT');
+    END IF;
+
+    ADD_COLUMN_IF_MISSING('OSM_ID', 'NUMBER(19)');
+    ADD_COLUMN_IF_MISSING('IS_PUBLISHED', q'[CHAR(1) DEFAULT 'N' NOT NULL]');
+    ADD_COLUMN_IF_MISSING('CREATED_AT', 'TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL');
+    ADD_COLUMN_IF_MISSING('UPDATED_AT', 'TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL');
+
+    -- 기존 Y/N 값은 그대로 두고 앞으로 생길 행의 기본값만 지정합니다.
+    EXECUTE IMMEDIATE q'[ALTER TABLE RESTAURANT MODIFY (IS_PUBLISHED DEFAULT 'N')]';
+    EXECUTE IMMEDIATE 'ALTER TABLE RESTAURANT MODIFY (CREATED_AT DEFAULT SYSTIMESTAMP, UPDATED_AT DEFAULT SYSTIMESTAMP)';
+    FOR COL IN (SELECT COLUMN_VALUE AS NAME FROM TABLE(SYS.ODCIVARCHAR2LIST('IS_PUBLISHED', 'CREATED_AT', 'UPDATED_AT'))) LOOP
+        SELECT NULLABLE INTO V_NULLABLE FROM USER_TAB_COLUMNS
+        WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = COL.NAME;
+        IF V_NULLABLE = 'Y' THEN
+            EXECUTE IMMEDIATE 'ALTER TABLE RESTAURANT MODIFY (' || COL.NAME || ' NOT NULL)';
+        END IF;
+    END LOOP;
+
+    -- OSM_ID 단일 컬럼의 기존 PK/UNIQUE가 있으면 재사용합니다.
+    SELECT COUNT(*) INTO V_COUNT FROM USER_CONSTRAINTS C
+    WHERE C.TABLE_NAME = 'RESTAURANT' AND C.CONSTRAINT_TYPE IN ('U', 'P')
+      AND C.STATUS = 'ENABLED' AND C.VALIDATED = 'VALIDATED'
+      AND (SELECT COUNT(*) FROM USER_CONS_COLUMNS CC WHERE CC.CONSTRAINT_NAME = C.CONSTRAINT_NAME) = 1
+      AND EXISTS (SELECT 1 FROM USER_CONS_COLUMNS CC WHERE CC.CONSTRAINT_NAME = C.CONSTRAINT_NAME AND CC.COLUMN_NAME = 'OSM_ID');
+    IF V_COUNT = 0 THEN
+        SELECT COUNT(*) INTO V_COUNT FROM USER_CONSTRAINTS
+        WHERE CONSTRAINT_NAME = 'UQ_RESTAURANT_OSM_ID';
+        IF V_COUNT > 0 THEN
+            RAISE_APPLICATION_ERROR(-20008, 'UQ_RESTAURANT_OSM_ID exists but is not a validated OSM_ID unique key. Review first.');
+        END IF;
+        EXECUTE IMMEDIATE 'ALTER TABLE RESTAURANT ADD CONSTRAINT UQ_RESTAURANT_OSM_ID UNIQUE (OSM_ID)';
+    END IF;
+
+    SELECT COUNT(*) INTO V_COUNT FROM USER_CONSTRAINTS
+    WHERE TABLE_NAME = 'RESTAURANT' AND CONSTRAINT_NAME = 'CK_RESTAURANT_IS_PUBLISHED' AND CONSTRAINT_TYPE = 'C';
+    IF V_COUNT = 0 THEN
+        EXECUTE IMMEDIATE q'[ALTER TABLE RESTAURANT ADD CONSTRAINT CK_RESTAURANT_IS_PUBLISHED CHECK (IS_PUBLISHED IN ('Y', 'N'))]';
+    ELSE
+        EXECUTE IMMEDIATE 'ALTER TABLE RESTAURANT ENABLE VALIDATE CONSTRAINT CK_RESTAURANT_IS_PUBLISHED';
+    END IF;
+
+    -- 기존 시퀀스는 초기화하지 않습니다. 없을 때만 현재 최대 ID 다음에서 시작합니다.
+    SELECT COUNT(*) INTO V_COUNT FROM USER_SEQUENCES WHERE SEQUENCE_NAME = 'SEQ_RESTAURANT';
+    IF V_COUNT = 0 THEN
+        EXECUTE IMMEDIATE 'SELECT GREATEST(NVL(MAX(RESTAURANT_ID), 0), 0) + 1 FROM RESTAURANT' INTO V_START;
+        EXECUTE IMMEDIATE 'CREATE SEQUENCE SEQ_RESTAURANT START WITH ' || TO_CHAR(V_START, 'FM9999999999999999999999999999') || ' INCREMENT BY 1 NOCACHE NOCYCLE';
+        DBMS_OUTPUT.PUT_LINE('CREATED: SEQ_RESTAURANT');
+    END IF;
+
+    WIDEN_OSM_COLUMNS;
+
+    EXECUTE IMMEDIATE q'[SELECT COUNT(*), COUNT(OSM_ID), COUNT(CASE WHEN IS_PUBLISHED = 'Y' THEN 1 END) FROM RESTAURANT]'
+        INTO V_AFTER_ROWS, V_OSM_ROWS, V_PUBLIC_ROWS;
+    IF V_AFTER_ROWS <> V_BEFORE_ROWS THEN
+        RAISE_APPLICATION_ERROR(-20011, 'Row count changed during setup. Check concurrent writes.');
+    END IF;
+    DBMS_OUTPUT.PUT_LINE('ROWS_BEFORE=' || V_BEFORE_ROWS || ' / ROWS_AFTER=' || V_AFTER_ROWS);
+    DBMS_OUTPUT.PUT_LINE('OSM_ROWS=' || V_OSM_ROWS || ' / PUBLIC_ROWS=' || V_PUBLIC_ROWS);
+    DBMS_OUTPUT.PUT_LINE('SETUP_OK - existing restaurant rows preserved.');
+END;
+/
+
+-- 아래는 조회만 합니다. 위 블록이 실패했다면 이 조회 결과만 보고 성공으로 판단하지 마세요.
+SELECT COLUMN_NAME, DATA_TYPE, DATA_LENGTH, CHAR_LENGTH, CHAR_USED, NULLABLE
+FROM USER_TAB_COLUMNS WHERE TABLE_NAME = 'RESTAURANT'
+ORDER BY COLUMN_ID;
+
+SELECT SEQUENCE_NAME, INCREMENT_BY, LAST_NUMBER, CACHE_SIZE
+FROM USER_SEQUENCES WHERE SEQUENCE_NAME = 'SEQ_RESTAURANT';
+-- LAST_NUMBER는 캐시 설정에 따라 정확한 다음 번호와 다를 수 있습니다.
+-- OSM_ROWS가 이미 충분하면 학원 Loader를 다시 실행할 필요가 없습니다.
+SET DEFINE ON

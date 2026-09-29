@@ -1,0 +1,629 @@
+-- ============================================================
+-- BinGo Map 팀 통합 쿼리 (0929 정리본)
+-- 기준: bingo-map-main.zip의 실제 엔티티(@Table/@Column/@SequenceGenerator)
+-- 목적: DB 실제 테이블을 "코드가 진짜로 쓰는 이름·컬럼"에 맞추는 것.
+--       "Bingo-Map (1).sql"(dbdiagram 내보내기)은 restaurant(단수)/reviews(구버전)로
+--       코드와 이름이 달라 그대로 실행하면 안 씀 — 이 파일 기준으로 교체할 것.
+-- ============================================================
+
+
+-- ============================================================
+-- 0. 유령 테이블 정리 (코드가 전혀 안 씀 — 확인 후 실행)
+-- 스크린샷에 있던 RESTAURANT(단수)/REVIEWS(구버전 폴리모픽 리뷰)는
+-- 지금 어떤 엔티티도 매핑하지 않는 빈 테이블입니다.
+-- 안에 데이터가 없는 것 확인하고 나서 지우세요.
+-- ============================================================
+-- DROP TABLE "restaurant" CASCADE CONSTRAINTS;   -- 단수, dbdiagram이 잘못 생성한 유령 테이블
+-- DROP TABLE reviews CASCADE CONSTRAINTS;         -- 구버전 리뷰(target_type/target_id), TB_REVIEW로 대체됨
+-- DROP SEQUENCE reviews_seq;
+
+
+-- ============================================================
+-- 1. USERS (안태건) — 기존과 동일, 변경 없음
+-- ============================================================
+CREATE SEQUENCE users_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE users (
+    id                  NUMBER          NOT NULL,
+    name                VARCHAR2(50)    NOT NULL,
+    nickname            VARCHAR2(30),
+    email               VARCHAR2(100)   NOT NULL,
+    password            VARCHAR2(255)   NOT NULL,
+    nationality         VARCHAR2(50),
+    sns_type            VARCHAR2(20),
+    role                VARCHAR2(20)    DEFAULT 'USER' NOT NULL,
+    security_question   VARCHAR2(100),
+    security_answer     VARCHAR2(255),
+    notify_email        VARCHAR2(1),
+    location_enabled    VARCHAR2(1),
+    created_at          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+
+    CONSTRAINT pk_users PRIMARY KEY (id),
+    CONSTRAINT uq_users_email UNIQUE (email),
+    CONSTRAINT ck_users_role CHECK (role IN ('USER', 'ADMIN'))
+);
+
+CREATE OR REPLACE TRIGGER users_bi
+    BEFORE INSERT ON users
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT users_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+
+-- ============================================================
+-- 2. RESTAURANTS (장준환) — 기존 + OSM_ID/IS_PUBLISHED 추가
+-- (RestaurantDbLoader가 이 두 컬럼을 요구함. 이미 restaurants 테이블이
+--  있다면 CREATE 대신 아래 ALTER 두 줄만 실행하면 됨)
+-- ============================================================
+
+CREATE SEQUENCE restaurants_seq
+    START WITH 1
+    INCREMENT BY 1
+    NOCACHE;
+
+CREATE TABLE restaurants (
+    id                  NUMBER          NOT NULL,
+    name                VARCHAR2(100)   NOT NULL,
+    category            VARCHAR2(50),
+    tags                VARCHAR2(200),
+    rating              NUMBER(3,1),
+    review_count        NUMBER(10),
+    description         VARCHAR2(1000),
+    address             VARCHAR2(300),
+    latitude            NUMBER(10,7),
+    longitude           NUMBER(10,7),
+    opening_hours       VARCHAR2(100),
+    phone               VARCHAR2(50),
+    price_range         VARCHAR2(50),
+    website_url         VARCHAR2(300),
+    seat_info           VARCHAR2(100),
+    reservation_info    VARCHAR2(100),
+    payment_methods     VARCHAR2(200),
+    languages           VARCHAR2(200),
+    main_image_url      VARCHAR2(500),
+
+    menu_name           VARCHAR2(100),
+    menu_description    VARCHAR2(500),
+    menu_price          VARCHAR2(50),
+    menu_image_url      VARCHAR2(500),
+
+    osm_id              NUMBER          UNIQUE,   -- OSM 노드 ID, 수기 등록 식당은 NULL
+    is_published        VARCHAR2(1)     DEFAULT 'N' NOT NULL,  -- Y=지도/목록 공개
+
+    created_at          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+
+    CONSTRAINT pk_restaurants
+        PRIMARY KEY (id)
+);
+
+-- 이미 restaurants 테이블이 있고 데이터도 있는 경우엔 위 CREATE 대신 이 두 줄만:
+-- ALTER TABLE restaurants ADD osm_id NUMBER UNIQUE;
+-- ALTER TABLE restaurants ADD is_published VARCHAR2(1) DEFAULT 'N' NOT NULL;
+
+CREATE OR REPLACE TRIGGER restaurants_bi
+    BEFORE INSERT ON restaurants
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT restaurants_seq.NEXTVAL
+        INTO :NEW.id
+        FROM dual;
+    END IF;
+END;
+/
+
+
+-- ============================================================
+-- 3. FAVORITES (공통) — 기존과 동일, 변경 없음
+-- ============================================================
+
+CREATE SEQUENCE favorites_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE favorites (
+    id          NUMBER          NOT NULL,
+    user_id     NUMBER          NOT NULL,
+    target_type VARCHAR2(20)    NOT NULL,
+    target_id   VARCHAR2(100)   NOT NULL,
+    target_name VARCHAR2(200),
+    created_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_favorites PRIMARY KEY (id),
+    CONSTRAINT fk_favorites_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT ck_favorites_target_type CHECK (target_type IN ('WASTE_BIN', 'RESTAURANT')),
+    CONSTRAINT uq_favorites_target UNIQUE (user_id, target_type, target_id)
+);
+
+CREATE OR REPLACE TRIGGER favorites_bi
+    BEFORE INSERT ON favorites
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT favorites_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+
+-- ============================================================
+-- 4. TB_REVIEW / TB_REVIEW_IMAGE (유해성) — 신규
+-- 09.16 폴리모픽 설계에서 "식당 리뷰 전용"으로 변경된 최신 구조.
+-- 방문일/시간대/목적/추천여부, 이미지 여러 장 지원.
+-- rating: Review.java는 Double(0.5 단위 허용) — 0.5 단위 CHECK 유지.
+-- recommend_yn: Java Boolean → Oracle NUMBER(1)(0/1)로 가정. 실행해보고
+--   Hibernate가 다른 타입을 기대하면(예: CHAR(1)) 여기만 고치면 됨.
+-- ============================================================
+
+CREATE SEQUENCE SEQ_REVIEW START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE TB_REVIEW (
+    REVIEW_ID       NUMBER          NOT NULL,
+    USER_ID         NUMBER          NOT NULL,
+    RESTAURANT_ID   NUMBER          NOT NULL,
+    RATING          NUMBER(2,1)     NOT NULL,
+    CONTENT         VARCHAR2(2000)  NOT NULL,
+    VISIT_DATE      DATE,
+    VISIT_TIME_SLOT VARCHAR2(20),
+    VISIT_PURPOSE   VARCHAR2(20),
+    RECOMMEND_YN    NUMBER(1),
+    HELP_COUNT      NUMBER          DEFAULT 0 NOT NULL,
+    CREATED_AT      TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_tb_review PRIMARY KEY (REVIEW_ID),
+    CONSTRAINT fk_review_user FOREIGN KEY (USER_ID) REFERENCES users (id),
+    CONSTRAINT fk_review_restaurant FOREIGN KEY (RESTAURANT_ID) REFERENCES restaurants (id),
+    CONSTRAINT ck_review_rating CHECK (RATING BETWEEN 1 AND 5),
+    CONSTRAINT ck_review_rating_half CHECK (MOD(RATING * 2, 1) = 0)
+);
+
+CREATE OR REPLACE TRIGGER tb_review_bi
+    BEFORE INSERT ON TB_REVIEW
+    FOR EACH ROW
+BEGIN
+    IF :NEW.REVIEW_ID IS NULL THEN
+        SELECT SEQ_REVIEW.NEXTVAL INTO :NEW.REVIEW_ID FROM dual;
+    END IF;
+END;
+/
+
+CREATE SEQUENCE SEQ_REVIEW_IMAGE START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE TB_REVIEW_IMAGE (
+    REVIEW_IMAGE_ID NUMBER          NOT NULL,
+    REVIEW_ID       NUMBER          NOT NULL,
+    IMAGE_URL       VARCHAR2(255)   NOT NULL,
+    SORT_ORDER      NUMBER,
+    CONSTRAINT pk_tb_review_image PRIMARY KEY (REVIEW_IMAGE_ID),
+    CONSTRAINT fk_review_image_review FOREIGN KEY (REVIEW_ID) REFERENCES TB_REVIEW (REVIEW_ID)
+);
+
+CREATE OR REPLACE TRIGGER tb_review_image_bi
+    BEFORE INSERT ON TB_REVIEW_IMAGE
+    FOR EACH ROW
+BEGIN
+    IF :NEW.REVIEW_IMAGE_ID IS NULL THEN
+        SELECT SEQ_REVIEW_IMAGE.NEXTVAL INTO :NEW.REVIEW_IMAGE_ID FROM dual;
+    END IF;
+END;
+/
+
+
+-- ============================================================
+-- 5. TB_RESTAURANT_MENU (장준환) — 신규
+-- 기존 restaurants의 menu_name/menu_price 단일 컬럼과 별개로,
+-- 식당 하나에 메뉴 여러 개를 넣을 수 있게 만든 정규화 테이블.
+-- ============================================================
+
+CREATE SEQUENCE SEQ_RESTAURANT_MENU START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE TB_RESTAURANT_MENU (
+    MENU_ID         NUMBER          NOT NULL,
+    RESTAURANT_ID   NUMBER          NOT NULL,
+    NAME            VARCHAR2(100)   NOT NULL,
+    PRICE           VARCHAR2(50),
+    IS_SIGNATURE    NUMBER(1),
+    CONSTRAINT pk_tb_restaurant_menu PRIMARY KEY (MENU_ID),
+    CONSTRAINT fk_menu_restaurant FOREIGN KEY (RESTAURANT_ID) REFERENCES restaurants (id)
+);
+
+CREATE OR REPLACE TRIGGER tb_restaurant_menu_bi
+    BEFORE INSERT ON TB_RESTAURANT_MENU
+    FOR EACH ROW
+BEGIN
+    IF :NEW.MENU_ID IS NULL THEN
+        SELECT SEQ_RESTAURANT_MENU.NEXTVAL INTO :NEW.MENU_ID FROM dual;
+    END IF;
+END;
+/
+
+
+-- ============================================================
+-- 6. TB_COMMUNITY_POST / TB_COMMUNITY_COMMENT (범위 외였다가 구현된 기능) — 신규
+-- ============================================================
+
+CREATE SEQUENCE SEQ_COMMUNITY_POST START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE TB_COMMUNITY_POST (
+    POST_ID     NUMBER          NOT NULL,
+    USER_ID     NUMBER          NOT NULL,
+    TITLE       VARCHAR2(200)   NOT NULL,
+    CONTENT     VARCHAR2(4000)  NOT NULL,
+    TAGS        VARCHAR2(200),
+    VIEW_COUNT  NUMBER          DEFAULT 0 NOT NULL,
+    CREATED_AT  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    UPDATED_AT  TIMESTAMP,
+    CONSTRAINT pk_tb_community_post PRIMARY KEY (POST_ID),
+    CONSTRAINT fk_community_post_user FOREIGN KEY (USER_ID) REFERENCES users (id)
+);
+
+CREATE OR REPLACE TRIGGER tb_community_post_bi
+    BEFORE INSERT ON TB_COMMUNITY_POST
+    FOR EACH ROW
+BEGIN
+    IF :NEW.POST_ID IS NULL THEN
+        SELECT SEQ_COMMUNITY_POST.NEXTVAL INTO :NEW.POST_ID FROM dual;
+    END IF;
+END;
+/
+
+CREATE SEQUENCE SEQ_COMMUNITY_COMMENT START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE TB_COMMUNITY_COMMENT (
+    COMMENT_ID  NUMBER          NOT NULL,
+    POST_ID     NUMBER          NOT NULL,
+    USER_ID     NUMBER          NOT NULL,
+    CONTENT     VARCHAR2(1000)  NOT NULL,
+    CREATED_AT  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_tb_community_comment PRIMARY KEY (COMMENT_ID),
+    CONSTRAINT fk_community_comment_post FOREIGN KEY (POST_ID) REFERENCES TB_COMMUNITY_POST (POST_ID),
+    CONSTRAINT fk_community_comment_user FOREIGN KEY (USER_ID) REFERENCES users (id)
+);
+
+CREATE OR REPLACE TRIGGER tb_community_comment_bi
+    BEFORE INSERT ON TB_COMMUNITY_COMMENT
+    FOR EACH ROW
+BEGIN
+    IF :NEW.COMMENT_ID IS NULL THEN
+        SELECT SEQ_COMMUNITY_COMMENT.NEXTVAL INTO :NEW.COMMENT_ID FROM dual;
+    END IF;
+END;
+/
+
+
+-- ============================================================
+-- 7. NOTICES (안태건) — 기존과 동일, 변경 없음
+-- ============================================================
+CREATE SEQUENCE notices_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE notices (
+    id          NUMBER          NOT NULL,
+    author_id   NUMBER          NOT NULL,
+    title       VARCHAR2(200)   NOT NULL,
+    content     CLOB            NOT NULL,
+    view_count  NUMBER          DEFAULT 0 NOT NULL,
+    created_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_notices PRIMARY KEY (id),
+    CONSTRAINT fk_notices_author FOREIGN KEY (author_id) REFERENCES users (id)
+);
+
+CREATE OR REPLACE TRIGGER notices_bi
+    BEFORE INSERT ON notices
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT notices_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+
+-- ============================================================
+-- 8. WASTE_BIN (박주호) — 기존과 동일, 변경 없음
+-- WasteBinSchema.java가 ID/BIN_ID, WASTE_BIN_SEQ/SEQ_WASTE_BIN 둘 다
+-- 자동으로 인식하므로, 이 스크립트 그대로 써도 충돌 없음.
+-- ============================================================
+
+CREATE SEQUENCE waste_bin_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE waste_bin (
+    id          NUMBER          NOT NULL,
+    osm_id      NUMBER          NOT NULL,
+    name        VARCHAR2(100),
+    category    VARCHAR2(20)    NOT NULL,
+    address     VARCHAR2(300),
+    latitude    NUMBER(10,7)    NOT NULL,
+    longitude   NUMBER(10,7)    NOT NULL,
+    city        VARCHAR2(50)    DEFAULT 'osaka' NOT NULL,
+    created_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_waste_bin PRIMARY KEY (id),
+    CONSTRAINT uq_waste_bin_osm_id UNIQUE (osm_id),
+    CONSTRAINT ck_waste_bin_category CHECK (category IN ('general', 'recycle', 'can'))
+);
+
+CREATE OR REPLACE TRIGGER waste_bin_bi
+    BEFORE INSERT ON waste_bin
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT waste_bin_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+
+-- ============================================================
+-- 9. bin_reports (박주호 — 쓰레기통 제보 기능) — 신규
+-- status: PENDING(대기) / APPROVED(승인) / REJECTED(반려)
+-- ============================================================
+
+CREATE SEQUENCE bin_reports_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE bin_reports (
+    id              NUMBER          NOT NULL,
+    user_id         NUMBER          NOT NULL,
+    latitude        NUMBER(10,7)    NOT NULL,
+    longitude       NUMBER(10,7)    NOT NULL,
+    name            VARCHAR2(200),
+    category        VARCHAR2(20),
+    address         VARCHAR2(300),
+    description     VARCHAR2(500),
+    status          VARCHAR2(20)    DEFAULT 'PENDING' NOT NULL,
+    reject_reason   VARCHAR2(300),
+    reviewed_by     NUMBER,
+    reviewed_at     TIMESTAMP,
+    created_at      TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at      TIMESTAMP,
+    CONSTRAINT pk_bin_reports PRIMARY KEY (id),
+    CONSTRAINT fk_bin_reports_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT ck_bin_reports_status CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED'))
+);
+
+CREATE OR REPLACE TRIGGER bin_reports_bi
+    BEFORE INSERT ON bin_reports
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT bin_reports_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+
+-- ============================================================
+-- 10. system_settings (관리자 설정, 단일 행 id=1) — 신규/확인
+-- SystemSettingController가 SETTING_ID = 1L 을 고정으로 씀.
+-- 이미 system_settings 테이블이 있다면 CREATE는 건너뛰고
+-- 아래 INSERT(id=1 행이 없을 때만)만 실행할 것.
+-- ============================================================
+
+CREATE TABLE system_settings (
+    id                      NUMBER          NOT NULL,
+    signup_enabled          VARCHAR2(1),
+    maintenance_mode        VARCHAR2(1),
+    maintenance_message     VARCHAR2(500),
+    CONSTRAINT pk_system_settings PRIMARY KEY (id)
+);
+
+INSERT INTO system_settings (id, signup_enabled, maintenance_mode, maintenance_message)
+VALUES (1, 'Y', 'N', NULL);
+
+COMMIT;
+
+
+-- ============================================================
+-- 11. 테스트 데이터 (기존과 동일)
+-- ============================================================
+
+-- 관리자
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    users_seq.NEXTVAL,
+    '안태건', '알레띠NO7', 'atg1234@gmail.com', '안태건1234',
+    '한국', 'X', 'ADMIN', NULL, NULL, NULL, NULL
+);
+
+-- 유저1 곽동곤
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    users_seq.NEXTVAL,
+    '곽동곤', '고재팬', 'kdk1234@gmail.com', '곽동곤1234',
+    '한국', 'X', 'USER', NULL, NULL, 'Y', 'Y'
+);
+
+-- 유저2 박주호
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    users_seq.NEXTVAL,
+    '박주호', '주호누오', 'pjh1234@gmail.com', '박주호1234',
+    '한국', 'X', 'USER', NULL, NULL, 'N', 'N'
+);
+
+-- 유저3 유해성
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    users_seq.NEXTVAL,
+    '유해성', '유해성입니다', 'YHS1234@gmail.com', '유해성1234',
+    '일본', 'X', 'USER', NULL, NULL, NULL, NULL
+);
+
+-- 유저4 장준환
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    users_seq.NEXTVAL,
+    '장준환', '주난쥬난', 'jjh1234@gmail.com', '장준환1234',
+    '미국', 'X', 'USER', NULL, NULL, NULL, NULL
+);
+
+COMMIT;
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url, osm_id, is_published
+) VALUES (
+    restaurants_seq.NEXTVAL,
+    '쿠쿠루 도톤보리 본점', '타코야끼', '도톤보리,타코야끼,오사카맛집',
+    4.6, 1248,
+    '겉은 바삭, 속은 촉촉! 도톤보리 대표 타코야끼 맛집',
+    '1-10-5 Dotonbori, Chuo-ku, Osaka',
+    34.668729, 135.501294,
+    '09:00 - 21:00', '+81-6-6212-7381', '¥500 - ¥1,500', 'https://www.kukurutei.com',
+    '20석', '예약 불가 (현장 대기)', '현금, 신용카드, 전자화폐', '일본어, 한국어 메뉴판',
+    '/images/food-takoyaki.png',
+    '명물 타코야끼 (8개)', '쿠쿠루만의 특제 육즙이 가득한 시그니처 메뉴',
+    '¥850',
+    'https://via.placeholder.com/64?text=Takoyaki',
+    NULL, 'Y'
+);
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url, osm_id, is_published
+) VALUES (
+    restaurants_seq.NEXTVAL,
+    '야끼소바 산페이', '야끼소바', '야끼소바,철판요리,감칠맛',
+    4.4, 892,
+    '특제 소스의 깊은 감칠맛이 살아있는 전통 철판 야끼소바 전문점',
+    '1-7-14 Dotonbori, Chuo-ku, Osaka',
+    34.668900, 135.502100,
+    '10:30 - 20:30', '+81-6-6211-1234', '¥700 - ¥1,200', 'https://www.sanpei-osaka.jp',
+    '15석 (카운터석)', '예약 불가', '현금, 신용카드', '일본어, 영어',
+    '/images/food-yakisoba.png',
+    '특제 소스 야끼소바', '진한 특제 소스와 쫄깃한 면발의 조화',
+    '¥900',
+    'https://via.placeholder.com/64?text=Yakisoba',
+    NULL, 'Y'
+);
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url, osm_id, is_published
+) VALUES (
+    restaurants_seq.NEXTVAL,
+    '오코노미야끼 치보 도톤보리빌딩점', '오코노미야끼', '오코노미야끼,철판구이,웨이팅맛집',
+    4.5, 1102,
+    '풍미 가득한 일본 정통 부침개! 눈앞에서 구워주는 인기 오코노미야끼 매장',
+    '1-5-5 Dotonbori, Chuo-ku, Osaka',
+    34.668500, 135.503200,
+    '11:00 - 21:30', '+81-6-6212-2211', '¥1,000 - ¥2,500', 'https://www.chibo.com',
+    '50석 (테이블 및 다찌석)', '전화 예약 가능', '현금, 신용카드, 모바일페이', '한국어 지원 (다국어 키오스크)',
+    '/images/food-okonomiyaki.png',
+    '치보 믹스 오코노미야끼', '새우, 오징어, 돼지고기가 모두 들어간 베스트 메뉴',
+    '¥1,580',
+    'https://via.placeholder.com/64?text=Okonomiyaki',
+    NULL, 'Y'
+);
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url, osm_id, is_published
+) VALUES (
+    restaurants_seq.NEXTVAL,
+    '도톤보리 타이야끼', '붕어빵', '길거리간식,붕어빵,디저트',
+    4.3, 567,
+    '국산 팥과 바삭한 크러스트의 조화! 따끈하게 즐기는 테이크아웃 붕어빵',
+    '1-8-22 Dotonbori, Chuo-ku, Osaka',
+    34.668350, 135.500800,
+    '10:00 - 19:00', '+81-6-6213-9876', '¥300 - ¥600', NULL,
+    '없음 (테이크아웃 전용)', '예약 불가', '현금 전용', '일본어 메뉴',
+    '/images/food-taiyaki.png',
+    '통단팥 붕어빵', '달콤하고 부드러운 팥이 꽉 찬 인기 간식',
+    '¥300',
+    'https://via.placeholder.com/64?text=Taiyaki',
+    NULL, 'Y'
+);
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url, osm_id, is_published
+) VALUES (
+    restaurants_seq.NEXTVAL,
+    '카라아게 타로', '닭튀김', '치킨,가라아게,맥주안주',
+    4.4, 734,
+    '바삭한 튀김옷 속 육즙이 가득! 특제 마늘 간장 소스로 버무린 정통 일본식 닭튀김',
+    '2-2-1 Nanba, Chuo-ku, Osaka',
+    34.667800, 135.500200,
+    '11:00 - 21:00', '+81-6-6631-5544', '¥600 - ¥1,000', 'https://www.karaage-taro.jp',
+    '10석', '예약 불가', '현금, 신용카드', '일본어, 영어',
+    '/images/food-karaage.png',
+    '카라아게 타로 (오리지널)', '겉은 바삭하고 속은 촉촉한 대표 닭튀김',
+    '¥680',
+    'https://via.placeholder.com/64?text=Karaage',
+    NULL, 'Y'
+);
+
+COMMIT;
+
+-- TB_REVIEW 테스트 데이터 (restaurants id 1~5와 매칭)
+INSERT INTO TB_REVIEW (USER_ID, RESTAURANT_ID, RATING, CONTENT, VISIT_DATE, RECOMMEND_YN)
+VALUES (1, 1, 3, '그닥이던데.. 오바임.. ㅋㅋ', DATE '2026-09-01', 0);
+
+INSERT INTO TB_REVIEW (USER_ID, RESTAURANT_ID, RATING, CONTENT, VISIT_DATE, RECOMMEND_YN)
+VALUES (2, 2, 1, '라멘집인줄 알고 갔네 아 ** !!', DATE '2026-09-02', 0);
+
+INSERT INTO TB_REVIEW (USER_ID, RESTAURANT_ID, RATING, CONTENT, VISIT_DATE, RECOMMEND_YN)
+VALUES (3, 3, 5, '맛있어요오오오오오ㅗ', DATE '2026-09-03', 1);
+
+INSERT INTO TB_REVIEW (USER_ID, RESTAURANT_ID, RATING, CONTENT, VISIT_DATE, RECOMMEND_YN)
+VALUES (4, 4, 3.5, '타이야끼인가.. 조금은 아직 어렵습니다..', DATE '2026-09-04', 1);
+
+INSERT INTO TB_REVIEW (USER_ID, RESTAURANT_ID, RATING, CONTENT, VISIT_DATE, RECOMMEND_YN)
+VALUES (5, 5, 5, '맛있어서 먹다가 울었음 ㅠㅠ', DATE '2026-09-05', 1);
+
+COMMIT;
+
+
+-- ============================================================
+-- 12. 확인용 SELECT
+-- ============================================================
+
+SELECT table_name FROM user_tables ORDER BY table_name;
+
+SELECT id, name, nickname, email, role FROM users ORDER BY id;
+
+SELECT id, name, category, osm_id, is_published FROM restaurants ORDER BY id;
+
+SELECT r.REVIEW_ID, u.name AS 작성자, res.name AS 식당명, r.rating, r.content
+FROM TB_REVIEW r
+JOIN users u ON r.USER_ID = u.id
+JOIN restaurants res ON r.RESTAURANT_ID = res.id
+ORDER BY r.REVIEW_ID;
+
+SELECT city, category, COUNT(*) AS cnt FROM waste_bin GROUP BY city, category ORDER BY city, category;
+
+SELECT * FROM system_settings;

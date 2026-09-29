@@ -6,12 +6,15 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
+//kdk 0929 db 테이블 수정작업
 /**
  * 맛집에 대한 회원 리뷰(별점·방문정보·사진 포함)를 표현하는 엔티티.
- * DB 테이블: TB_REVIEW
+ * DB 테이블: TB_REVIEW -> reviews
  */
 @Entity
+//수정하기 테이블명
 @Table(name = "TB_REVIEW")
+//@Table(name = "TB_REVIEW")
 public class Review {
 
     @Id
