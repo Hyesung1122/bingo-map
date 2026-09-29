@@ -18,71 +18,180 @@ public class CommunityPostService {
     private final CommunityPostRepository repository;
     private final CommunityCommentRepository commentRepository;
 
-    public CommunityPostService(CommunityPostRepository repository, CommunityCommentRepository commentRepository) {
+    public CommunityPostService(
+            CommunityPostRepository repository,
+            CommunityCommentRepository commentRepository
+    ) {
         this.repository = repository;
         this.commentRepository = commentRepository;
     }
 
     /**
-     * 게시글 목록 (검색 + 페이징, 최신순).
-     * 오라클이 OFFSET/FETCH 페이징 문법을 지원하지 않아, Pageable을 쿼리에 그대로
-     * 넘기지 않고 전체(정렬만 적용)를 가져온 뒤 자바에서 페이지만큼 잘라낸다.
+     * 게시글 목록
+     * - 최신순
+     * - 제목/내용 검색
+     * - Pageable을 이용한 자바 쪽 페이징
+     * - 댓글 개수 포함
      */
-    public Page<CommunityPostResponseDto> getPosts(String keyword, Pageable pageable) {
-        Sort sort = Sort.by(Sort.Direction.DESC, "createdAt");
+    public Page<CommunityPostResponseDto> getPosts(
+            String keyword,
+            Pageable pageable
+    ) {
+        Sort sort =
+                Sort.by(
+                        Sort.Direction.DESC,
+                        "createdAt"
+                );
 
-        List<CommunityPost> all = (keyword == null || keyword.isBlank())
-                ? repository.findAll(sort)
-                : repository.findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(keyword, keyword, sort);
+        List<CommunityPost> all;
 
-        int start = (int) pageable.getOffset();
-        if (start >= all.size()) {
-            return new PageImpl<>(List.of(), pageable, all.size());
+        if (keyword == null || keyword.isBlank()) {
+            all = repository.findAll(sort);
+        } else {
+            all = repository
+                    .findByTitleContainingIgnoreCaseOrContentContainingIgnoreCase(
+                            keyword,
+                            keyword,
+                            sort
+                    );
         }
-        int end = Math.min(start + pageable.getPageSize(), all.size());
 
-        List<CommunityPostResponseDto> pageContent = all.subList(start, end).stream()
-                .map(this::toDtoWithCommentCount)
-                .collect(Collectors.toList());
+        int start =
+                (int) pageable.getOffset();
 
-        return new PageImpl<>(pageContent, pageable, all.size());
+        if (start >= all.size()) {
+            return new PageImpl<>(
+                    List.of(),
+                    pageable,
+                    all.size()
+            );
+        }
+
+        int end =
+                Math.min(
+                        start + pageable.getPageSize(),
+                        all.size()
+                );
+
+        List<CommunityPostResponseDto> pageContent =
+                all.subList(start, end)
+                        .stream()
+                        .map(this::toDtoWithCommentCount)
+                        .collect(Collectors.toList());
+
+        return new PageImpl<>(
+                pageContent,
+                pageable,
+                all.size()
+        );
     }
 
-    private CommunityPostResponseDto toDtoWithCommentCount(CommunityPost post) {
-        CommunityPostResponseDto dto = new CommunityPostResponseDto(post);
-        dto.setCommentCount(commentRepository.countByPostId(post.getPostId()));
-        return dto;
-    }
-
-    /** 게시글 상세 (조회할 때마다 조회수 1 증가). */
+    /**
+     * 게시글 상세
+     * 상세 조회 시 조회수 증가
+     * 댓글 개수도 함께 반환
+     */
     @Transactional
-    public CommunityPostResponseDto getPost(Long postId) {
-        CommunityPost post = findOrThrow(postId);
+    public CommunityPostResponseDto getPost(
+            Long postId
+    ) {
+        CommunityPost post =
+                findOrThrow(postId);
+
         post.increaseViewCount();
+
         return toDtoWithCommentCount(post);
     }
 
+    /**
+     * 게시글 작성
+     */
     @Transactional
-    public CommunityPostResponseDto create(CommunityPostRequestDto request) {
-        CommunityPost post = new CommunityPost(
-                request.getUserId(), request.getTitle(), request.getContent(), request.getTags());
-        return new CommunityPostResponseDto(repository.save(post));
+    public CommunityPostResponseDto create(
+            CommunityPostRequestDto request
+    ) {
+        CommunityPost post =
+                new CommunityPost(
+                        request.getUserId(),
+                        request.getTitle(),
+                        request.getContent(),
+                        request.getTags()
+                );
+
+        CommunityPost saved =
+                repository.save(post);
+
+        return toDtoWithCommentCount(saved);
     }
 
+    /**
+     * 게시글 수정
+     */
     @Transactional
-    public CommunityPostResponseDto edit(Long postId, CommunityPostRequestDto request) {
-        CommunityPost post = findOrThrow(postId);
-        post.edit(request.getTitle(), request.getContent(), request.getTags());
-        return new CommunityPostResponseDto(post);
+    public CommunityPostResponseDto edit(
+            Long postId,
+            CommunityPostRequestDto request
+    ) {
+        CommunityPost post =
+                findOrThrow(postId);
+
+        post.edit(
+                request.getTitle(),
+                request.getContent(),
+                request.getTags()
+        );
+
+        return toDtoWithCommentCount(post);
     }
 
+    /**
+     * 게시글 삭제
+     * 댓글이 먼저 삭제되어야 FK 제약조건에 걸리지 않음
+     */
     @Transactional
-    public void delete(Long postId) {
-        repository.delete(findOrThrow(postId));
+    public void delete(
+            Long postId
+    ) {
+        CommunityPost post =
+                findOrThrow(postId);
+
+        List<CommunityComment> comments =
+                commentRepository
+                        .findByPostIdOrderByCreatedAtAsc(postId);
+
+        if (!comments.isEmpty()) {
+            commentRepository.deleteAll(comments);
+        }
+
+        repository.delete(post);
     }
 
-    private CommunityPost findOrThrow(Long postId) {
-        return repository.findById(postId)
-                .orElseThrow(() -> new EntityNotFoundException("게시글을 찾을 수 없습니다. id=" + postId));
+    private CommunityPostResponseDto toDtoWithCommentCount(
+            CommunityPost post
+    ) {
+        CommunityPostResponseDto dto =
+                new CommunityPostResponseDto(post);
+
+        long commentCount =
+                commentRepository.countByPostId(
+                        post.getPostId()
+                );
+
+        dto.setCommentCount(commentCount);
+
+        return dto;
+    }
+
+    private CommunityPost findOrThrow(
+            Long postId
+    ) {
+        return repository
+                .findById(postId)
+                .orElseThrow(
+                        () -> new EntityNotFoundException(
+                                "게시글을 찾을 수 없습니다. id="
+                                        + postId
+                        )
+                );
     }
 }

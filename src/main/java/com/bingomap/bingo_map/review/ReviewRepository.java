@@ -1,25 +1,28 @@
 package com.bingomap.bingo_map.review;
 
-import com.bingomap.bingo_map.restaurant.RestaurantReviewSummary;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
+    // 전체 리뷰 최신순
     List<Review> findAllByOrderByCreatedAtDesc();
 
-    List<Review> findByRestaurantIdOrderByCreatedAtDesc(Long restaurantId);
+    // 특정 대상의 리뷰
+    List<Review> findByTargetTypeAndTargetIdOrderByCreatedAtDesc(
+            String targetType,
+            String targetId
+    );
 
-    List<Review> findByUserIdOrderByCreatedAtDesc(Long userId);
+    // 특정 사용자가 작성한 리뷰
+    List<Review> findByUserIdOrderByCreatedAtDesc(
+            Long userId
+    );
 
-    // 게시판 목록용: 키워드(리뷰 내용) 검색 + 페이징/정렬
-    // 오라클이 OFFSET/FETCH 페이징 문법(ORA-00933)을 지원하지 않아 Sort 기반으로 전체 조회 후 자바에서 자른다.
-    List<Review> findByContentContainingIgnoreCase(String keyword, org.springframework.data.domain.Sort sort);
-
-    // 맛집(restaurantId)별 리뷰 개수/평균 별점 집계. 리뷰 많은 순으로 정렬.
-    @org.springframework.data.jpa.repository.Query(
-            "SELECT r.restaurantId AS restaurantId, COUNT(r) AS reviewCount, AVG(r.rating) AS avgRating " +
-            "FROM Review r GROUP BY r.restaurantId ORDER BY COUNT(r) DESC")
-    List<RestaurantReviewSummary> findRestaurantSummaries();
+    // 리뷰 내용 검색
+    List<Review> findByContentContainingIgnoreCase(
+            String keyword,
+            org.springframework.data.domain.Sort sort
+    );
 }

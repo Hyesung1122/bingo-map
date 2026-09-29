@@ -12,12 +12,8 @@
         const node = el('button', cls, text);
         node.type = 'button'; node.addEventListener('click', action); return node;
     }
-    function distance(a, b) {
-        const rad = Math.PI / 180, dLat = (b.lat - a.lat) * rad, dLon = (b.lon - a.lon) * rad;
-        const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
-        return 6371000 * 2 * Math.asin(Math.sqrt(Math.min(1, h)));
-    }
-    function meters(value) { return value < 1000 ? Math.round(value) + 'm' : (value / 1000).toFixed(1) + 'km'; }
+    const distance = (a, b) => global.BinGoSpots.distance(a, b);
+    const meters = value => global.BinGoSpots.formatDistance(value);
     function coordinates(p) {
         return p && Number.isFinite(p.lat) && Math.abs(p.lat) <= 90
             && Number.isFinite(p.lon) && Math.abs(p.lon) <= 180;
@@ -69,16 +65,16 @@
             guide.setAttribute('aria-label', '식당과 쓰레기통 경로 선택');
             const title = el('h2', '', '식당 · 쓰레기통 경로');
             const steps = el('ol', 'brm-route-flow');
-            ['내 위치', '식당 선택', '가까운 쓰레기통'].forEach(function (text) {
+            ['출발 스팟', '식당 선택', '식사 후 쓰레기통'].forEach(function (text) {
                 steps.append(el('li', '', text));
             });
-            const description = el('p', '', '아래 식당을 선택하면 현재 위치를 확인하고 길찾기를 시작합니다.');
+            const description = el('p', '', '출발 스팟을 고른 뒤 식당을 선택하면 그 지점에서 길찾기를 시작합니다.');
             const back = el('a', 'brm-route-back', '일반 지도 보기'); back.href = '/map';
             guide.append(title, steps, description, back); panel.append(guide);
         }
         const controls = el('div', 'brm-controls');
         const search = el('input', 'brm-search'); search.type = 'search';
-        search.placeholder = '식당 이름, 음식 종류, 주소 검색'; search.setAttribute('aria-label', '식당 검색');
+        search.placeholder = 'USJ, 오사카성, 도톤보리 또는 식당 검색'; search.setAttribute('aria-label', '스팟 또는 식당 검색');
         const bothLabel = el('label', 'brm-check'), both = el('input'); both.type = 'checkbox';
         bothLabel.append(both, document.createTextNode('쓰레기통도 함께 보기'));
         controls.append(search, bothLabel);
@@ -96,7 +92,7 @@
 
         function getReference() {
             const p = typeof options.getReference === 'function' ? options.getReference() : null;
-            return coordinates(p) ? p : {lat:34.6687, lon:135.5031, label:'도톤보리 중심'};
+            return coordinates(p) ? p : global.BinGoSpots.find('dotonbori');
         }
         function filtered() {
             const term = search.value.trim().toLocaleLowerCase(), origin = getReference();
@@ -105,10 +101,7 @@
             }).map(function (p) { return {place:p, distance:distance(origin, p)}; })
                 .sort(function (a, b) { return a.distance - b.distance; });
         }
-        function fitPlaces() {
-            if (active && places.length) map.fitBounds(places.map(function (p) { return [p.lat, p.lon]; }),
-                {padding:[36, 36], maxZoom:17});
-        }
+        // 목록 로딩/탭 전환은 사용자가 고른 스팟의 지도 범위를 바꾸지 않습니다.
         function choose(id) {
             selected = id;
             list.querySelectorAll('.brm-card').forEach(function (card) {
@@ -228,7 +221,7 @@
                     ids.add(p.id);
                 }
                 if (destroyed) return;
-                places = data.places; result = data; loaded = true; fitPlaces();
+                places = data.places; result = data; loaded = true;
             } catch (error) {
                 if (!destroyed) {
                     failure = error.name === 'AbortError' ? '식당 조회 시간이 초과됐습니다. DB 연결을 확인해주세요.' : error.message;
@@ -247,7 +240,7 @@
             panel.hidden = !active; badge.hidden = !active;
             binTab.setAttribute('aria-pressed', String(!active)); foodTab.setAttribute('aria-pressed', String(active));
             map.closePopup();
-            if (active) { layer.addTo(map); if (!loaded) load(); else { render(true); fitPlaces(); } }
+            if (active) { layer.addTo(map); if (!loaded) load(); else { render(true); } }
             else map.removeLayer(layer);
         }
         search.addEventListener('input', function () { render(true); });

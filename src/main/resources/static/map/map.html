@@ -14,7 +14,7 @@
     >
 
     <!-- BinGo Map CSS -->
-    <link rel="stylesheet" href="/map/map.css">
+    <link rel="stylesheet" href="/map/map.css?v=header-auth-20260928">
     <!-- 추가: 식당 탭, 목록, 팝업 디자인 -->
     <link rel="stylesheet" href="/map/bingo-restaurants.css?v=route-entry-1">
 
@@ -23,8 +23,9 @@
     <link rel="stylesheet" href="/map/bingo-basemap.css">
     <!-- 추가: 길찾기 화면 디자인 -->
     <link rel="stylesheet" href="/map/bingo-routing.css?v=food-bin-1">
+    <!-- 메인 페이지와 같은 세션 확인 스크립트 -->
+    <script src="/js/header-auth.js"></script>
 </head>
-<script src="/js/header-auth.js"></script>
 <body>
 
 <!-- =========================================================
@@ -47,36 +48,20 @@
     </a>
 
 
-    <!-- Navigation -->
-    <nav>
-
+    <!-- 메인 페이지와 같은 6개 메뉴 및 실제 Controller 경로 -->
+    <nav class="map-nav" aria-label="주 메뉴">
         <a href="/">홈</a>
-
-        <a href="/map" class="active">지도</a>
-
-        <a href="#">주변 맛집</a>
-
-        <a href="#">리뷰</a>
-
+        <a href="/map" class="active" aria-current="page">지도</a>
+        <a href="/restaurants">주변 맛집</a>
+        <a href="/favorites">즐겨찾기</a>
+        <a href="/reviews">리뷰</a>
+        <a href="/notices">공지사항</a>
     </nav>
 
-
-    <!-- Header right -->
-    <div class="header-right">
-
-        <button
-                type="button"
-                class="language">
-            KR 한국어⌄
-        </button>
-
-        <button
-                type="button"
-                class="login"
-                onclick="location.href='#'">
-            로그인
-        </button>
-
+    <!-- header-auth.js는 .header-actions 안의 a.login을 갱신합니다. -->
+    <div class="header-right header-actions">
+        <button type="button" class="language">KR 한국어⌄</button>
+        <a class="login" href="/login">로그인</a>
     </div>
 
 </header>
@@ -104,7 +89,8 @@
                 <input
                         id="searchInput"
                         type="text"
-                        placeholder="장소, 지역, 역 이름으로 검색"
+                        placeholder="USJ, 오사카성, 도톤보리 또는 쓰레기통 검색"
+                        aria-label="스팟 또는 쓰레기통 검색"
                         autocomplete="off"
                 >
 
@@ -150,10 +136,10 @@
         <!-- List title -->
         <div class="list-title">
 
-            <strong>내 주변 쓰레기통</strong>
+            <strong>기준점 주변 쓰레기통</strong>
 
             <span>
-                반경 <b>오사카시 전체</b> ·
+                조회 지역 <b>오사카시 전체</b> ·
                 <b id="binCount">0</b>곳
             </span>
 
@@ -272,10 +258,11 @@
 <script src="/map/bingo-basemap.js"></script>
 
 <!-- 5. 지도 안 길찾기 기능: 한 번만 연결 -->
-<script src="/map/bingo-routing.js?v=route-stage-1"></script>
+<script src="/map/bingo-spots.js?v=spots-1"></script>
+<script src="/map/bingo-routing.js?v=spots-1"></script>
 
 <!-- 6. Oracle DB 식당 표시 기능 -->
-<script src="/map/bingo-restaurants.js?v=route-entry-1"></script>
+<script src="/map/bingo-restaurants.js?v=spots-1"></script>
 
 <!-- 7. 이 아래부터 기존 지도 JavaScript -->
 <script>
@@ -328,7 +315,13 @@
 
     let selectedBinId = null;
 
-    let currentLocationMarker = null;
+    // 모든 거리 계산과 길찾기에서 이 기준 하나를 사용합니다.
+    const spotOrigin = BinGoSpots.create(map, {
+        onChange: function (event) {
+            if (event.source !== 'route') window.bingoRouter?.referenceChanged();
+            render();
+        }
+    });
 
 
     /* ---------------------------------------------------------
@@ -458,119 +451,22 @@
        10. 거리 계산
     ---------------------------------------------------------
 
-       현재 위치가 있으면 현재 위치 기준.
-
-       없으면 도톤보리 지도 중심 기준.
+       선택한 스팟 또는 명시적으로 확인한 현재 위치 기준.
+       지도 이동/확대는 기준 위치를 바꾸지 않습니다.
 
     --------------------------------------------------------- */
 
-    function calculateDistance(
-        lat,
-        lon
-    ) {
-
-        let referenceLat =
-            MAP_CENTER[0];
-
-        let referenceLon =
-            MAP_CENTER[1];
-
-
-        if (
-            currentLocationMarker
-        ) {
-
-            const position =
-                currentLocationMarker.getLatLng();
-
-            referenceLat =
-                position.lat;
-
-            referenceLon =
-                position.lng;
-
-        }
-
-
-        const R = 6371000;
-
-        const lat1 =
-            referenceLat * Math.PI / 180;
-
-        const lat2 =
-            Number(lat) * Math.PI / 180;
-
-        const deltaLat =
-            (Number(lat) - referenceLat)
-            * Math.PI / 180;
-
-        const deltaLon =
-            (Number(lon) - referenceLon)
-            * Math.PI / 180;
-
-
-        const a =
-            Math.sin(deltaLat / 2) *
-            Math.sin(deltaLat / 2) +
-
-            Math.cos(lat1) *
-            Math.cos(lat2) *
-            Math.sin(deltaLon / 2) *
-            Math.sin(deltaLon / 2);
-
-
-        const c =
-            2 *
-            Math.atan2(
-                Math.sqrt(a),
-                Math.sqrt(1 - a)
-            );
-
-
-        return Math.round(
-            R * c
-        );
-
+    function calculateDistance(lat, lon) {
+        return BinGoSpots.distance(spotOrigin.getReference(), {lat: Number(lat), lon: Number(lon)});
     }
-
 
     /* ---------------------------------------------------------
        11. 거리 표시
     --------------------------------------------------------- */
 
     function formatDistance(distance) {
-
-        if (distance < 1000) {
-
-            return `${distance}m`;
-
-        }
-
-        return `${(
-            distance / 1000
-        ).toFixed(1)}km`;
-
+        return BinGoSpots.formatDistance(distance);
     }
-
-
-    /* ---------------------------------------------------------
-       12. 도보 시간
-    --------------------------------------------------------- */
-
-    function getWalkingTime(distance) {
-
-        const minutes =
-            Math.max(
-                1,
-                Math.round(
-                    distance / 70
-                )
-            );
-
-        return `도보 ${minutes}분`;
-
-    }
-
 
     /* ---------------------------------------------------------
        13. 주소
@@ -696,7 +592,7 @@
         <div class="popup">
 
             <small>
-                가까운 쓰레기통
+                ${escapeHtml(spotOrigin.getReference().label)} 기준
             </small>
 
 
@@ -709,16 +605,11 @@
 
 
             <b>
-                ${formatDistance(
-            distance
-        )}
+                직선 ${formatDistance(distance)}
             </b>
 
 
             <span>
-                🚶
-                ${getWalkingTime(distance)}
-                ·
                 ${getCategoryName(
             bin.category
         )}
@@ -911,22 +802,14 @@
             category
         )}
 
-                    &nbsp;
 
-                    🚶
-
-                    ${getWalkingTime(
-            distance
-        )}
                 </em>
 
             </div>
 
 
             <b>
-                ${formatDistance(
-            distance
-        )}
+                직선 ${formatDistance(distance)}
             </b>
 
 
@@ -1399,153 +1282,24 @@
        28. 현재 위치
     --------------------------------------------------------- */
 
-    document
-        .getElementById('locateButton')
-        .addEventListener(
-            'click',
-            function () {
-
-                if (
-                    !navigator.geolocation
-                ) {
-
-                    alert(
-                        '현재 브라우저에서는 위치 기능을 사용할 수 없습니다.'
-                    );
-
-                    return;
-
-                }
-
-
-                navigator
-                    .geolocation
-                    .getCurrentPosition(
-
-                        function (position) {
-
-                            const lat =
-                                position.coords.latitude;
-
-                            const lon =
-                                position.coords.longitude;
-
-
-                            /*
-                             * 기존 위치 제거
-                             */
-
-                            if (
-                                currentLocationMarker
-                            ) {
-
-                                map.removeLayer(
-                                    currentLocationMarker
-                                );
-
-                            }
-
-
-                            /*
-                             * 현재 위치 marker
-                             */
-
-                            currentLocationMarker =
-                                L.marker(
-
-                                    [
-                                        lat,
-                                        lon
-                                    ],
-
-                                    {
-                                        icon:
-                                            L.divIcon({
-
-                                                className:
-                                                    'current-location-wrap',
-
-                                                html:
-                                                    `
-                                                <div
-                                                    class="current-location">
-                                                </div>
-                                                `,
-
-                                                iconSize:
-                                                    [14, 14],
-
-                                                iconAnchor:
-                                                    [7, 7]
-
-                                            })
-                                    }
-
-                                );
-
-
-                            currentLocationMarker
-                                .addTo(map);
-
-
-                            /*
-                             * 지도 이동
-                             */
-
-                            map.setView(
-
-                                [
-                                    lat,
-                                    lon
-                                ],
-
-                                17,
-
-                                {
-                                    animate: true
-                                }
-
-                            );
-
-
-                            /*
-                             * 거리 다시 계산
-                             */
-
-                            render();
-
-                        },
-
-                        function () {
-
-                            alert(
-                                '현재 위치를 가져올 수 없습니다.'
-                            );
-
-                        },
-
-                        {
-
-                            enableHighAccuracy:
-                                true,
-
-                            timeout:
-                                10000,
-
-                            maximumAge:
-                                60000
-
-                        }
-
-                    );
-
-            }
-        );
-
+    document.getElementById('locateButton').addEventListener('click', spotOrigin.requestCurrent);
 
     /* ---------------------------------------------------------
        29. 길찾기
     --------------------------------------------------------- */
+
+    function ensureRouter() {
+        if (!window.bingoRouter) {
+            window.bingoRouter = BinGoRouting.create(map, {
+                spots: BinGoSpots.SPOTS,
+                getReference: spotOrigin.getReference,
+                setReference: function (point) {
+                    spotOrigin.setReference(point, {source: 'route', pan: false});
+                }
+            });
+        }
+        return window.bingoRouter;
+    }
 
     function findRoute(lat, lon) {
         // 추가 1: 선택한 쓰레기통의 이름을 찾습니다.
@@ -1554,13 +1308,7 @@
                 && Number(item.lon) === Number(lon);
         });
 
-        // 추가 2: 기존 지도에 길찾기 기능을 한 번만 연결합니다.
-        if (!window.bingoRouter) {
-            window.bingoRouter = BinGoRouting.create(map, {
-                // 한국에서도 도톤보리 출발점을 선택해 테스트할 수 있게 합니다.
-                allowTestOrigin: true
-            });
-        }
+        ensureRouter();
 
         // 변경: 외부 창 대신 현재 지도에서 길찾기를 엽니다.
         window.bingoRouter.open({
@@ -1580,33 +1328,10 @@
         // 추가: 메인 '최적 경로 안내'는 /map?mode=route로 들어옵니다.
         // 이때 식당 선택 화면을 먼저 열고, 일반 /map은 쓰레기통 탭으로 시작합니다.
         routeEntry: new URLSearchParams(window.location.search).get('mode') === 'route',
-        getReference: function () {
-            // 현재 위치가 있으면 그 위치를 기준으로 거리 계산
-            if (currentLocationMarker) {
-                const point = currentLocationMarker.getLatLng();
-
-                return {
-                    lat: point.lat,
-                    lon: point.lng,
-                    label: '현재 위치'
-                };
-            }
-
-            // 현재 위치가 없으면 기존 지도 기준 좌표 사용
-            return {
-                lat: MAP_CENTER[0],
-                lon: MAP_CENTER[1],
-                label: '지도 기준 위치'
-            };
-        },
+        getReference: spotOrigin.getReference,
 
         onRoute: function (restaurant) {
-            // 기존 지도 안 길찾기 기능 사용
-            if (!window.bingoRouter) {
-                window.bingoRouter = BinGoRouting.create(map, {
-                    allowTestOrigin: true
-                });
-            }
+            ensureRouter();
 
             // 변경: 현재 위치 → 식당 → 가까운 일반 쓰레기통 1곳을 연결합니다.
             // 쓰레기통은 /api/bins를 통해 Oracle에서 조회합니다.
@@ -1618,6 +1343,9 @@
             }, {city: BIN_CITY});
         }
     });
+
+    spotOrigin.bindSearch(searchInput);
+    spotOrigin.bindSearch(document.querySelector('.brm-search'));
 
     // 기존 쓰레기통 조회 실행
     loadWasteBins();

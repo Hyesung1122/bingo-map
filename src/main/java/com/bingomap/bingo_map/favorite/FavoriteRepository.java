@@ -7,10 +7,18 @@ import java.util.List;
 
 public interface FavoriteRepository extends JpaRepository<Favorite, Long> {
 
-    List<Favorite> findByUserUserIdOrderByCreatedAtDesc(Long userId);
+    List<Favorite> findByUserUserIdOrderByCreatedAtDesc(
+            Long userId
+    );
 
     boolean existsByUserUserIdAndTargetTypeAndTargetId(
-            Long userId, TargetType targetType, String targetId);
+            Long userId,
+            TargetType targetType,
+            String targetId
+    );
 
-    void deleteByIdAndUserUserId(Long id, Long userId);
+    void deleteByIdAndUserUserId(
+            Long id,
+            Long userId
+    );
 }

@@ -36,7 +36,9 @@ public class RestaurantDto {
     private String region;
 
     public RestaurantDto(Restaurant restaurant) {
-        this.restaurantId = restaurant.getId();
+
+        this.restaurantId = restaurant.getRestaurantId();
+
         this.name = restaurant.getName();
         this.category = restaurant.getCategory();
         this.tags = restaurant.getTags();

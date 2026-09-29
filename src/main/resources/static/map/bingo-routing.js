@@ -2,7 +2,6 @@
 (function (global) {
     'use strict';
     const MODES = {walk: '도보', bike: '자전거', car: '자동차'};
-    const TEST_START = {lat: 34.6687, lon: 135.5031};
     const MAX_DISTANCE = 50000;
     const distanceText = m => m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`;
     const timeText = s => {
@@ -110,18 +109,24 @@
         restaurantOrigin.textContent = '선택한 식당 (출발 미리보기)';
         restaurantOrigin.hidden = restaurantOrigin.disabled = true;
         el('origin').appendChild(restaurantOrigin);
-        if (options.allowTestOrigin === true) {
+        const spots = Array.isArray(options.spots) ? options.spots.filter(validPoint) : [];
+        const selectedSpot = () => spots.find(p => p.id === el('origin').value);
+        const referenceChoice = () => {
+            const reference = options.getReference?.();
+            return reference?.kind === 'spot' && spots.some(p => p.id === reference.id) ? reference.id : 'current';
+        };
+        for (const spot of spots) {
             const option = document.createElement('option');
-            option.value = 'test';
-            option.textContent = '도톤보리 테스트 출발점 (가상 위치)';
+            option.value = spot.id; option.textContent = spot.label;
             el('origin').appendChild(option);
         }
+        el('origin').value = referenceChoice();
 
         let destination = null, origin = null, active = false, mode = 'walk', originFailure = '';
         let version = 0, controller = null, watchId = null, followVersion = 0;
         let results = {}, saved = null, previousFocus = null, userMarker = null;
         // 추가: 두 구간을 분리해 식당 도착이 곧 쓰레기통 도착으로 처리되지 않게 합니다.
-        let journey = null, stage = 'restaurant', firstOriginChoice = 'current', firstMode = 'walk';
+        let journey = null, stage = 'restaurant', firstOriginChoice = referenceChoice(), firstMode = 'walk';
         // 추가: 같은 식당 안에서 구간별 출발지·이동수단·조회 결과를 기억합니다.
         // 구간별 화면 저장은 메모리에서만 관리하며, 닫거나 식당을 바꾸면 비웁니다.
         let stageViews = {restaurant: null, bin: null};
@@ -154,7 +159,8 @@
             if (!validPoint(target)) throw new Error('목적지 좌표가 올바르지 않습니다.');
             journeyController?.abort(); journey = null; stage = 'restaurant';
             stageViews = {restaurant: null, bin: null};
-            if (el('origin').value === 'restaurant') el('origin').value = firstOriginChoice;
+            el('origin').value = referenceChoice();
+            firstOriginChoice = el('origin').value;
             activate(target);
             return load();
         }
@@ -163,6 +169,7 @@
             if (!validPoint(target)) throw new Error('식당 좌표가 올바르지 않습니다.');
             journeyController?.abort();
             rememberRestaurantChoice();
+            firstOriginChoice = referenceChoice();
             el('origin').value = firstOriginChoice;
             stage = 'restaurant'; mode = firstMode;
             stageViews = {restaurant: null, bin: null};
@@ -250,7 +257,7 @@
 
         function rememberRestaurantChoice() {
             // 쓰레기통 구간에서 출발지를 바꿔도 식당까지의 설정은 유지합니다.
-            if ((!journey || stage === 'restaurant') && ['current', 'test'].includes(el('origin').value)) {
+            if ((!journey || stage === 'restaurant') && (el('origin').value === 'current' || selectedSpot())) {
                 firstOriginChoice = el('origin').value;
                 firstMode = mode;
             }
@@ -319,8 +326,8 @@
 
         function locationError(error) {
             if (error.code === 1) return '현재 위치 요청이 거부됐습니다. 사이트·기기의 위치 권한을 확인해주세요.';
-            if (error.code === 3) return '현재 위치 확인 시간이 초과됐습니다. 다시 조회하거나 테스트 출발점을 선택해주세요.';
-            return '현재 위치를 확인할 수 없습니다. 위치 설정을 확인하거나 테스트 출발점을 선택해주세요.';
+            if (error.code === 3) return '현재 위치 확인 시간이 초과됐습니다. 다시 조회하거나 세 장소 중 출발 스팟을 선택해주세요.';
+            return '현재 위치를 확인할 수 없습니다. 위치 설정을 확인하거나 세 장소 중 출발 스팟을 선택해주세요.';
         }
 
         function getPosition() {
@@ -338,7 +345,7 @@
         }
 
         // 위치 조회/경로 요청 중 출발지 또는 목적지를 바꾸면 이전 응답은 화면에 반영하지 않습니다.
-        async function load(startAfterLoad = false, restored = null) {
+        async function load(startAfterLoad = false, restored = null, freshPosition = false) {
             const mine = ++version;
             controller?.abort();
             const abort = controller = new AbortController();
@@ -355,7 +362,7 @@
             el('steps').replaceChildren();
             el('note').textContent = '';
             startButton.disabled = true;
-            el('status').textContent = '현재 위치를 확인하고 있습니다.';
+            el('status').textContent = '선택한 출발지를 확인하고 있습니다.';
             // 쓰레기통 미조회·조회 중·실패·0건 상태에서는 출발지와 경로를 요청하지 않습니다.
             if (journey && stage === 'bin' && !journey.bin) {
                 paintRoute();
@@ -370,23 +377,33 @@
                     paintRoute();
                     return;
                 }
-                const isTest = el('origin').value === 'test';
+                const spot = selectedSpot();
+                const isSpot = Boolean(spot);
                 const isPreview = Boolean(journey && stage === 'bin' && el('origin').value === 'restaurant');
+                const reference = options.getReference?.();
+                // 첫 경로는 목록에 표시했던 GPS 좌표를 그대로 사용합니다.
+                // '다시 조회'/실제 안내 시작에서만 GPS를 새로 요청합니다.
+                const useSnapshot = !isSpot && !isPreview && reference?.kind === 'current' && !freshPosition;
                 const position = restored?.origin ? {...restored.origin}
-                    : isPreview ? {...journey.restaurant} : isTest ? {...TEST_START} : await getPosition();
+                    : isPreview ? {...journey.restaurant} : isSpot ? {...spot}
+                    : useSnapshot ? {...reference} : await getPosition();
                 if (!active || mine !== version) return;
-                if (!validPoint(position)) throw new Error('현재 위치의 좌표를 확인해주세요.');
-                // 복원한 실제 위치는 '미리보기'로 표시하고 실제 안내 시작 시 새로 확인합니다.
-                origin = {...position, isTest, isPreview, isSnapshot: Boolean(restored?.origin && !isTest && !isPreview)};
+                if (!validPoint(position)) throw new Error('출발지의 좌표를 확인해주세요.');
+                origin = {...position, isSpot, isPreview,
+                    isSnapshot: Boolean((restored?.origin || useSnapshot) && !isSpot && !isPreview)};
+                if (!isPreview) {
+                    // 식당→쓰레기통 미리보기는 목록의 기준 스팟을 바꾸지 않습니다.
+                    options.setReference?.(isSpot ? {...spot, kind: 'spot'} : {...position, kind: 'current'});
+                }
                 if (meters(origin, destination) > MAX_DISTANCE) {
-                    throw new Error('목적지와 50km 이상 떨어져 있습니다. 한국에서 테스트한다면 출발지를 ‘도톤보리 테스트 출발점’으로 바꿔주세요.');
+                    throw new Error('목적지와 50km 이상 떨어져 있습니다. 출발지에서 유니버셜 스튜디오·오사카성·도톤보리 중 한 곳을 선택해주세요.');
                 }
                 el('status').textContent = isPreview
-                    ? '식당 출발 도보 경로 미리보기입니다. 안내 버튼을 누르면 내 현재 위치에서 다시 계산합니다.'
-                    : isTest
-                    ? '가상 출발점으로 테스트 중입니다. 실제 내 위치가 아닙니다.'
+                    ? '식당에서 쓰레기통까지의 도보 경로입니다. 목록의 기준 스팟은 유지됩니다.'
+                    : isSpot
+                    ? `${spot.label} 출발 · 목록과 같은 기준점입니다. 길찾기는 도로를 따른 이동 거리입니다.`
                     : origin.isSnapshot
-                    ? '이전에 확인한 내 위치 기준입니다. 실제 안내를 시작하면 현재 위치를 다시 확인합니다.'
+                    ? '목록과 같은 현재 위치 기준입니다. 안내를 시작하면 GPS를 새로 확인합니다.'
                     : `현재 위치 기준 · 위치 오차 약 ${distanceText(origin.accuracy || 0)}`;
                 const keys = journey && stage === 'bin' ? ['walk'] : Object.keys(MODES);
                 if (meters(origin, destination) < 5) {
@@ -544,14 +561,14 @@
             global.L.polyline(latLngs, {color: journey && stage === 'bin' ? '#1a9d52' : '#1677ff', weight: 5,
                 dashArray: mode === 'walk' ? '1 10' : null, lineCap: 'round', interactive: false}).addTo(routeLayers);
             addPoint(origin, origin.isPreview ? 'br-point-restaurant' : 'br-point-start',
-                origin.isPreview ? journey.restaurant.name : origin.isTest ? '테스트 출발점' : '출발 위치');
+                origin.isPreview ? journey.restaurant.name : origin.isSpot ? origin.label : '출발 위치');
             const stageLabel = journey ? (stage === 'bin' ? '쓰레기통까지 ' : '식당까지 ') : '';
-            el('summary').textContent = `${stageLabel}${MODES[mode]} ${timeText(route.durationSeconds)} · ${distanceText(route.distanceMeters)}`;
+            el('summary').textContent = `${stageLabel}${MODES[mode]} ${timeText(route.durationSeconds)} · 경로 ${distanceText(route.distanceMeters)}`;
             const arrival = new Date(Date.now() + route.durationSeconds * 1000);
             el('eta').textContent = origin.isPreview ? '식당에서 출발하는 구간만 계산 · 식사 시간 제외'
                 : origin.isSnapshot ? '이전에 조회한 경로 미리보기'
                 : `지금 출발 시 ${arrival.toLocaleTimeString('ko-KR', {hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tokyo'})} 도착 예상 (일본 시간)`;
-            let note = '예상 시간은 실시간 교통·신호 대기를 반영하지 않습니다.';
+            let note = '목록의 직선 거리와 이동 경로 거리는 다를 수 있습니다. 예상 시간은 실시간 교통·신호 대기를 반영하지 않습니다.';
             if (route.startGapMeters > 15) note += ` 출발 위치와 경로 시작점 간 직선거리 ${distanceText(route.startGapMeters)}.`;
             if (route.endGapMeters > 15) note += ` 경로 끝과 목적지 간 직선거리 ${distanceText(route.endGapMeters)}. 마지막 구간의 통행 가능 여부를 확인해주세요.`;
             el('note').textContent = note;
@@ -570,9 +587,9 @@
                 length.textContent = distanceText(step.distanceMeters);
                 desc.append(title, road); row.append(icon, desc, length); el('steps').appendChild(row);
             });
-            startButton.disabled = origin.isTest;
+            startButton.disabled = origin.isSpot;
             startButton.textContent = watchId !== null ? '안내 중지' : origin.isPreview || origin.isSnapshot ? '내 현재 위치에서 안내'
-                : origin.isTest ? '테스트 경로 미리보기 중' : '안내 시작';
+                : origin.isSpot ? '스팟 출발 경로 미리보기' : '안내 시작';
             const size = map.getSize();
             const large = size.x >= 1000;
             // 변경: 화면 범위도 현재 구간의 출발지·목적지·경로에만 맞춥니다.
@@ -586,9 +603,9 @@
             if (watchId !== null) { stopFollowing(); return; }
             if (origin?.isPreview || origin?.isSnapshot) {
                 el('origin').value = 'current';
-                load(true); return;
+                load(true, null, true); return;
             }
-            if (origin?.isTest || results[mode]?.state !== 'ready') return;
+            if (origin?.isSpot || results[mode]?.state !== 'ready') return;
             if (!navigator.geolocation || !global.isSecureContext) {
                 el('status').textContent = '현재 위치를 사용할 수 없습니다. 위치 권한과 HTTPS 연결을 확인해주세요.'; return;
             }
@@ -646,7 +663,7 @@
                     if (journey.state !== 'loading') loadNearby(journey);
                     return;
                 }
-                load();
+                load(false, null, true);
             }
             if (action === 'retry-bins' && journey && journey.state !== 'loading') {
                 loadNearby(journey);
@@ -654,12 +671,16 @@
             if (action === 'start') followPosition();
         });
         el('origin').addEventListener('change', () => {
+            // 명시적으로 출발지를 바꾸면 예전 구간별 경로는 재사용하지 않습니다.
+            stageViews = {restaurant: null, bin: null};
+            if (el('origin').value !== 'restaurant') firstOriginChoice = el('origin').value;
             rememberRestaurantChoice();
-            load();
+            load(false, null, true);
         });
         const onKey = event => { if (event.key === 'Escape' && active) close(); };
         document.addEventListener('keydown', onKey);
-        return Object.freeze({open, openRestaurant, close, destroy() {
+        return Object.freeze({open, openRestaurant, close,
+            referenceChanged() { close(); }, destroy() {
                 close(); host.remove(); routeLayers.remove(); userLayers.remove();
                 sizeObserver?.disconnect();
                 document.removeEventListener('keydown', onKey); cache.clear();

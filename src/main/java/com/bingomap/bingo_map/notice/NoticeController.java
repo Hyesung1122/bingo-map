@@ -14,9 +14,10 @@ import java.util.List;
 import java.util.Map;
 
 @Controller
-public class NoticeController
-{
-    private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm");
+public class NoticeController {
+
+    private static final DateTimeFormatter DATE_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm");
 
     private final NoticeRepository noticeRepository;
 
@@ -29,12 +30,15 @@ public class NoticeController
         return "forward:/notices/notices.html";
     }
 
-    // ===== 공개 API (로그인 여부 상관없이 누구나 조회 가능) =====
+    // =========================
+    // 공개 API
+    // =========================
 
     @GetMapping("/api/notices")
     @ResponseBody
     public List<NoticeResponseDto> list() {
-        return noticeRepository.findAllByOrderByCreatedAtDesc().stream()
+        return noticeRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
                 .map(this::toDto)
                 .toList();
     }
@@ -42,79 +46,186 @@ public class NoticeController
     @GetMapping("/api/notices/{id}")
     @ResponseBody
     public ResponseEntity<?> detail(@PathVariable Long id) {
-        return noticeRepository.findById(id)
-                .<ResponseEntity<?>>map(n -> ResponseEntity.ok(toDto(n)))
-                .orElse(ResponseEntity.status(404).body(Map.of("message", "존재하지 않는 공지사항입니다.")));
+
+        Notice notice = noticeRepository.findById(id).orElse(null);
+
+        if (notice == null) {
+            return ResponseEntity
+                    .status(404)
+                    .body(Map.of("message", "존재하지 않는 공지사항입니다."));
+        }
+
+        notice.increaseViewCount();
+        noticeRepository.save(notice);
+
+        return ResponseEntity.ok(toDto(notice));
     }
 
-    // ===== 관리자 전용 API =====
+    // =========================
+    // 관리자 전용 API
+    // =========================
 
     @PostMapping("/api/admin/notices")
     @ResponseBody
-    public ResponseEntity<?> create(@Valid @RequestBody NoticeRequestDto dto,
-                                    BindingResult bindingResult,
-                                    HttpServletRequest request) {
+    public ResponseEntity<?> create(
+            @Valid @RequestBody NoticeRequestDto dto,
+            BindingResult bindingResult,
+            HttpServletRequest request
+    ) {
         if (!isAdmin(request)) {
-            return ResponseEntity.status(403).body(Map.of("message", "관리자만 접근할 수 있습니다."));
-        }
-        if (bindingResult.hasErrors()) {
-            return ResponseEntity.badRequest().body(Map.of("message", bindingResult.getFieldErrors().get(0).getDefaultMessage()));
+            return ResponseEntity
+                    .status(403)
+                    .body(Map.of("message", "관리자만 접근할 수 있습니다."));
         }
 
-        Notice notice = new Notice(dto.getTitle(), dto.getContent());
+        if (bindingResult.hasErrors()) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of(
+                            "message",
+                            bindingResult.getFieldErrors().get(0).getDefaultMessage()
+                    ));
+        }
+
+        Long authorId = getLoginUserId(request);
+
+        if (authorId == null) {
+            return ResponseEntity
+                    .status(401)
+                    .body(Map.of("message", "로그인이 필요합니다."));
+        }
+
+        Notice notice = new Notice(
+                authorId,
+                dto.getTitle(),
+                dto.getContent()
+        );
+
         noticeRepository.save(notice);
+
         return ResponseEntity.ok(toDto(notice));
     }
 
     @PutMapping("/api/admin/notices/{id}")
     @ResponseBody
-    public ResponseEntity<?> update(@PathVariable Long id,
-                                    @Valid @RequestBody NoticeRequestDto dto,
-                                    BindingResult bindingResult,
-                                    HttpServletRequest request) {
+    public ResponseEntity<?> update(
+            @PathVariable Long id,
+            @Valid @RequestBody NoticeRequestDto dto,
+            BindingResult bindingResult,
+            HttpServletRequest request
+    ) {
         if (!isAdmin(request)) {
-            return ResponseEntity.status(403).body(Map.of("message", "관리자만 접근할 수 있습니다."));
+            return ResponseEntity
+                    .status(403)
+                    .body(Map.of("message", "관리자만 접근할 수 있습니다."));
         }
+
         if (bindingResult.hasErrors()) {
-            return ResponseEntity.badRequest().body(Map.of("message", bindingResult.getFieldErrors().get(0).getDefaultMessage()));
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of(
+                            "message",
+                            bindingResult.getFieldErrors().get(0).getDefaultMessage()
+                    ));
         }
 
         Notice notice = noticeRepository.findById(id).orElse(null);
+
         if (notice == null) {
-            return ResponseEntity.status(404).body(Map.of("message", "존재하지 않는 공지사항입니다."));
+            return ResponseEntity
+                    .status(404)
+                    .body(Map.of("message", "존재하지 않는 공지사항입니다."));
         }
 
         notice.setTitle(dto.getTitle());
         notice.setContent(dto.getContent());
+
         noticeRepository.save(notice);
+
         return ResponseEntity.ok(toDto(notice));
     }
 
     @DeleteMapping("/api/admin/notices/{id}")
     @ResponseBody
-    public ResponseEntity<?> delete(@PathVariable Long id, HttpServletRequest request) {
+    public ResponseEntity<?> delete(
+            @PathVariable Long id,
+            HttpServletRequest request
+    ) {
         if (!isAdmin(request)) {
-            return ResponseEntity.status(403).body(Map.of("message", "관리자만 접근할 수 있습니다."));
+            return ResponseEntity
+                    .status(403)
+                    .body(Map.of("message", "관리자만 접근할 수 있습니다."));
         }
+
         if (!noticeRepository.existsById(id)) {
-            return ResponseEntity.status(404).body(Map.of("message", "존재하지 않는 공지사항입니다."));
+            return ResponseEntity
+                    .status(404)
+                    .body(Map.of("message", "존재하지 않는 공지사항입니다."));
         }
+
         noticeRepository.deleteById(id);
-        return ResponseEntity.ok(Map.of("message", "삭제되었습니다."));
+
+        return ResponseEntity.ok(
+                Map.of("message", "삭제되었습니다.")
+        );
     }
+
+    // =========================
+    // 세션 확인
+    // =========================
 
     private boolean isAdmin(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
-        return session != null && "ADMIN".equals(session.getAttribute(LoginController.SESSION_USER_ROLE));
+
+        return session != null
+                && "ADMIN".equals(
+                session.getAttribute(LoginController.SESSION_USER_ROLE)
+        );
     }
 
-    private NoticeResponseDto toDto(Notice n) {
-        String updatedAt = n.getUpdatedAt() != null ? n.getUpdatedAt().format(DATE_FORMAT) : null;
+    private Long getLoginUserId(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+
+        if (session == null) {
+            return null;
+        }
+
+        Object value = session.getAttribute(
+                LoginController.SESSION_USER_ID
+        );
+
+        if (value instanceof Long) {
+            return (Long) value;
+        }
+
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+
+        return null;
+    }
+
+    // =========================
+    // Entity → DTO
+    // =========================
+
+    private NoticeResponseDto toDto(Notice notice) {
+
+        String createdAt = notice.getCreatedAt() != null
+                ? notice.getCreatedAt().format(DATE_FORMAT)
+                : "-";
+
+        String updatedAt = notice.getUpdatedAt() != null
+                ? notice.getUpdatedAt().format(DATE_FORMAT)
+                : null;
+
         return new NoticeResponseDto(
-                n.getNoticeId(),
-                n.getTitle(),
-                n.getContent(),
-                n.getCreatedAt() != null ? n.getCreatedAt().format(DATE_FORMAT) : "-",
+                notice.getNoticeId(),
+                notice.getAuthorId(),
+                notice.getTitle(),
+                notice.getContent(),
+                notice.getViewCount(),
+                createdAt,
                 updatedAt
         );
     }

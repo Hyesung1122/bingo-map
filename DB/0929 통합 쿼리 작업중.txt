@@ -1,0 +1,1460 @@
+-- BinGo Map / 식당 DB 간단 통합본 / Oracle 11g 및 XE
+-- SQL Developer에서 앱과 같은 계정 접속을 선택하고 파일 전체 F5.
+-- 학원에 식당이 이미 있어도 사용하는 준비 파일입니다. 기존 데이터/ID를 삭제하지 않습니다.
+-- 없으면 빈 테이블 생성, 있으면 필요한 컬럼/제약 보완 + 문자열 길이 확장.
+-- 기존 IS_PUBLISHED Y/N은 유지합니다. 해당 컬럼이 처음 생기면 기존 행도 N입니다.
+-- 기존 시퀀스는 초기화하지 않습니다. 실제 OSM 데이터 수집이나 공개 선별은 하지 않습니다.
+-- 실행 전 앱/Loader를 중지하고 미완료 SQL 편집은 저장하거나 취소하세요.
+-- DDL은 자동 커밋됩니다. 중간 오류 시 전체 변경을 ROLLBACK할 수 있는 파일은 아닙니다.
+-- 같은 PL/SQL 블록으로 묶어 준비 실패 후 길이 확장이 계속 실행되지 않게 했습니다.
+-- ORA- 오류 없이 SETUP_OK가 나오는지 확인하세요.
+SET SERVEROUTPUT ON
+SET DEFINE OFF
+
+SELECT USER AS CONNECTED_USER,
+       SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') AS CURRENT_SCHEMA,
+       SYS_CONTEXT('USERENV', 'DB_NAME') AS DB_NAME
+FROM DUAL;
+
+DECLARE
+    V_EXISTS NUMBER;
+    V_BEFORE_ROWS NUMBER := 0;
+    V_AFTER_ROWS NUMBER;
+    V_OSM_ROWS NUMBER;
+    V_PUBLIC_ROWS NUMBER;
+    V_COUNT NUMBER;
+    V_START NUMBER;
+    V_TYPE VARCHAR2(128);
+    V_LENGTH NUMBER;
+    V_NULLABLE VARCHAR2(1);
+
+    FUNCTION HAS_COLUMN(P_NAME VARCHAR2) RETURN BOOLEAN IS
+        N NUMBER;
+    BEGIN
+        SELECT COUNT(*) INTO N FROM USER_TAB_COLUMNS
+        WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = P_NAME;
+        RETURN N > 0;
+    END;
+
+    PROCEDURE ADD_COLUMN_IF_MISSING(P_NAME VARCHAR2, P_DEFINITION VARCHAR2) IS
+    BEGIN
+        IF NOT HAS_COLUMN(P_NAME) THEN
+            EXECUTE IMMEDIATE 'ALTER TABLE RESTAURANT ADD (' || P_NAME || ' ' || P_DEFINITION || ')';
+            DBMS_OUTPUT.PUT_LINE('ADDED: ' || P_NAME);
+        END IF;
+    END;
+    PROCEDURE WIDEN_OSM_COLUMNS IS
+        v_modifications VARCHAR2(32767);
+        v_count PLS_INTEGER := 0;
+
+        PROCEDURE add_definition(p_name VARCHAR2, p_definition VARCHAR2) IS
+        BEGIN
+            IF v_count > 0 THEN
+                v_modifications := v_modifications || ', ';
+            END IF;
+            v_modifications := v_modifications || p_name || ' ' || p_definition;
+            v_count := v_count + 1;
+        END;
+
+        PROCEDURE widen_char_column(p_name VARCHAR2, p_min_chars PLS_INTEGER) IS
+            v_type USER_TAB_COLUMNS.DATA_TYPE%TYPE;
+            v_chars USER_TAB_COLUMNS.CHAR_LENGTH%TYPE;
+            v_used USER_TAB_COLUMNS.CHAR_USED%TYPE;
+            v_target PLS_INTEGER;
+        BEGIN
+            SELECT DATA_TYPE, CHAR_LENGTH, CHAR_USED
+              INTO v_type, v_chars, v_used
+              FROM USER_TAB_COLUMNS
+             WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = p_name;
+
+            IF v_type <> 'VARCHAR2' THEN
+                RAISE_APPLICATION_ERROR(-20001, p_name || ': expected VARCHAR2, found ' || v_type);
+            END IF;
+
+            -- BYTE 정의를 CHAR로 바꿀 때도 기존 선언 길이보다 작게 만들지 않습니다.
+            v_target := GREATEST(v_chars, p_min_chars);
+            IF v_used <> 'C' OR v_chars < v_target THEN
+                add_definition(p_name, 'VARCHAR2(' || TO_CHAR(v_target, 'FM9990') || ' CHAR)');
+            END IF;
+        END;
+
+        PROCEDURE widen_address IS
+            v_type USER_TAB_COLUMNS.DATA_TYPE%TYPE;
+            v_bytes USER_TAB_COLUMNS.DATA_LENGTH%TYPE;
+            v_chars USER_TAB_COLUMNS.CHAR_LENGTH%TYPE;
+            v_used USER_TAB_COLUMNS.CHAR_USED%TYPE;
+        BEGIN
+            SELECT DATA_TYPE, DATA_LENGTH, CHAR_LENGTH, CHAR_USED
+              INTO v_type, v_bytes, v_chars, v_used
+              FROM USER_TAB_COLUMNS
+             WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = 'ADDRESS';
+
+            IF v_type <> 'VARCHAR2' THEN
+                RAISE_APPLICATION_ERROR(-20002, 'ADDRESS: expected VARCHAR2, found ' || v_type);
+            END IF;
+
+            IF v_bytes < 4000 OR (v_used = 'C' AND v_chars < 4000) THEN
+                add_definition('ADDRESS', 'VARCHAR2(4000 BYTE)');
+            END IF;
+        END;
+    BEGIN
+        IF SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') <> USER THEN
+            RAISE_APPLICATION_ERROR(-20003, 'Connect as the RESTAURANT table owner without changing CURRENT_SCHEMA.');
+        END IF;
+
+        widen_char_column('NAME', 255);
+        widen_char_column('CATEGORY', 255);
+        widen_char_column('TAGS', 255);
+        widen_char_column('OPENING_HOURS', 1000);
+        widen_char_column('PHONE', 255);
+        widen_char_column('WEBSITE_URL', 1000);
+        widen_address;
+
+        IF v_count = 0 THEN
+            DBMS_OUTPUT.PUT_LINE('OK: column lengths already meet these requirements.');
+        ELSE
+            DBMS_OUTPUT.PUT_LINE('ALTER TABLE RESTAURANT MODIFY (' || v_modifications || ')');
+            EXECUTE IMMEDIATE 'ALTER TABLE RESTAURANT MODIFY (' || v_modifications || ')';
+            DBMS_OUTPUT.PUT_LINE('OK: RESTAURANT string column lengths updated.');
+        END IF;
+    END;
+BEGIN
+    IF SYS_CONTEXT('USERENV', 'CURRENT_SCHEMA') <> USER THEN
+        RAISE_APPLICATION_ERROR(-20009, 'Connect directly as the RESTAURANT owner without changing CURRENT_SCHEMA.');
+    END IF;
+    SELECT COUNT(*) INTO V_EXISTS FROM USER_TABLES WHERE TABLE_NAME = 'RESTAURANT';
+
+    -- 먼저 데이터/컬럼 충돌을 점검합니다. 기존 자료를 임의로 고치지 않습니다.
+    IF V_EXISTS = 1 THEN
+        EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM RESTAURANT' INTO V_BEFORE_ROWS;
+        FOR COL IN (
+            SELECT COLUMN_VALUE AS NAME FROM TABLE(SYS.ODCIVARCHAR2LIST(
+                'RESTAURANT_ID', 'NAME', 'CATEGORY', 'TAGS', 'RATING', 'REVIEW_COUNT',
+                'DESCRIPTION', 'ADDRESS', 'LATITUDE', 'LONGITUDE', 'OPENING_HOURS',
+                'PHONE', 'PRICE_RANGE', 'WEBSITE_URL', 'SEAT_INFO', 'RESERVATION_INFO',
+                'PAYMENT_METHODS', 'LANGUAGES', 'MAIN_IMAGE_URL', 'MENU_NAME',
+                'MENU_DESCRIPTION', 'MENU_PRICE', 'MENU_IMAGE_URL'))
+        ) LOOP
+            IF NOT HAS_COLUMN(COL.NAME) THEN
+                RAISE_APPLICATION_ERROR(-20001, 'Unexpected RESTAURANT schema. Missing: ' || COL.NAME);
+            END IF;
+        END LOOP;
+
+        FOR COL IN (
+            SELECT COLUMN_VALUE AS NAME FROM TABLE(SYS.ODCIVARCHAR2LIST(
+                'NAME', 'CATEGORY', 'TAGS', 'ADDRESS', 'OPENING_HOURS', 'PHONE', 'WEBSITE_URL'))
+        ) LOOP
+            SELECT DATA_TYPE INTO V_TYPE FROM USER_TAB_COLUMNS
+            WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = COL.NAME;
+            IF V_TYPE <> 'VARCHAR2' THEN
+                RAISE_APPLICATION_ERROR(-20010, COL.NAME || ' must be VARCHAR2. Review schema before setup.');
+            END IF;
+        END LOOP;
+
+        IF HAS_COLUMN('OSM_ID') THEN
+            SELECT DATA_TYPE INTO V_TYPE FROM USER_TAB_COLUMNS
+            WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = 'OSM_ID';
+            IF V_TYPE <> 'NUMBER' THEN
+                RAISE_APPLICATION_ERROR(-20002, 'OSM_ID must be NUMBER. No automatic type conversion.');
+            END IF;
+            EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM (SELECT OSM_ID FROM RESTAURANT WHERE OSM_ID IS NOT NULL GROUP BY OSM_ID HAVING COUNT(*) > 1)' INTO V_COUNT;
+            IF V_COUNT > 0 THEN
+                RAISE_APPLICATION_ERROR(-20003, 'Duplicate OSM_ID groups found. Review duplicates first.');
+            END IF;
+        END IF;
+
+        IF HAS_COLUMN('IS_PUBLISHED') THEN
+            SELECT DATA_TYPE, CHAR_LENGTH INTO V_TYPE, V_LENGTH FROM USER_TAB_COLUMNS
+            WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = 'IS_PUBLISHED';
+            IF V_TYPE NOT IN ('CHAR', 'VARCHAR2') OR V_LENGTH <> 1 THEN
+                RAISE_APPLICATION_ERROR(-20004, 'IS_PUBLISHED must be CHAR(1) or VARCHAR2(1).');
+            END IF;
+            EXECUTE IMMEDIATE q'[SELECT COUNT(*) FROM RESTAURANT WHERE IS_PUBLISHED IS NULL OR IS_PUBLISHED NOT IN ('Y', 'N')]' INTO V_COUNT;
+            IF V_COUNT > 0 THEN
+                RAISE_APPLICATION_ERROR(-20005, 'IS_PUBLISHED has NULL or invalid values. Review first.');
+            END IF;
+        END IF;
+
+        FOR COL IN (SELECT COLUMN_VALUE AS NAME FROM TABLE(SYS.ODCIVARCHAR2LIST('CREATED_AT', 'UPDATED_AT'))) LOOP
+            IF HAS_COLUMN(COL.NAME) THEN
+                SELECT DATA_TYPE INTO V_TYPE FROM USER_TAB_COLUMNS
+                WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = COL.NAME;
+                IF V_TYPE NOT LIKE 'TIMESTAMP%' THEN
+                    RAISE_APPLICATION_ERROR(-20006, COL.NAME || ' must be TIMESTAMP.');
+                END IF;
+                EXECUTE IMMEDIATE 'SELECT COUNT(*) FROM RESTAURANT WHERE ' || COL.NAME || ' IS NULL' INTO V_COUNT;
+                IF V_COUNT > 0 THEN
+                    RAISE_APPLICATION_ERROR(-20007, COL.NAME || ' contains NULL. Review first.');
+                END IF;
+            END IF;
+        END LOOP;
+    ELSE
+        EXECUTE IMMEDIATE q'~CREATE TABLE RESTAURANT (
+    RESTAURANT_ID      NUMBER(19) PRIMARY KEY,
+    NAME               VARCHAR2(255 CHAR) NOT NULL,
+    CATEGORY           VARCHAR2(255 CHAR),
+    TAGS               VARCHAR2(255 CHAR),
+    RATING             NUMBER(3,1),
+    REVIEW_COUNT       NUMBER(10),
+    DESCRIPTION        VARCHAR2(1000),
+    ADDRESS            VARCHAR2(4000 BYTE),
+    LATITUDE           NUMBER(10,7),
+    LONGITUDE          NUMBER(10,7),
+    OPENING_HOURS      VARCHAR2(1000 CHAR),
+    PHONE              VARCHAR2(255 CHAR),
+    PRICE_RANGE        VARCHAR2(50),
+    WEBSITE_URL        VARCHAR2(1000 CHAR),
+    SEAT_INFO          VARCHAR2(100),
+    RESERVATION_INFO   VARCHAR2(100),
+    PAYMENT_METHODS    VARCHAR2(200),
+    LANGUAGES          VARCHAR2(200),
+    MAIN_IMAGE_URL     VARCHAR2(500),
+    MENU_NAME          VARCHAR2(100),
+    MENU_DESCRIPTION   VARCHAR2(500),
+    MENU_PRICE         VARCHAR2(50),
+    MENU_IMAGE_URL     VARCHAR2(500),
+    OSM_ID             NUMBER(19),
+    IS_PUBLISHED       CHAR(1) DEFAULT 'N' NOT NULL,
+    CREATED_AT         TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    UPDATED_AT         TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT UQ_RESTAURANT_OSM_ID UNIQUE (OSM_ID),
+    CONSTRAINT CK_RESTAURANT_IS_PUBLISHED CHECK (IS_PUBLISHED IN ('Y', 'N'))
+)~';
+        DBMS_OUTPUT.PUT_LINE('CREATED EMPTY TABLE: RESTAURANT');
+    END IF;
+
+    ADD_COLUMN_IF_MISSING('OSM_ID', 'NUMBER(19)');
+    ADD_COLUMN_IF_MISSING('IS_PUBLISHED', q'[CHAR(1) DEFAULT 'N' NOT NULL]');
+    ADD_COLUMN_IF_MISSING('CREATED_AT', 'TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL');
+    ADD_COLUMN_IF_MISSING('UPDATED_AT', 'TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL');
+
+    -- 기존 Y/N 값은 그대로 두고 앞으로 생길 행의 기본값만 지정합니다.
+    EXECUTE IMMEDIATE q'[ALTER TABLE RESTAURANT MODIFY (IS_PUBLISHED DEFAULT 'N')]';
+    EXECUTE IMMEDIATE 'ALTER TABLE RESTAURANT MODIFY (CREATED_AT DEFAULT SYSTIMESTAMP, UPDATED_AT DEFAULT SYSTIMESTAMP)';
+    FOR COL IN (SELECT COLUMN_VALUE AS NAME FROM TABLE(SYS.ODCIVARCHAR2LIST('IS_PUBLISHED', 'CREATED_AT', 'UPDATED_AT'))) LOOP
+        SELECT NULLABLE INTO V_NULLABLE FROM USER_TAB_COLUMNS
+        WHERE TABLE_NAME = 'RESTAURANT' AND COLUMN_NAME = COL.NAME;
+        IF V_NULLABLE = 'Y' THEN
+            EXECUTE IMMEDIATE 'ALTER TABLE RESTAURANT MODIFY (' || COL.NAME || ' NOT NULL)';
+        END IF;
+    END LOOP;
+
+    -- OSM_ID 단일 컬럼의 기존 PK/UNIQUE가 있으면 재사용합니다.
+    SELECT COUNT(*) INTO V_COUNT FROM USER_CONSTRAINTS C
+    WHERE C.TABLE_NAME = 'RESTAURANT' AND C.CONSTRAINT_TYPE IN ('U', 'P')
+      AND C.STATUS = 'ENABLED' AND C.VALIDATED = 'VALIDATED'
+      AND (SELECT COUNT(*) FROM USER_CONS_COLUMNS CC WHERE CC.CONSTRAINT_NAME = C.CONSTRAINT_NAME) = 1
+      AND EXISTS (SELECT 1 FROM USER_CONS_COLUMNS CC WHERE CC.CONSTRAINT_NAME = C.CONSTRAINT_NAME AND CC.COLUMN_NAME = 'OSM_ID');
+    IF V_COUNT = 0 THEN
+        SELECT COUNT(*) INTO V_COUNT FROM USER_CONSTRAINTS
+        WHERE CONSTRAINT_NAME = 'UQ_RESTAURANT_OSM_ID';
+        IF V_COUNT > 0 THEN
+            RAISE_APPLICATION_ERROR(-20008, 'UQ_RESTAURANT_OSM_ID exists but is not a validated OSM_ID unique key. Review first.');
+        END IF;
+        EXECUTE IMMEDIATE 'ALTER TABLE RESTAURANT ADD CONSTRAINT UQ_RESTAURANT_OSM_ID UNIQUE (OSM_ID)';
+    END IF;
+
+    SELECT COUNT(*) INTO V_COUNT FROM USER_CONSTRAINTS
+    WHERE TABLE_NAME = 'RESTAURANT' AND CONSTRAINT_NAME = 'CK_RESTAURANT_IS_PUBLISHED' AND CONSTRAINT_TYPE = 'C';
+    IF V_COUNT = 0 THEN
+        EXECUTE IMMEDIATE q'[ALTER TABLE RESTAURANT ADD CONSTRAINT CK_RESTAURANT_IS_PUBLISHED CHECK (IS_PUBLISHED IN ('Y', 'N'))]';
+    ELSE
+        EXECUTE IMMEDIATE 'ALTER TABLE RESTAURANT ENABLE VALIDATE CONSTRAINT CK_RESTAURANT_IS_PUBLISHED';
+    END IF;
+
+    -- 기존 시퀀스는 초기화하지 않습니다. 없을 때만 현재 최대 ID 다음에서 시작합니다.
+    SELECT COUNT(*) INTO V_COUNT FROM USER_SEQUENCES WHERE SEQUENCE_NAME = 'SEQ_RESTAURANT';
+    IF V_COUNT = 0 THEN
+        EXECUTE IMMEDIATE 'SELECT GREATEST(NVL(MAX(RESTAURANT_ID), 0), 0) + 1 FROM RESTAURANT' INTO V_START;
+        EXECUTE IMMEDIATE 'CREATE SEQUENCE SEQ_RESTAURANT START WITH ' || TO_CHAR(V_START, 'FM9999999999999999999999999999') || ' INCREMENT BY 1 NOCACHE NOCYCLE';
+        DBMS_OUTPUT.PUT_LINE('CREATED: SEQ_RESTAURANT');
+    END IF;
+
+    WIDEN_OSM_COLUMNS;
+
+    EXECUTE IMMEDIATE q'[SELECT COUNT(*), COUNT(OSM_ID), COUNT(CASE WHEN IS_PUBLISHED = 'Y' THEN 1 END) FROM RESTAURANT]'
+        INTO V_AFTER_ROWS, V_OSM_ROWS, V_PUBLIC_ROWS;
+    IF V_AFTER_ROWS <> V_BEFORE_ROWS THEN
+        RAISE_APPLICATION_ERROR(-20011, 'Row count changed during setup. Check concurrent writes.');
+    END IF;
+    DBMS_OUTPUT.PUT_LINE('ROWS_BEFORE=' || V_BEFORE_ROWS || ' / ROWS_AFTER=' || V_AFTER_ROWS);
+    DBMS_OUTPUT.PUT_LINE('OSM_ROWS=' || V_OSM_ROWS || ' / PUBLIC_ROWS=' || V_PUBLIC_ROWS);
+    DBMS_OUTPUT.PUT_LINE('SETUP_OK - existing restaurant rows preserved.');
+END;
+/
+
+-- 아래는 조회만 합니다. 위 블록이 실패했다면 이 조회 결과만 보고 성공으로 판단하지 마세요.
+SELECT COLUMN_NAME, DATA_TYPE, DATA_LENGTH, CHAR_LENGTH, CHAR_USED, NULLABLE
+FROM USER_TAB_COLUMNS WHERE TABLE_NAME = 'RESTAURANT'
+ORDER BY COLUMN_ID;
+
+SELECT SEQUENCE_NAME, INCREMENT_BY, LAST_NUMBER, CACHE_SIZE
+FROM USER_SEQUENCES WHERE SEQUENCE_NAME = 'SEQ_RESTAURANT';
+-- LAST_NUMBER는 캐시 설정에 따라 정확한 다음 번호와 다를 수 있습니다.
+-- OSM_ROWS가 이미 충분하면 학원 Loader를 다시 실행할 필요가 없습니다.
+SET DEFINE ON
+-- BinGo Map / 공개 선별과 결과 확인을 한 파일로 실행
+-- 기본 PREVIEW는 조회만 합니다. 기존 식당/공개값을 바꾸지 않습니다.
+-- 선별 기준: 상세정보형 전부 + 기본정보형 보충 -> 목표 약 50곳.
+-- 상세정보형이 50곳보다 많으면 전부 공개, 후보가 부족하면 50곳 미만입니다.
+-- 아래 한 줄의 PREVIEW만 APPLY로 바꾸면 범위 안의 Y/N을 적용합니다.
+-- 적용하면 기존 Y도 N이 될 수 있습니다. 식당 행을 지우는 것은 아닙니다.
+-- PREVIEW/APPLY 모두 파일 전체를 F5로 실행하세요. Ctrl+Enter용 파일이 아닙니다.
+-- APPLY 전에 앱/Loader의 데이터 수정을 멈추고 자동 커밋을 꺼 두세요.
+SET SERVEROUTPUT ON
+SET DEFINE ON
+SET VERIFY OFF
+DEFINE BINGO_RESTAURANT_MODE = PREVIEW
+
+PROMPT ===== PUBLICATION PLAN =====
+WITH
+CONFIG AS (
+    -- 전체 오사카시 후보를 대상으로 한 목표 건수입니다.
+    -- 아래 좌표 범위는 엉뚱한 도시/0도 좌표를 거르는 근방 검사이며 시 경계 판정이 아닙니다.
+    -- 현재 Loader가 오사카시 행정구역에서 수집한 데이터라는 전제입니다.
+    SELECT 50 AS TARGET_COUNT,
+           34.55 AS MIN_LAT, 34.82 AS MAX_LAT,
+           135.35 AS MIN_LON, 135.65 AS MAX_LON
+    FROM DUAL
+),
+FEATURES AS (
+    SELECT R.*, P.TARGET_COUNT,
+           CASE WHEN TRIM(R.NAME) IS NOT NULL AND LOWER(TRIM(R.NAME)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND LOWER(TRIM(R.NAME)) NOT IN ('이름 없음', 'unnamed')
+                  AND TRIM(R.ADDRESS) IS NOT NULL AND LOWER(TRIM(R.ADDRESS)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND TRIM(R.ADDRESS) <> '주소 정보 없음'
+                  AND TRIM(R.OPENING_HOURS) IS NOT NULL AND LOWER(TRIM(R.OPENING_HOURS)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND LOWER(TRIM(R.OPENING_HOURS)) NOT IN ('off', 'closed')
+                THEN 1 ELSE 0 END AS HAS_BASIC,
+           CASE WHEN TRIM(R.CATEGORY) IS NOT NULL AND LOWER(TRIM(R.CATEGORY)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND TRIM(R.CATEGORY) <> '기타' THEN 1 ELSE 0 END AS HAS_CATEGORY,
+           CASE WHEN TRIM(R.PHONE) IS NOT NULL AND LOWER(TRIM(R.PHONE)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요') THEN 1 ELSE 0 END AS HAS_PHONE,
+           CASE WHEN TRIM(R.WEBSITE_URL) IS NOT NULL AND LOWER(TRIM(R.WEBSITE_URL)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND (LOWER(TRIM(R.WEBSITE_URL)) LIKE 'http://%' OR LOWER(TRIM(R.WEBSITE_URL)) LIKE 'https://%')
+                THEN 1 ELSE 0 END AS HAS_WEBSITE,
+           CASE WHEN TRIM(R.DESCRIPTION) IS NOT NULL AND LOWER(TRIM(R.DESCRIPTION)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요') THEN 1 ELSE 0 END AS HAS_DESCRIPTION,
+           CASE WHEN TRIM(R.MENU_NAME) IS NOT NULL AND LOWER(TRIM(R.MENU_NAME)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요') THEN 1 ELSE 0 END AS HAS_MENU,
+           CASE WHEN TRIM(R.MENU_PRICE) IS NOT NULL AND LOWER(TRIM(R.MENU_PRICE)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND REGEXP_LIKE(R.MENU_PRICE, '[0-9]') THEN 1 ELSE 0 END AS HAS_PRICE,
+           CASE WHEN TRIM(R.MAIN_IMAGE_URL) IS NOT NULL AND LOWER(TRIM(R.MAIN_IMAGE_URL)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                 AND (TRIM(R.MAIN_IMAGE_URL) LIKE '/%' OR LOWER(TRIM(R.MAIN_IMAGE_URL)) LIKE 'https://%' OR LOWER(TRIM(R.MAIN_IMAGE_URL)) LIKE 'http://%')
+                 AND NOT REGEXP_LIKE(LOWER(R.MAIN_IMAGE_URL), 'placeholder|placehold[.]co|placehold[.]it|dummyimage|no[-_]?image|no[-_]?photo|default[-_]?image')
+                THEN 1 ELSE 0 END AS HAS_MAIN_PHOTO,
+           CASE WHEN TRIM(R.MENU_IMAGE_URL) IS NOT NULL AND LOWER(TRIM(R.MENU_IMAGE_URL)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                 AND (TRIM(R.MENU_IMAGE_URL) LIKE '/%' OR LOWER(TRIM(R.MENU_IMAGE_URL)) LIKE 'https://%' OR LOWER(TRIM(R.MENU_IMAGE_URL)) LIKE 'http://%')
+                 AND NOT REGEXP_LIKE(LOWER(R.MENU_IMAGE_URL), 'placeholder|placehold[.]co|placehold[.]it|dummyimage|no[-_]?image|no[-_]?photo|default[-_]?image')
+                THEN 1 ELSE 0 END AS HAS_MENU_PHOTO
+    FROM RESTAURANT R
+    CROSS JOIN CONFIG P
+    WHERE R.LATITUDE BETWEEN P.MIN_LAT AND P.MAX_LAT
+      AND R.LONGITUDE BETWEEN P.MIN_LON AND P.MAX_LON
+),
+CLASSIFIED AS (
+    SELECT F.*,
+           -- 1: 상세정보형 / 2: 기본정보형 / 3: 필수정보 부족
+           -- 상세정보형은 대표사진과 메뉴사진 중 임시 주소가 아닌 사진이 하나 이상 필요합니다.
+           CASE WHEN HAS_BASIC = 1 AND HAS_CATEGORY = 1
+                      AND HAS_DESCRIPTION = 1 AND HAS_MENU = 1 AND HAS_PRICE = 1
+                      AND (HAS_MAIN_PHOTO = 1 OR HAS_MENU_PHOTO = 1) THEN 1
+                WHEN HAS_BASIC = 1 THEN 2
+                ELSE 3 END AS INFO_TIER,
+           HAS_PHONE * 2 + HAS_WEBSITE * 2 + HAS_CATEGORY
+               + HAS_DESCRIPTION + HAS_MENU + HAS_PRICE
+               + HAS_MAIN_PHOTO + HAS_MENU_PHOTO AS INFO_SCORE
+    FROM FEATURES F
+),
+RANKED AS (
+    SELECT C.*,
+           COUNT(CASE WHEN INFO_TIER = 1 THEN 1 END) OVER () AS DETAIL_COUNT,
+           COUNT(CASE WHEN INFO_TIER = 2 THEN 1 END) OVER () AS BASIC_COUNT,
+           ROW_NUMBER() OVER (
+               PARTITION BY INFO_TIER
+               ORDER BY INFO_SCORE DESC, RESTAURANT_ID ASC
+           ) AS TIER_RANK
+    FROM CLASSIFIED C
+),
+DECISIONS AS (
+    SELECT Q.*,
+           CASE WHEN INFO_TIER = 1 THEN 'Y'
+                WHEN INFO_TIER = 2
+                     AND TIER_RANK <= GREATEST(TARGET_COUNT - DETAIL_COUNT, 0) THEN 'Y'
+                ELSE 'N' END AS NEXT_PUBLISHED
+    FROM RANKED Q
+)
+SELECT COUNT(*) AS AREA_ROWS,
+       COUNT(CASE WHEN INFO_TIER = 1 THEN 1 END) AS DETAIL_READY,
+       COUNT(CASE WHEN INFO_TIER = 2 THEN 1 END) AS BASIC_READY,
+       COUNT(CASE WHEN INFO_TIER = 3 THEN 1 END) AS MISSING_BASIC,
+       COUNT(CASE WHEN NEXT_PUBLISHED = 'Y' THEN 1 END) AS PLANNED_PUBLIC,
+       COUNT(CASE WHEN IS_PUBLISHED = 'N' AND NEXT_PUBLISHED = 'Y' THEN 1 END) AS TO_PUBLISH,
+       COUNT(CASE WHEN IS_PUBLISHED = 'Y' AND NEXT_PUBLISHED = 'N' THEN 1 END) AS TO_HIDE
+FROM DECISIONS;
+
+WITH
+CONFIG AS (
+    -- 전체 오사카시 후보를 대상으로 한 목표 건수입니다.
+    -- 아래 좌표 범위는 엉뚱한 도시/0도 좌표를 거르는 근방 검사이며 시 경계 판정이 아닙니다.
+    -- 현재 Loader가 오사카시 행정구역에서 수집한 데이터라는 전제입니다.
+    SELECT 50 AS TARGET_COUNT,
+           34.55 AS MIN_LAT, 34.82 AS MAX_LAT,
+           135.35 AS MIN_LON, 135.65 AS MAX_LON
+    FROM DUAL
+),
+FEATURES AS (
+    SELECT R.*, P.TARGET_COUNT,
+           CASE WHEN TRIM(R.NAME) IS NOT NULL AND LOWER(TRIM(R.NAME)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND LOWER(TRIM(R.NAME)) NOT IN ('이름 없음', 'unnamed')
+                  AND TRIM(R.ADDRESS) IS NOT NULL AND LOWER(TRIM(R.ADDRESS)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND TRIM(R.ADDRESS) <> '주소 정보 없음'
+                  AND TRIM(R.OPENING_HOURS) IS NOT NULL AND LOWER(TRIM(R.OPENING_HOURS)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND LOWER(TRIM(R.OPENING_HOURS)) NOT IN ('off', 'closed')
+                THEN 1 ELSE 0 END AS HAS_BASIC,
+           CASE WHEN TRIM(R.CATEGORY) IS NOT NULL AND LOWER(TRIM(R.CATEGORY)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND TRIM(R.CATEGORY) <> '기타' THEN 1 ELSE 0 END AS HAS_CATEGORY,
+           CASE WHEN TRIM(R.PHONE) IS NOT NULL AND LOWER(TRIM(R.PHONE)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요') THEN 1 ELSE 0 END AS HAS_PHONE,
+           CASE WHEN TRIM(R.WEBSITE_URL) IS NOT NULL AND LOWER(TRIM(R.WEBSITE_URL)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND (LOWER(TRIM(R.WEBSITE_URL)) LIKE 'http://%' OR LOWER(TRIM(R.WEBSITE_URL)) LIKE 'https://%')
+                THEN 1 ELSE 0 END AS HAS_WEBSITE,
+           CASE WHEN TRIM(R.DESCRIPTION) IS NOT NULL AND LOWER(TRIM(R.DESCRIPTION)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요') THEN 1 ELSE 0 END AS HAS_DESCRIPTION,
+           CASE WHEN TRIM(R.MENU_NAME) IS NOT NULL AND LOWER(TRIM(R.MENU_NAME)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요') THEN 1 ELSE 0 END AS HAS_MENU,
+           CASE WHEN TRIM(R.MENU_PRICE) IS NOT NULL AND LOWER(TRIM(R.MENU_PRICE)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND REGEXP_LIKE(R.MENU_PRICE, '[0-9]') THEN 1 ELSE 0 END AS HAS_PRICE,
+           CASE WHEN TRIM(R.MAIN_IMAGE_URL) IS NOT NULL AND LOWER(TRIM(R.MAIN_IMAGE_URL)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                 AND (TRIM(R.MAIN_IMAGE_URL) LIKE '/%' OR LOWER(TRIM(R.MAIN_IMAGE_URL)) LIKE 'https://%' OR LOWER(TRIM(R.MAIN_IMAGE_URL)) LIKE 'http://%')
+                 AND NOT REGEXP_LIKE(LOWER(R.MAIN_IMAGE_URL), 'placeholder|placehold[.]co|placehold[.]it|dummyimage|no[-_]?image|no[-_]?photo|default[-_]?image')
+                THEN 1 ELSE 0 END AS HAS_MAIN_PHOTO,
+           CASE WHEN TRIM(R.MENU_IMAGE_URL) IS NOT NULL AND LOWER(TRIM(R.MENU_IMAGE_URL)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                 AND (TRIM(R.MENU_IMAGE_URL) LIKE '/%' OR LOWER(TRIM(R.MENU_IMAGE_URL)) LIKE 'https://%' OR LOWER(TRIM(R.MENU_IMAGE_URL)) LIKE 'http://%')
+                 AND NOT REGEXP_LIKE(LOWER(R.MENU_IMAGE_URL), 'placeholder|placehold[.]co|placehold[.]it|dummyimage|no[-_]?image|no[-_]?photo|default[-_]?image')
+                THEN 1 ELSE 0 END AS HAS_MENU_PHOTO
+    FROM RESTAURANT R
+    CROSS JOIN CONFIG P
+    WHERE R.LATITUDE BETWEEN P.MIN_LAT AND P.MAX_LAT
+      AND R.LONGITUDE BETWEEN P.MIN_LON AND P.MAX_LON
+),
+CLASSIFIED AS (
+    SELECT F.*,
+           -- 1: 상세정보형 / 2: 기본정보형 / 3: 필수정보 부족
+           -- 상세정보형은 대표사진과 메뉴사진 중 임시 주소가 아닌 사진이 하나 이상 필요합니다.
+           CASE WHEN HAS_BASIC = 1 AND HAS_CATEGORY = 1
+                      AND HAS_DESCRIPTION = 1 AND HAS_MENU = 1 AND HAS_PRICE = 1
+                      AND (HAS_MAIN_PHOTO = 1 OR HAS_MENU_PHOTO = 1) THEN 1
+                WHEN HAS_BASIC = 1 THEN 2
+                ELSE 3 END AS INFO_TIER,
+           HAS_PHONE * 2 + HAS_WEBSITE * 2 + HAS_CATEGORY
+               + HAS_DESCRIPTION + HAS_MENU + HAS_PRICE
+               + HAS_MAIN_PHOTO + HAS_MENU_PHOTO AS INFO_SCORE
+    FROM FEATURES F
+),
+RANKED AS (
+    SELECT C.*,
+           COUNT(CASE WHEN INFO_TIER = 1 THEN 1 END) OVER () AS DETAIL_COUNT,
+           COUNT(CASE WHEN INFO_TIER = 2 THEN 1 END) OVER () AS BASIC_COUNT,
+           ROW_NUMBER() OVER (
+               PARTITION BY INFO_TIER
+               ORDER BY INFO_SCORE DESC, RESTAURANT_ID ASC
+           ) AS TIER_RANK
+    FROM CLASSIFIED C
+),
+DECISIONS AS (
+    SELECT Q.*,
+           CASE WHEN INFO_TIER = 1 THEN 'Y'
+                WHEN INFO_TIER = 2
+                     AND TIER_RANK <= GREATEST(TARGET_COUNT - DETAIL_COUNT, 0) THEN 'Y'
+                ELSE 'N' END AS NEXT_PUBLISHED
+    FROM RANKED Q
+)
+SELECT RESTAURANT_ID, OSM_ID, NAME,
+       CASE INFO_TIER WHEN 1 THEN 'DETAIL' WHEN 2 THEN 'BASIC' ELSE 'INCOMPLETE' END AS INFO_GROUP,
+       INFO_SCORE, IS_PUBLISHED AS CURRENT_FLAG, NEXT_PUBLISHED AS NEXT_FLAG,
+       CASE WHEN IS_PUBLISHED = NEXT_PUBLISHED THEN 'KEEP'
+            WHEN NEXT_PUBLISHED = 'Y' THEN 'PUBLISH' ELSE 'HIDE' END AS CHANGE_TYPE,
+       CATEGORY, ADDRESS, LATITUDE, LONGITUDE, OPENING_HOURS, PHONE, WEBSITE_URL,
+       MENU_NAME, MENU_PRICE, MAIN_IMAGE_URL, MENU_IMAGE_URL
+FROM DECISIONS
+WHERE NEXT_PUBLISHED = 'Y' OR IS_PUBLISHED = 'Y'
+ORDER BY NEXT_PUBLISHED DESC, INFO_TIER, TIER_RANK;
+
+DECLARE
+    V_MODE VARCHAR2(20) := UPPER(TRIM('&&BINGO_RESTAURANT_MODE'));
+BEGIN
+    SAVEPOINT BEFORE_OSAKA_SELECTION;
+    IF V_MODE = 'PREVIEW' THEN
+        DBMS_OUTPUT.PUT_LINE('PREVIEW_ONLY - no publication changes.');
+    ELSIF V_MODE = 'APPLY' THEN
+        MERGE INTO RESTAURANT TARGET
+            USING (
+            WITH
+            CONFIG AS (
+                -- 전체 오사카시 후보를 대상으로 한 목표 건수입니다.
+                -- 아래 좌표 범위는 엉뚱한 도시/0도 좌표를 거르는 근방 검사이며 시 경계 판정이 아닙니다.
+                -- 현재 Loader가 오사카시 행정구역에서 수집한 데이터라는 전제입니다.
+                SELECT 50 AS TARGET_COUNT,
+                       34.55 AS MIN_LAT, 34.82 AS MAX_LAT,
+                       135.35 AS MIN_LON, 135.65 AS MAX_LON
+                FROM DUAL
+            ),
+            FEATURES AS (
+                SELECT R.*, P.TARGET_COUNT,
+                       CASE WHEN TRIM(R.NAME) IS NOT NULL AND LOWER(TRIM(R.NAME)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                              AND LOWER(TRIM(R.NAME)) NOT IN ('이름 없음', 'unnamed')
+                              AND TRIM(R.ADDRESS) IS NOT NULL AND LOWER(TRIM(R.ADDRESS)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                              AND TRIM(R.ADDRESS) <> '주소 정보 없음'
+                              AND TRIM(R.OPENING_HOURS) IS NOT NULL AND LOWER(TRIM(R.OPENING_HOURS)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                              AND LOWER(TRIM(R.OPENING_HOURS)) NOT IN ('off', 'closed')
+                            THEN 1 ELSE 0 END AS HAS_BASIC,
+                       CASE WHEN TRIM(R.CATEGORY) IS NOT NULL AND LOWER(TRIM(R.CATEGORY)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                              AND TRIM(R.CATEGORY) <> '기타' THEN 1 ELSE 0 END AS HAS_CATEGORY,
+                       CASE WHEN TRIM(R.PHONE) IS NOT NULL AND LOWER(TRIM(R.PHONE)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요') THEN 1 ELSE 0 END AS HAS_PHONE,
+                       CASE WHEN TRIM(R.WEBSITE_URL) IS NOT NULL AND LOWER(TRIM(R.WEBSITE_URL)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                              AND (LOWER(TRIM(R.WEBSITE_URL)) LIKE 'http://%' OR LOWER(TRIM(R.WEBSITE_URL)) LIKE 'https://%')
+                            THEN 1 ELSE 0 END AS HAS_WEBSITE,
+                       CASE WHEN TRIM(R.DESCRIPTION) IS NOT NULL AND LOWER(TRIM(R.DESCRIPTION)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요') THEN 1 ELSE 0 END AS HAS_DESCRIPTION,
+                       CASE WHEN TRIM(R.MENU_NAME) IS NOT NULL AND LOWER(TRIM(R.MENU_NAME)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요') THEN 1 ELSE 0 END AS HAS_MENU,
+                       CASE WHEN TRIM(R.MENU_PRICE) IS NOT NULL AND LOWER(TRIM(R.MENU_PRICE)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                              AND REGEXP_LIKE(R.MENU_PRICE, '[0-9]') THEN 1 ELSE 0 END AS HAS_PRICE,
+                       CASE WHEN TRIM(R.MAIN_IMAGE_URL) IS NOT NULL AND LOWER(TRIM(R.MAIN_IMAGE_URL)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                             AND (TRIM(R.MAIN_IMAGE_URL) LIKE '/%' OR LOWER(TRIM(R.MAIN_IMAGE_URL)) LIKE 'https://%' OR LOWER(TRIM(R.MAIN_IMAGE_URL)) LIKE 'http://%')
+                             AND NOT REGEXP_LIKE(LOWER(R.MAIN_IMAGE_URL), 'placeholder|placehold[.]co|placehold[.]it|dummyimage|no[-_]?image|no[-_]?photo|default[-_]?image')
+                            THEN 1 ELSE 0 END AS HAS_MAIN_PHOTO,
+                       CASE WHEN TRIM(R.MENU_IMAGE_URL) IS NOT NULL AND LOWER(TRIM(R.MENU_IMAGE_URL)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                             AND (TRIM(R.MENU_IMAGE_URL) LIKE '/%' OR LOWER(TRIM(R.MENU_IMAGE_URL)) LIKE 'https://%' OR LOWER(TRIM(R.MENU_IMAGE_URL)) LIKE 'http://%')
+                             AND NOT REGEXP_LIKE(LOWER(R.MENU_IMAGE_URL), 'placeholder|placehold[.]co|placehold[.]it|dummyimage|no[-_]?image|no[-_]?photo|default[-_]?image')
+                            THEN 1 ELSE 0 END AS HAS_MENU_PHOTO
+                FROM RESTAURANT R
+                CROSS JOIN CONFIG P
+                WHERE R.LATITUDE BETWEEN P.MIN_LAT AND P.MAX_LAT
+                  AND R.LONGITUDE BETWEEN P.MIN_LON AND P.MAX_LON
+            ),
+            CLASSIFIED AS (
+                SELECT F.*,
+                       -- 1: 상세정보형 / 2: 기본정보형 / 3: 필수정보 부족
+                       -- 상세정보형은 대표사진과 메뉴사진 중 임시 주소가 아닌 사진이 하나 이상 필요합니다.
+                       CASE WHEN HAS_BASIC = 1 AND HAS_CATEGORY = 1
+                                  AND HAS_DESCRIPTION = 1 AND HAS_MENU = 1 AND HAS_PRICE = 1
+                                  AND (HAS_MAIN_PHOTO = 1 OR HAS_MENU_PHOTO = 1) THEN 1
+                            WHEN HAS_BASIC = 1 THEN 2
+                            ELSE 3 END AS INFO_TIER,
+                       HAS_PHONE * 2 + HAS_WEBSITE * 2 + HAS_CATEGORY
+                           + HAS_DESCRIPTION + HAS_MENU + HAS_PRICE
+                           + HAS_MAIN_PHOTO + HAS_MENU_PHOTO AS INFO_SCORE
+                FROM FEATURES F
+            ),
+            RANKED AS (
+                SELECT C.*,
+                       COUNT(CASE WHEN INFO_TIER = 1 THEN 1 END) OVER () AS DETAIL_COUNT,
+                       COUNT(CASE WHEN INFO_TIER = 2 THEN 1 END) OVER () AS BASIC_COUNT,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY INFO_TIER
+                           ORDER BY INFO_SCORE DESC, RESTAURANT_ID ASC
+                       ) AS TIER_RANK
+                FROM CLASSIFIED C
+            ),
+            DECISIONS AS (
+                SELECT Q.*,
+                       CASE WHEN INFO_TIER = 1 THEN 'Y'
+                            WHEN INFO_TIER = 2
+                                 AND TIER_RANK <= GREATEST(TARGET_COUNT - DETAIL_COUNT, 0) THEN 'Y'
+                            ELSE 'N' END AS NEXT_PUBLISHED
+                FROM RANKED Q
+            )
+                SELECT RESTAURANT_ID, NEXT_PUBLISHED FROM DECISIONS
+            ) CHOSEN
+            ON (TARGET.RESTAURANT_ID = CHOSEN.RESTAURANT_ID)
+            WHEN MATCHED THEN UPDATE SET
+                TARGET.IS_PUBLISHED = CHOSEN.NEXT_PUBLISHED,
+                TARGET.UPDATED_AT = SYSTIMESTAMP
+            WHERE TARGET.IS_PUBLISHED <> CHOSEN.NEXT_PUBLISHED;
+        DBMS_OUTPUT.PUT_LINE('CHANGED_ROWS=' || SQL%ROWCOUNT);
+        DBMS_OUTPUT.PUT_LINE('Review results, then execute COMMIT or ROLLBACK in this connection.');
+    ELSE
+        RAISE_APPLICATION_ERROR(-20020, 'Use PREVIEW or APPLY only.');
+    END IF;
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK TO BEFORE_OSAKA_SELECTION;
+        RAISE;
+END;
+/
+
+PROMPT ===== CURRENT RESULT / REMAINING CHANGES =====
+WITH
+CONFIG AS (
+    -- 전체 오사카시 후보를 대상으로 한 목표 건수입니다.
+    -- 아래 좌표 범위는 엉뚱한 도시/0도 좌표를 거르는 근방 검사이며 시 경계 판정이 아닙니다.
+    -- 현재 Loader가 오사카시 행정구역에서 수집한 데이터라는 전제입니다.
+    SELECT 50 AS TARGET_COUNT,
+           34.55 AS MIN_LAT, 34.82 AS MAX_LAT,
+           135.35 AS MIN_LON, 135.65 AS MAX_LON
+    FROM DUAL
+),
+FEATURES AS (
+    SELECT R.*, P.TARGET_COUNT,
+           CASE WHEN TRIM(R.NAME) IS NOT NULL AND LOWER(TRIM(R.NAME)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND LOWER(TRIM(R.NAME)) NOT IN ('이름 없음', 'unnamed')
+                  AND TRIM(R.ADDRESS) IS NOT NULL AND LOWER(TRIM(R.ADDRESS)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND TRIM(R.ADDRESS) <> '주소 정보 없음'
+                  AND TRIM(R.OPENING_HOURS) IS NOT NULL AND LOWER(TRIM(R.OPENING_HOURS)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND LOWER(TRIM(R.OPENING_HOURS)) NOT IN ('off', 'closed')
+                THEN 1 ELSE 0 END AS HAS_BASIC,
+           CASE WHEN TRIM(R.CATEGORY) IS NOT NULL AND LOWER(TRIM(R.CATEGORY)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND TRIM(R.CATEGORY) <> '기타' THEN 1 ELSE 0 END AS HAS_CATEGORY,
+           CASE WHEN TRIM(R.PHONE) IS NOT NULL AND LOWER(TRIM(R.PHONE)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요') THEN 1 ELSE 0 END AS HAS_PHONE,
+           CASE WHEN TRIM(R.WEBSITE_URL) IS NOT NULL AND LOWER(TRIM(R.WEBSITE_URL)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND (LOWER(TRIM(R.WEBSITE_URL)) LIKE 'http://%' OR LOWER(TRIM(R.WEBSITE_URL)) LIKE 'https://%')
+                THEN 1 ELSE 0 END AS HAS_WEBSITE,
+           CASE WHEN TRIM(R.DESCRIPTION) IS NOT NULL AND LOWER(TRIM(R.DESCRIPTION)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요') THEN 1 ELSE 0 END AS HAS_DESCRIPTION,
+           CASE WHEN TRIM(R.MENU_NAME) IS NOT NULL AND LOWER(TRIM(R.MENU_NAME)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요') THEN 1 ELSE 0 END AS HAS_MENU,
+           CASE WHEN TRIM(R.MENU_PRICE) IS NOT NULL AND LOWER(TRIM(R.MENU_PRICE)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                  AND REGEXP_LIKE(R.MENU_PRICE, '[0-9]') THEN 1 ELSE 0 END AS HAS_PRICE,
+           CASE WHEN TRIM(R.MAIN_IMAGE_URL) IS NOT NULL AND LOWER(TRIM(R.MAIN_IMAGE_URL)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                 AND (TRIM(R.MAIN_IMAGE_URL) LIKE '/%' OR LOWER(TRIM(R.MAIN_IMAGE_URL)) LIKE 'https://%' OR LOWER(TRIM(R.MAIN_IMAGE_URL)) LIKE 'http://%')
+                 AND NOT REGEXP_LIKE(LOWER(R.MAIN_IMAGE_URL), 'placeholder|placehold[.]co|placehold[.]it|dummyimage|no[-_]?image|no[-_]?photo|default[-_]?image')
+                THEN 1 ELSE 0 END AS HAS_MAIN_PHOTO,
+           CASE WHEN TRIM(R.MENU_IMAGE_URL) IS NOT NULL AND LOWER(TRIM(R.MENU_IMAGE_URL)) NOT IN ('-', 'unknown', 'n/a', 'null', '정보 없음', '정보없음', '미등록', '확인 필요')
+                 AND (TRIM(R.MENU_IMAGE_URL) LIKE '/%' OR LOWER(TRIM(R.MENU_IMAGE_URL)) LIKE 'https://%' OR LOWER(TRIM(R.MENU_IMAGE_URL)) LIKE 'http://%')
+                 AND NOT REGEXP_LIKE(LOWER(R.MENU_IMAGE_URL), 'placeholder|placehold[.]co|placehold[.]it|dummyimage|no[-_]?image|no[-_]?photo|default[-_]?image')
+                THEN 1 ELSE 0 END AS HAS_MENU_PHOTO
+    FROM RESTAURANT R
+    CROSS JOIN CONFIG P
+    WHERE R.LATITUDE BETWEEN P.MIN_LAT AND P.MAX_LAT
+      AND R.LONGITUDE BETWEEN P.MIN_LON AND P.MAX_LON
+),
+CLASSIFIED AS (
+    SELECT F.*,
+           -- 1: 상세정보형 / 2: 기본정보형 / 3: 필수정보 부족
+           -- 상세정보형은 대표사진과 메뉴사진 중 임시 주소가 아닌 사진이 하나 이상 필요합니다.
+           CASE WHEN HAS_BASIC = 1 AND HAS_CATEGORY = 1
+                      AND HAS_DESCRIPTION = 1 AND HAS_MENU = 1 AND HAS_PRICE = 1
+                      AND (HAS_MAIN_PHOTO = 1 OR HAS_MENU_PHOTO = 1) THEN 1
+                WHEN HAS_BASIC = 1 THEN 2
+                ELSE 3 END AS INFO_TIER,
+           HAS_PHONE * 2 + HAS_WEBSITE * 2 + HAS_CATEGORY
+               + HAS_DESCRIPTION + HAS_MENU + HAS_PRICE
+               + HAS_MAIN_PHOTO + HAS_MENU_PHOTO AS INFO_SCORE
+    FROM FEATURES F
+),
+RANKED AS (
+    SELECT C.*,
+           COUNT(CASE WHEN INFO_TIER = 1 THEN 1 END) OVER () AS DETAIL_COUNT,
+           COUNT(CASE WHEN INFO_TIER = 2 THEN 1 END) OVER () AS BASIC_COUNT,
+           ROW_NUMBER() OVER (
+               PARTITION BY INFO_TIER
+               ORDER BY INFO_SCORE DESC, RESTAURANT_ID ASC
+           ) AS TIER_RANK
+    FROM CLASSIFIED C
+),
+DECISIONS AS (
+    SELECT Q.*,
+           CASE WHEN INFO_TIER = 1 THEN 'Y'
+                WHEN INFO_TIER = 2
+                     AND TIER_RANK <= GREATEST(TARGET_COUNT - DETAIL_COUNT, 0) THEN 'Y'
+                ELSE 'N' END AS NEXT_PUBLISHED
+    FROM RANKED Q
+)
+SELECT COUNT(*) AS AREA_ROWS,
+       COUNT(CASE WHEN INFO_TIER = 1 THEN 1 END) AS DETAIL_READY,
+       COUNT(CASE WHEN INFO_TIER = 2 THEN 1 END) AS BASIC_READY,
+       COUNT(CASE WHEN INFO_TIER = 3 THEN 1 END) AS MISSING_BASIC,
+       COUNT(CASE WHEN NEXT_PUBLISHED = 'Y' THEN 1 END) AS PLANNED_PUBLIC,
+       COUNT(CASE WHEN IS_PUBLISHED = 'N' AND NEXT_PUBLISHED = 'Y' THEN 1 END) AS TO_PUBLISH,
+       COUNT(CASE WHEN IS_PUBLISHED = 'Y' AND NEXT_PUBLISHED = 'N' THEN 1 END) AS TO_HIDE
+FROM DECISIONS;
+
+SELECT COUNT(*) AS TOTAL_ROWS,
+       COUNT(OSM_ID) AS OSM_ROWS,
+       COUNT(CASE WHEN IS_PUBLISHED = 'Y' THEN 1 END) AS ALL_PUBLIC_ROWS,
+       COUNT(CASE WHEN IS_PUBLISHED = 'Y' AND
+           (LATITUDE IS NULL OR LONGITUDE IS NULL OR
+            LATITUDE NOT BETWEEN 34.55 AND 34.82 OR LONGITUDE NOT BETWEEN 135.35 AND 135.65)
+           THEN 1 END) AS OUTSIDE_OR_INVALID_PUBLIC
+FROM RESTAURANT;
+
+SELECT RESTAURANT_ID, OSM_ID, NAME, ADDRESS, OPENING_HOURS,
+       MENU_NAME, MENU_PRICE, MAIN_IMAGE_URL, IS_PUBLISHED
+FROM RESTAURANT
+WHERE IS_PUBLISHED = 'Y'
+ORDER BY RESTAURANT_ID;
+
+-- APPLY 실행 후: ORA- 오류가 없고 결과가 맞으면 같은 접속에서 COMMIT; 을 별도로 실행하세요.
+-- 취소하려면 COMMIT 전에 ROLLBACK; 을 실행하세요. 이 파일은 자동 COMMIT하지 않습니다.
+-- PREVIEW에서는 TO_PUBLISH/TO_HIDE가 변경 예정 수이고, APPLY 성공 후에는 둘 다 0이어야 합니다.
+-- 검토 후 파일의 실행 모드는 PREVIEW로 되돌려 저장하면 다음에도 미리보기로 시작합니다.
+UNDEFINE BINGO_RESTAURANT_MODE
+SET VERIFY ON
+
+-- ============================================================
+-- BinGo Map 팀 통합 DB 스크립트 (v8) //즐겨찾기 가상 데이터 추가 - kdk / 0929
+-- ============================================================
+
+-- 기존 객체 정리 (없어도 에러 없이 통과)
+BEGIN
+    FOR t IN (
+        SELECT table_name FROM user_tables
+        WHERE table_name IN ('TB_COMMUNITY_COMMENT', 'TB_REVIEW_IMAGE', 'TB_REVIEW', 'TB_COMMUNITY_POST', 'TB_RESTAURANT_MENU',
+                             'SYSTEM_SETTINGS', 'REVIEWS', 'FAVORITES', 'NOTICES', 'RESTAURANTS', 'WASTE_BIN', 'USERS')
+    ) LOOP
+        EXECUTE IMMEDIATE 'DROP TABLE ' || t.table_name || ' CASCADE CONSTRAINTS';
+    END LOOP;
+
+    FOR q IN (
+        SELECT sequence_name FROM user_sequences
+        WHERE sequence_name IN ('USERS_SEQ', 'FAVORITES_SEQ', 'REVIEWS_SEQ',
+                                'RESTAURANTS_SEQ', 'NOTICES_SEQ', 'WASTE_BIN_SEQ',
+                                'SEQ_REVIEW', 'SEQ_REVIEW_IMAGE', 'SEQ_COMMUNITY_POST',
+                                'SEQ_COMMUNITY_COMMENT', 'SEQ_RESTAURANT_MENU')
+    ) LOOP
+        EXECUTE IMMEDIATE 'DROP SEQUENCE ' || q.sequence_name;
+    END LOOP;
+END;
+/
+
+-- ============================================================
+-- TABLE 목록
+-- USERS
+-- RESTAURANTS
+-- REVIEWS
+-- FAVORITES
+-- NOTICES
+-- WASTE_BIN
+-- (v5/v6 추가) SYSTEM_SETTINGS, TB_RESTAURANT_MENU, TB_REVIEW, TB_REVIEW_IMAGE,
+--              TB_COMMUNITY_POST, TB_COMMUNITY_COMMENT
+//여기가 없어야함 TB_ 붙은애들이 없어야 맞는것.
+--
+-- 참고
+-- * 테이블/컬럼/시퀀스 이름은 자바 엔티티가 매핑하는 이름 그대로임.
+--   엔티티를 같이 고치지 않고 이름을 바꾸면 ORA-00942 / ORA-00904 에러가 남.
+-- * 트리거는 INSERT 할 때 id 가 비어 있으면 시퀀스 번호를 자동으로 채움.
+--   (자바는 번호를 직접 넣으므로, SQL 로 직접 INSERT 할 때만 동작)
+-- ============================================================
+
+-- 0918/kdk/팀 쿼리/수정/유저 구분 텍스트 삽입
+-- ============================================================
+-- USERS
+-- 안태건
+-- ============================================================
+-- 테스트 데이터 id 1~5 고정 → 신규 데이터는 6부터
+CREATE SEQUENCE users_seq START WITH 6 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE users (
+    id                  NUMBER          NOT NULL,
+    name                VARCHAR2(50)    NOT NULL,
+    nickname            VARCHAR2(30),
+    email               VARCHAR2(100)   NOT NULL,
+    password            VARCHAR2(255)   NOT NULL,
+    nationality         VARCHAR2(50),
+    sns_type            VARCHAR2(20),
+    role                VARCHAR2(20)    DEFAULT 'USER' NOT NULL,
+    security_question   VARCHAR2(100),
+    security_answer     VARCHAR2(255),
+    notify_email        VARCHAR2(1),
+    location_enabled    VARCHAR2(1),
+    created_at          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+
+    CONSTRAINT pk_users PRIMARY KEY (id),
+    CONSTRAINT uq_users_email UNIQUE (email),
+    CONSTRAINT ck_users_role CHECK (role IN ('USER', 'ADMIN'))
+);
+
+CREATE OR REPLACE TRIGGER users_bi
+    BEFORE INSERT ON users
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT users_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+-- 0918/kdk/팀 쿼리 수정/레스토랑 파트 구분 텍스트 삽입
+-- ============================================================
+-- RESTAURANTS
+-- 장준환
+-- ============================================================
+
+-- 테스트 데이터 id 1~5 고정 → 신규 데이터는 6부터
+CREATE SEQUENCE restaurants_seq
+    START WITH 6
+    INCREMENT BY 1
+    NOCACHE;
+
+CREATE TABLE restaurants (
+    id                  NUMBER          NOT NULL,
+    name                VARCHAR2(100)   NOT NULL,
+    category            VARCHAR2(50),
+    tags                VARCHAR2(200),
+    rating              NUMBER(3,1),
+    review_count        NUMBER(10),
+    description         VARCHAR2(1000),
+    address             VARCHAR2(300),
+    latitude            NUMBER(10,7),
+    longitude           NUMBER(10,7),
+    opening_hours       VARCHAR2(100),
+    phone               VARCHAR2(50),
+    price_range         VARCHAR2(50),
+    website_url         VARCHAR2(300),
+    seat_info           VARCHAR2(100),
+    reservation_info    VARCHAR2(100),
+    payment_methods     VARCHAR2(200),
+    languages           VARCHAR2(200),
+    main_image_url      VARCHAR2(500),
+
+    menu_name           VARCHAR2(100),
+    menu_description    VARCHAR2(500),
+    menu_price          VARCHAR2(50),
+    menu_image_url      VARCHAR2(500),
+
+    created_at          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+
+    CONSTRAINT pk_restaurants
+        PRIMARY KEY (id)
+);
+
+CREATE OR REPLACE TRIGGER restaurants_bi
+    BEFORE INSERT ON restaurants
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT restaurants_seq.NEXTVAL
+        INTO :NEW.id
+        FROM dual;
+    END IF;
+END;
+/
+
+-- 0918/kdk/팀 쿼리/수정/즐겨찾기 파트 구분 텍스트 삽입
+-- ============================================================
+-- FAVORITES
+-- 공통
+-- ============================================================
+
+CREATE SEQUENCE favorites_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE favorites (
+    id          NUMBER          NOT NULL,
+    user_id     NUMBER          NOT NULL,
+    target_type VARCHAR2(20)    NOT NULL,
+    target_id   VARCHAR2(100)   NOT NULL,
+    target_name VARCHAR2(200),
+    created_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_favorites PRIMARY KEY (id),
+    CONSTRAINT fk_favorites_user FOREIGN KEY (user_id) REFERENCES users (id),
+    CONSTRAINT ck_favorites_target_type CHECK (target_type IN ('WASTE_BIN', 'RESTAURANT')),
+    CONSTRAINT uq_favorites_target UNIQUE (user_id, target_type, target_id)
+);
+
+CREATE OR REPLACE TRIGGER favorites_bi
+    BEFORE INSERT ON favorites
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT favorites_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+
+-- ============================================================
+-- REVIEWS
+-- 유해성
+-- ※ rating: 0.5 단위 별점 지원 (NUMBER(2,1) + 0.5 단위 CHECK)
+-- ============================================================
+
+-- 0929 kdk 수정 
+-- 0918/kdk/팀 쿼리/수정/리뷰 파트 구분 텍스트 삽입
+
+-- ============================================================
+-- [v8 수정] TB_REVIEW > REVIEW / TB_REVIEW_IMAGE > REVIEW_IMAGE
+-- [v5 추가] TB_REVIEW / TB_REVIEW_IMAGE  (유해성)
+-- ※ Review.java가 사용하는 테이블 (방문일/시간대/목적/추천/도움돼요/사진 포함)
+-- ※ 사진 파일 자체는 프로젝트의 uploads/reviews 폴더에 저장되고, DB 에는 경로만 저장 (리뷰당 최대 5장)
+-- ※ [v7] 자동 번호 트리거 추가
+-- ============================================================
+CREATE SEQUENCE SEQ_REVIEW START WITH 6 INCREMENT BY 1 NOCACHE;
+CREATE SEQUENCE SEQ_REVIEW_IMAGE START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE REVIEW (
+    REVIEW_ID        NUMBER          NOT NULL,                          -- 리뷰 번호 (PK)
+    USER_ID          NUMBER          NOT NULL,                          -- 작성자 (users.id)
+    RESTAURANT_ID    NUMBER          NOT NULL,                          -- 맛집 번호 (restaurants.id)
+    RATING           NUMBER(2,1)     NOT NULL,                          -- 별점 0.5~5
+    CONTENT          CLOB            NOT NULL,                          -- 리뷰 내용
+    VISIT_DATE       DATE,                                              -- 방문일
+    VISIT_TIME_SLOT  VARCHAR2(20),                                      -- 방문 시간대
+    VISIT_PURPOSE    VARCHAR2(20),                                      -- 방문 목적 (데이트/여행 등)
+    RECOMMEND_YN     NUMBER(1),                                         -- 추천 여부 (1 추천 / 0 비추천)
+    HELP_COUNT       NUMBER          DEFAULT 0 NOT NULL,                -- 도움이 돼요 수
+    CREATED_AT       TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,     -- 작성 시각
+    CONSTRAINT pk_review PRIMARY KEY (REVIEW_ID),
+    CONSTRAINT fk_review_user FOREIGN KEY (USER_ID) REFERENCES users (id),
+    CONSTRAINT fk_review_restaurant FOREIGN KEY (RESTAURANT_ID) REFERENCES restaurants (id),
+    CONSTRAINT ck_review_rating CHECK (RATING BETWEEN 0.5 AND 5)
+);
+
+CREATE OR REPLACE TRIGGER review_bi
+    BEFORE INSERT ON REVIEW
+    FOR EACH ROW
+BEGIN
+    IF :NEW.REVIEW_ID IS NULL THEN
+        SELECT SEQ_REVIEW.NEXTVAL INTO :NEW.REVIEW_ID FROM dual;
+    END IF;
+END;
+/
+
+CREATE TABLE REVIEW_IMAGE (
+    REVIEW_IMAGE_ID  NUMBER          NOT NULL,                          -- 사진 번호 (PK)
+    REVIEW_ID        NUMBER          NOT NULL,                          -- 어느 리뷰의 사진인지
+    IMAGE_URL        VARCHAR2(255)   NOT NULL,                          -- 사진 경로 (/uploads/reviews/xxx.jpg)
+    SORT_ORDER       NUMBER,                                            -- 표시 순서
+    CONSTRAINT pk_review_image PRIMARY KEY (REVIEW_IMAGE_ID),
+    CONSTRAINT fk_review_image_review FOREIGN KEY (REVIEW_ID) REFERENCES REVIEW (REVIEW_ID)
+);
+
+CREATE OR REPLACE TRIGGER review_image_bi
+    BEFORE INSERT ON REVIEW_IMAGE
+    FOR EACH ROW
+BEGIN
+    IF :NEW.REVIEW_IMAGE_ID IS NULL THEN
+        SELECT SEQ_REVIEW_IMAGE.NEXTVAL INTO :NEW.REVIEW_IMAGE_ID FROM dual;
+    END IF;
+END;
+/
+
+-- 0929 kdk 수정 테이블명
+-- ============================================================
+-- [v8 수정] TB_COMMUNITY_POST > COMMUNITY_POST (커뮤니티)
+-- [v5 추가] TB_COMMUNITY_POST  (커뮤니티)
+-- ※ VIEW_COUNT 는 게시글 상세를 열 때마다 자바가 1씩 올림
+-- ※ [v7] 자동 번호 트리거 추가
+-- ============================================================
+CREATE SEQUENCE SEQ_COMMUNITY_POST START WITH 6 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE COMMUNITY_POST (
+    POST_ID      NUMBER          NOT NULL,                              -- 게시글 번호 (PK)
+    USER_ID      NUMBER          NOT NULL,                              -- 작성자 (users.id)
+    TITLE        VARCHAR2(200)   NOT NULL,                              -- 제목
+    CONTENT      CLOB            NOT NULL,                              -- 내용
+    TAGS         VARCHAR2(200),                                         -- 태그 (쉼표로 구분)
+    VIEW_COUNT   NUMBER          DEFAULT 0 NOT NULL,                    -- 조회수
+    CREATED_AT   TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,         -- 작성 시각
+    UPDATED_AT   TIMESTAMP,                                             -- 수정 시각 (수정 전에는 비어 있음)
+    CONSTRAINT pk_community_post PRIMARY KEY (POST_ID),
+    CONSTRAINT fk_community_post_user FOREIGN KEY (USER_ID) REFERENCES users (id)
+);
+
+CREATE OR REPLACE TRIGGER community_post_bi
+    BEFORE INSERT ON COMMUNITY_POST
+    FOR EACH ROW
+BEGIN
+    IF :NEW.POST_ID IS NULL THEN
+        SELECT SEQ_COMMUNITY_POST.NEXTVAL INTO :NEW.POST_ID FROM dual;
+    END IF;
+END;
+/
+
+-- 0929 kdk 수정 테이블 명
+-- ============================================================
+-- [v8 수정] TB_COMMUNITY_COMMENT > COMMUNITY_COMMENT
+-- [v6 추가] TB_COMMUNITY_COMMENT : 커뮤니티 댓글  (유해성 리뷰·커뮤니티 파트 SQL에서 통합)
+-- ※ post_id FK → COMMUNITY_POST (위에서 먼저 생성되어 있어야 함)
+-- ※ user_id FK → users : 리뷰 파트 SQL에는 없었으나, v5의 COMMUNITY_POST / REVIEW 와 맞춰 추가
+--   (테스트 유저 id 1~5가 users에 있으므로 임시 사용자 id 1 사용 시에도 문제 없음)
+-- ※ 테스트 데이터 없음 (시퀀스는 1부터)
+-- ※ 이 테이블을 쓰는 CommunityComment.java 는 현재 프로젝트 zip에 없음
+-- ============================================================
+CREATE SEQUENCE SEQ_COMMUNITY_COMMENT START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE COMMUNITY_COMMENT (
+    COMMENT_ID   NUMBER          NOT NULL,                              -- 댓글 번호 (PK)
+    POST_ID      NUMBER          NOT NULL,                              -- 어느 게시글의 댓글인지
+    USER_ID      NUMBER          NOT NULL,                              -- 작성자 (users.id)
+    CONTENT      VARCHAR2(1000)  NOT NULL,                              -- 댓글 내용
+    CREATED_AT   TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,         -- 작성 시각
+    CONSTRAINT pk_community_comment PRIMARY KEY (COMMENT_ID),
+    CONSTRAINT fk_community_comment_post FOREIGN KEY (POST_ID) REFERENCES COMMUNITY_POST (POST_ID),
+    CONSTRAINT fk_community_comment_user FOREIGN KEY (USER_ID) REFERENCES users (id)
+);
+
+CREATE OR REPLACE TRIGGER community_comment_bi
+    BEFORE INSERT ON COMMUNITY_COMMENT
+    FOR EACH ROW
+BEGIN
+    IF :NEW.COMMENT_ID IS NULL THEN
+        SELECT SEQ_COMMUNITY_COMMENT.NEXTVAL INTO :NEW.COMMENT_ID FROM dual;
+    END IF;
+END;
+/
+
+-- 0918/kdk/팀 쿼리/수정/공지사항 파트 구분 텍스트 삽입
+-- ============================================================
+-- NOTICES
+-- 안태건
+-- ============================================================
+-- 테스트 데이터 id 1~5 고정 → 신규 데이터는 6부터
+CREATE SEQUENCE notices_seq START WITH 6 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE notices (
+    id          NUMBER          NOT NULL,
+    author_id   NUMBER          NOT NULL,
+    title       VARCHAR2(200)   NOT NULL,
+    content     CLOB            NOT NULL,
+    view_count  NUMBER          DEFAULT 0 NOT NULL,
+    created_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_notices PRIMARY KEY (id),
+    CONSTRAINT fk_notices_author FOREIGN KEY (author_id) REFERENCES users (id)
+);
+
+CREATE OR REPLACE TRIGGER notices_bi
+    BEFORE INSERT ON notices
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT notices_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+-- ============================================================
+-- WASTE_BIN
+-- 박주호
+-- ※ Overpass API 결과를 DB에 캐싱하는 테이블 (WasteBinDbLoader로 적재)
+-- ※ 테스트 INSERT 없음: 앱에서 WasteBinDbLoader를 수동 실행해서 채움
+-- ============================================================
+
+CREATE SEQUENCE waste_bin_seq START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE waste_bin (
+    id          NUMBER          NOT NULL,
+    osm_id      NUMBER          NOT NULL,
+    name        VARCHAR2(100),
+    category    VARCHAR2(20)    NOT NULL,
+    address     VARCHAR2(300),
+    latitude    NUMBER(10,7)    NOT NULL,
+    longitude   NUMBER(10,7)    NOT NULL,
+    city        VARCHAR2(50)    DEFAULT 'osaka' NOT NULL,
+    created_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT pk_waste_bin PRIMARY KEY (id),
+    CONSTRAINT uq_waste_bin_osm_id UNIQUE (osm_id),
+    CONSTRAINT ck_waste_bin_category CHECK (category IN ('general', 'recycle', 'can'))
+);
+
+CREATE OR REPLACE TRIGGER waste_bin_bi
+    BEFORE INSERT ON waste_bin
+    FOR EACH ROW
+BEGIN
+    IF :NEW.id IS NULL THEN
+        SELECT waste_bin_seq.NEXTVAL INTO :NEW.id FROM dual;
+    END IF;
+END;
+/
+
+-- ============================================================
+-- [v5 추가] SYSTEM_SETTINGS  (안태건)
+-- ※ 회원가입 시 id=1 행을 조회함 → 이 테이블/행이 없으면 회원가입이 서버 에러로 실패
+-- ※ 행이 1개뿐이라 시퀀스/트리거 없음
+-- ============================================================
+CREATE TABLE system_settings (
+    id                  NUMBER          NOT NULL,                       -- 항상 1
+    signup_enabled      VARCHAR2(1)     DEFAULT 'Y' NOT NULL,           -- 회원가입 허용 (Y / N)
+    maintenance_mode    VARCHAR2(1)     DEFAULT 'N' NOT NULL,           -- 점검 모드 (Y / N)
+    maintenance_message VARCHAR2(500),                                  -- 점검 안내 문구
+    CONSTRAINT pk_system_settings PRIMARY KEY (id),
+    CONSTRAINT ck_settings_signup CHECK (signup_enabled IN ('Y', 'N')),
+    CONSTRAINT ck_settings_maint CHECK (maintenance_mode IN ('Y', 'N'))
+);
+
+-- ============================================================
+// kdk 0929 수정하기
+-- [v5 추가] TB_RESTAURANT_MENU  (장준환) > 
+-- ※ 맛집 상세의 메뉴 목록 (/api/restaurants/{id}/menu)
+-- ※ [v6] is_signature CHECK (0 또는 1) 추가 - 리뷰·커뮤니티 파트 SQL에서 가져옴
+-- ※ [v7] 자동 번호 트리거 추가
+-- ============================================================
+CREATE SEQUENCE SEQ_RESTAURANT_MENU START WITH 11 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE TB_RESTAURANT_MENU (
+    MENU_ID         NUMBER          NOT NULL,                           -- 메뉴 번호 (PK)
+    RESTAURANT_ID   NUMBER          NOT NULL,                           -- 맛집 번호 (restaurants.id)
+    NAME            VARCHAR2(100)   NOT NULL,                           -- 메뉴 이름
+    PRICE           VARCHAR2(50),                                       -- 가격 (예: ¥850)
+    IS_SIGNATURE    NUMBER(1)       DEFAULT 0,                          -- 대표 메뉴 여부 (1 대표)
+    CONSTRAINT pk_tb_restaurant_menu PRIMARY KEY (MENU_ID),
+    CONSTRAINT fk_menu_restaurant FOREIGN KEY (RESTAURANT_ID) REFERENCES restaurants (id),
+    CONSTRAINT ck_tb_restaurant_menu_signature CHECK (IS_SIGNATURE IN (0, 1))
+);
+
+CREATE OR REPLACE TRIGGER tb_restaurant_menu_bi
+    BEFORE INSERT ON TB_RESTAURANT_MENU
+    FOR EACH ROW
+BEGIN
+    IF :NEW.MENU_ID IS NULL THEN
+        SELECT SEQ_RESTAURANT_MENU.NEXTVAL INTO :NEW.MENU_ID FROM dual;
+    END IF;
+END;
+/
+
+
+
+-- 0918/kdk/팀 쿼리/추가/데이터 생성 파트
+-- ============================================================
+-- INSERT(데이터 입력)
+-- USER : 5개
+-- RESTAURANT : 5개
+-- REVIEW : 5개
+-- ============================================================
+
+-- ============================================================
+-- USER 테스트 데이터
+-- ============================================================
+-- ※ 로그인용 비밀번호는 아래 주석 참고 (DB에는 BCrypt 해시로 저장됨)
+--    atg1234@gmail.com / 안태건1234   (ADMIN)
+--    kdk1234@gmail.com / 곽동곤1234
+--    pjh1234@gmail.com / 박주호1234
+--    YHS1234@gmail.com / 유해성1234
+--    jjh1234@gmail.com / 장준환1234
+
+-- 관리자
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    1,
+    '안태건', '알레띠NO7', 'atg1234@gmail.com', '$2b$12$BRih3Wu05PG6e/PCmwDJ7.Co6dKp7oK2tjV7aZzlIQQ.rWEhDNBl2',
+    '한국', 'X', 'ADMIN', NULL, NULL, NULL, NULL
+);
+
+-- 회원 | 계정 4개
+
+-- 유저1 곽동곤 | 이메일 알림, 위치 정보 YES
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    2,
+    '곽동곤', '고재팬', 'kdk1234@gmail.com', '$2b$12$1DlEx1M4ng6DNvqgOdi3Xu.w033kXyRrpoYyXFavXQCyB8D9VONkC',
+    '한국', 'X', 'USER', NULL, NULL, 'Y', 'Y'
+);
+
+-- 유저2 박주호 | 이메일 알림, 위치 정보 NO
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    3,
+    '박주호', '주호누오', 'pjh1234@gmail.com', '$2b$12$RW2vV37AzG1CzoUF8dU9Juu97MedLlmsjAKlraoOvhuIaXgfl.6wO',
+    '한국', 'X', 'USER', NULL, NULL, 'N', 'N'
+);
+
+-- 유저3 유해성 | 일본
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    4,
+    '유해성', '유해성입니다', 'YHS1234@gmail.com', '$2b$12$2wo9lxyNV0M2ZdMXhZ93Se/B8GqZeSxtR8b2egt93QG4phMlWQrYa',
+    '일본', 'X', 'USER', NULL, NULL, NULL, NULL
+);
+
+-- 유저4 장준환 | 미국
+INSERT INTO users (
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled
+) VALUES (
+    5,
+    '장준환', '주난쥬난', 'jjh1234@gmail.com', '$2b$12$6pc0EyeG83RcTpf37qEwHu9VRXcSAz7qH5CsqBywa3Q4ERAS9/B/C',
+    '미국', 'X', 'USER', NULL, NULL, NULL, NULL
+);
+
+-- ============================================================
+-- RESTAURANT 테스트 데이터
+-- ============================================================
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url
+) VALUES (
+    1,
+    '쿠쿠루 도톤보리 본점', '타코야끼', '도톤보리,타코야끼,오사카맛집',
+    4.6, 1248,
+    '겉은 바삭, 속은 촉촉! 도톤보리 대표 타코야끼 맛집',
+    '1-10-5 Dotonbori, Chuo-ku, Osaka',
+    34.668729, 135.501294,
+    '09:00 - 21:00', '+81-6-6212-7381', '¥500 - ¥1,500', 'https://www.kukurutei.com',
+    '20석', '예약 불가 (현장 대기)', '현금, 신용카드, 전자화폐', '일본어, 한국어 메뉴판',
+    '/images/food-takoyaki.png',
+    '명물 타코야끼 (8개)', '쿠쿠루만의 특제 육즙이 가득한 시그니처 메뉴',
+    '¥850',
+    -- via.placeholder.com은 서비스 종료된 도메인 — 데모 전 실제 이미지 경로로 교체 필요
+    'https://via.placeholder.com/64?text=Takoyaki'
+);
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url
+) VALUES (
+    2,
+    '야끼소바 산페이', '야끼소바', '야끼소바,철판요리,감칠맛',
+    4.4, 892,
+    '특제 소스의 깊은 감칠맛이 살아있는 전통 철판 야끼소바 전문점',
+    '1-7-14 Dotonbori, Chuo-ku, Osaka',
+    34.668900, 135.502100,
+    '10:30 - 20:30', '+81-6-6211-1234', '¥700 - ¥1,200', 'https://www.sanpei-osaka.jp',
+    '15석 (카운터석)', '예약 불가', '현금, 신용카드', '일본어, 영어',
+    '/images/food-yakisoba.png',
+    '특제 소스 야끼소바', '진한 특제 소스와 쫄깃한 면발의 조화',
+    '¥900',
+    'https://via.placeholder.com/64?text=Yakisoba'
+);
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url
+) VALUES (
+    3,
+    '오코노미야끼 치보 도톤보리빌딩점', '오코노미야끼', '오코노미야끼,철판구이,웨이팅맛집',
+    4.5, 1102,
+    '풍미 가득한 일본 정통 부침개! 눈앞에서 구워주는 인기 오코노미야끼 매장',
+    '1-5-5 Dotonbori, Chuo-ku, Osaka',
+    34.668500, 135.503200,
+    '11:00 - 21:30', '+81-6-6212-2211', '¥1,000 - ¥2,500', 'https://www.chibo.com',
+    '50석 (테이블 및 다찌석)', '전화 예약 가능', '현금, 신용카드, 모바일페이', '한국어 지원 (다국어 키오스크)',
+    '/images/food-okonomiyaki.png',
+    '치보 믹스 오코노미야끼', '새우, 오징어, 돼지고기가 모두 들어간 베스트 메뉴',
+    '¥1,580',
+    'https://via.placeholder.com/64?text=Okonomiyaki'
+);
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url
+) VALUES (
+    4,
+    '도톤보리 타이야끼', '붕어빵', '길거리간식,붕어빵,디저트',
+    4.3, 567,
+    '국산 팥과 바삭한 크러스트의 조화! 따끈하게 즐기는 테이크아웃 붕어빵',
+    '1-8-22 Dotonbori, Chuo-ku, Osaka',
+    34.668350, 135.500800,
+    '10:00 - 19:00', '+81-6-6213-9876', '¥300 - ¥600', NULL,
+    '없음 (테이크아웃 전용)', '예약 불가', '현금 전용', '일본어 메뉴',
+    '/images/food-taiyaki.png',
+    '통단팥 붕어빵', '달콤하고 부드러운 팥이 꽉 찬 인기 간식',
+    '¥300',
+    'https://via.placeholder.com/64?text=Taiyaki'
+);
+
+INSERT INTO restaurants (
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url
+) VALUES (
+    5,
+    '카라아게 타로', '닭튀김', '치킨,가라아게,맥주안주',
+    4.4, 734,
+    '바삭한 튀김옷 속 육즙이 가득! 특제 마늘 간장 소스로 버무린 정통 일본식 닭튀김',
+    '2-2-1 Nanba, Chuo-ku, Osaka',
+    34.667800, 135.500200,
+    '11:00 - 21:00', '+81-6-6631-5544', '¥600 - ¥1,000', 'https://www.karaage-taro.jp',
+    '10석', '예약 불가', '현금, 신용카드', '일본어, 영어',
+    '/images/food-karaage.png',
+    '카라아게 타로 (오리지널)', '겉은 바삭하고 속은 촉촉한 대표 닭튀김',
+    '¥680',
+    'https://via.placeholder.com/64?text=Karaage'
+);
+
+COMMIT;
+
+-- ============================================================
+-- REVIEWS 테스트 데이터
+-- id 1~5 고정 / user_id = users.id, target_id = restaurants.id (모두 1~5 고정이라 안전)
+-- ============================================================
+
+-- 리뷰 1 : 안태건(1) → 쿠쿠루 도톤보리 본점(1)
+INSERT INTO reviews (id, user_id, target_type, target_id, rating, content)
+VALUES (1, 1, 'RESTAURANT', '1', 3, '그닥이던데.. 오바임.. ㅋㅋ');
+
+-- 리뷰 2 : 곽동곤(2) → 야끼소바 산페이(2)
+INSERT INTO reviews (id, user_id, target_type, target_id, rating, content)
+VALUES (2, 2, 'RESTAURANT', '2', 1, '라멘집인줄 알고 갔네 아 ** !!');
+
+-- 리뷰 3 : 박주호(3) → 오코노미야끼 치보 도톤보리빌딩점(3)
+INSERT INTO reviews (id, user_id, target_type, target_id, rating, content)
+VALUES (3, 3, 'RESTAURANT', '3', 5, '맛있어요오오오오오ㅗ');
+
+-- 리뷰 4 : 유해성(4) → 도톤보리 타이야끼(4)
+INSERT INTO reviews (id, user_id, target_type, target_id, rating, content)
+VALUES (4, 4, 'RESTAURANT', '4', 3.5, '타이야끼인가.. 조금은 아직 어렵습니다..');
+
+-- 리뷰 5 : 장준환(5) → 카라아게 타로(5)
+INSERT INTO reviews (id, user_id, target_type, target_id, rating, content)
+VALUES (5, 5, 'RESTAURANT', '5', 5, '맛있어서 먹다가 울었음 ㅠㅠ');
+
+COMMIT;
+
+-- ============================================================
+-- [v5 추가] 시스템 설정 (반드시 id=1 한 행 필요)
+-- ============================================================
+INSERT INTO system_settings (id, signup_enabled, maintenance_mode, maintenance_message)
+VALUES (1, 'Y', 'N', NULL);
+
+-- ============================================================
+-- [v5 추가] 공지사항 테스트 데이터 (작성자 = 관리자 users.id 1)
+-- ============================================================
+INSERT INTO notices (id, author_id, title, content, view_count)
+VALUES (1, 1, 'BinGo Map 오픈 안내', 'BinGo Map이 오픈했습니다. 오사카 여행 중 쓰레기통과 테이크아웃 맛집을 한 번에 찾아보세요.', 42);
+INSERT INTO notices (id, author_id, title, content, view_count)
+VALUES (2, 1, '쓰레기통 위치 데이터 안내', '쓰레기통 위치는 OpenStreetMap 데이터를 기반으로 제공되며 실제와 다를 수 있습니다.', 31);
+INSERT INTO notices (id, author_id, title, content, view_count)
+VALUES (3, 1, '리뷰 작성 가이드', '리뷰에는 사진을 최대 3장까지 첨부할 수 있습니다. 솔직한 후기를 남겨주세요.', 18);
+INSERT INTO notices (id, author_id, title, content, view_count)
+VALUES (4, 1, '커뮤니티 이용 수칙', '서로를 존중하는 커뮤니티를 만들어 주세요. 광고성·비방 글은 관리자에 의해 삭제될 수 있습니다.', 12);
+INSERT INTO notices (id, author_id, title, content, view_count)
+VALUES (5, 1, '다국어 지원 예정 안내', '일본어·영어 지원을 준비 중입니다. 조금만 기다려 주세요.', 7);
+
+-- ============================================================
+-- TB > 상위 테이블로 수정할것.
+-- [v5 추가] 맛집 메뉴 테스트 데이터 (식당 1~5, 식당당 2개 / 대표메뉴 1개) //0929 kdk 테이블 수정하기
+-- ============================================================
+INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE) VALUES (1, 1, '명물 타코야끼 (8개)', '¥850', 1);
+INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE) VALUES (2, 1, '타코야끼 (12개)', '¥1,200', 0);
+INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE) VALUES (3, 2, '특제 소스 야끼소바', '¥900', 1);
+INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE) VALUES (4, 2, '야끼소바 + 계란', '¥1,050', 0);
+INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE) VALUES (5, 3, '치보 믹스 오코노미야끼', '¥1,580', 1);
+INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE) VALUES (6, 3, '돼지고기 오코노미야끼', '¥1,200', 0);
+INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE) VALUES (7, 4, '통단팥 붕어빵', '¥300', 1);
+INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE) VALUES (8, 4, '커스터드 붕어빵', '¥320', 0);
+INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE) VALUES (9, 5, '카라아게 타로 (오리지널)', '¥680', 1);
+INSERT INTO TB_RESTAURANT_MENU (MENU_ID, RESTAURANT_ID, NAME, PRICE, IS_SIGNATURE) VALUES (10, 5, '카라아게 (마늘 간장)', '¥720', 0);
+
+-- ============================================================
+> 마찬가지. 상위 테이블에 맞게 수정할것.
+-- [v5 추가] 리뷰 테스트 데이터 (TB_REVIEW) - v4 reviews의 5건과 같은 내용 //0929 kdk 테이블 수정 - 리뷰 테이블이랑 다름
+-- ============================================================
+INSERT INTO TB_REVIEW (REVIEW_ID, USER_ID, RESTAURANT_ID, RATING, CONTENT, VISIT_DATE, VISIT_TIME_SLOT, VISIT_PURPOSE, RECOMMEND_YN, HELP_COUNT)
+VALUES (1, 1, 1, 3, '그닥이던데.. 오바임.. ㅋㅋ', TRUNC(SYSDATE) - 10, '점심 11:00~14:00', '여행', 0, 2);
+INSERT INTO TB_REVIEW (REVIEW_ID, USER_ID, RESTAURANT_ID, RATING, CONTENT, VISIT_DATE, VISIT_TIME_SLOT, VISIT_PURPOSE, RECOMMEND_YN, HELP_COUNT)
+VALUES (2, 2, 2, 1, '라멘집인줄 알고 갔네 아 ** !!', TRUNC(SYSDATE) - 8, '저녁 18:00~21:00', '친구모임', 0, 0);
+INSERT INTO TB_REVIEW (REVIEW_ID, USER_ID, RESTAURANT_ID, RATING, CONTENT, VISIT_DATE, VISIT_TIME_SLOT, VISIT_PURPOSE, RECOMMEND_YN, HELP_COUNT)
+VALUES (3, 3, 3, 5, '맛있어요오오오오오ㅗ', TRUNC(SYSDATE) - 6, '저녁 18:00~21:00', '데이트', 1, 5);
+INSERT INTO TB_REVIEW (REVIEW_ID, USER_ID, RESTAURANT_ID, RATING, CONTENT, VISIT_DATE, VISIT_TIME_SLOT, VISIT_PURPOSE, RECOMMEND_YN, HELP_COUNT)
+VALUES (4, 4, 4, 3.5, '타이야끼인가.. 조금은 아직 어렵습니다..', TRUNC(SYSDATE) - 4, '오후 14:00~18:00', '기타', 0, 1);
+INSERT INTO TB_REVIEW (REVIEW_ID, USER_ID, RESTAURANT_ID, RATING, CONTENT, VISIT_DATE, VISIT_TIME_SLOT, VISIT_PURPOSE, RECOMMEND_YN, HELP_COUNT)
+VALUES (5, 5, 5, 5, '맛있어서 먹다가 울었음 ㅠㅠ', TRUNC(SYSDATE) - 2, '점심 11:00~14:00', '가족외식', 1, 3);
+
+-- ============================================================
+> 상위테이블 명으로 수정할것.
+-- [v5 추가] 커뮤니티 게시글 테스트 데이터 (TB_COMMUNITY_POST) //0929 kdk 테이블 수정하기(팀 db 설계랑 다름) 
+-- ============================================================
+INSERT INTO TB_COMMUNITY_POST (POST_ID, USER_ID, TITLE, CONTENT, TAGS, VIEW_COUNT)
+VALUES (1, 2, '도톤보리 쓰레기통 어디에 있나요?', '글리코 간판 근처에서 먹고 나서 쓰레기 버릴 곳을 못 찾겠어요. 아시는 분 계신가요?', '도톤보리,쓰레기통', 25);
+INSERT INTO TB_COMMUNITY_POST (POST_ID, USER_ID, TITLE, CONTENT, TAGS, VIEW_COUNT)
+VALUES (2, 3, '타코야끼 웨이팅 팁', '점심시간 전인 11시 전에 가면 대기 없이 먹을 수 있었어요.', '타코야끼,팁', 18);
+INSERT INTO TB_COMMUNITY_POST (POST_ID, USER_ID, TITLE, CONTENT, TAGS, VIEW_COUNT)
+VALUES (3, 4, '일본은 왜 길에 쓰레기통이 없을까요', '여행 중에 계속 궁금했는데 편의점 앞 분리수거함을 이용하면 된다고 하네요.', '일본여행,문화', 40);
+INSERT INTO TB_COMMUNITY_POST (POST_ID, USER_ID, TITLE, CONTENT, TAGS, VIEW_COUNT)
+VALUES (4, 5, '오사카 2박 3일 맛집 코스 공유', '타코야끼 - 오코노미야끼 - 카라아게 순으로 돌았는데 동선이 좋았어요.', '코스,오사카맛집', 33);
+INSERT INTO TB_COMMUNITY_POST (POST_ID, USER_ID, TITLE, CONTENT, TAGS, VIEW_COUNT)
+VALUES (5, 1, '커뮤니티 이용 안내', '궁금한 점이나 여행 정보를 자유롭게 공유해 주세요.', '공지', 9);
+
+COMMIT;
+
+-- ============================================================
+-- 정합성 점검 (실행 후 아래 기대값과 같은지 확인)
+-- ============================================================
+
+-- 기대값: USERS 5 / RESTAURANTS 5 / REVIEWS 5 / TB_REVIEW 5 / NOTICES 5 / TB_COMMUNITY_POST 5
+--        TB_COMMUNITY_COMMENT 0 / TB_RESTAURANT_MENU 10 / SYSTEM_SETTINGS 1 / WASTE_BIN 0
+SELECT 'USERS' AS tbl, COUNT(*) AS cnt FROM users
+UNION ALL SELECT 'RESTAURANTS', COUNT(*) FROM restaurants
+UNION ALL SELECT 'REVIEWS', COUNT(*) FROM reviews
+UNION ALL SELECT 'TB_REVIEW', COUNT(*) FROM TB_REVIEW
+UNION ALL SELECT 'NOTICES', COUNT(*) FROM notices
+UNION ALL SELECT 'TB_COMMUNITY_POST', COUNT(*) FROM TB_COMMUNITY_POST
+UNION ALL SELECT 'TB_COMMUNITY_COMMENT', COUNT(*) FROM TB_COMMUNITY_COMMENT
+UNION ALL SELECT 'TB_RESTAURANT_MENU', COUNT(*) FROM TB_RESTAURANT_MENU
+UNION ALL SELECT 'SYSTEM_SETTINGS', COUNT(*) FROM system_settings
+UNION ALL SELECT 'WASTE_BIN', COUNT(*) FROM waste_bin;
+
+-- 기대값: USERS_SEQ 6 / RESTAURANTS_SEQ 6 / REVIEWS_SEQ 6 / FAVORITES_SEQ 1 / NOTICES_SEQ 6 / WASTE_BIN_SEQ 1
+--        SEQ_REVIEW 6 / SEQ_REVIEW_IMAGE 1 / SEQ_COMMUNITY_POST 6 / SEQ_COMMUNITY_COMMENT 1 / SEQ_RESTAURANT_MENU 11
+-- (last_number = 다음에 부여될 번호)
+SELECT sequence_name, last_number FROM user_sequences ORDER BY sequence_name;
+
+-- [v7 추가] 기대값: 트리거 11개, 전부 STATUS = ENABLED
+--   USERS_BI / RESTAURANTS_BI / FAVORITES_BI / REVIEWS_BI / NOTICES_BI / WASTE_BIN_BI
+--   TB_REVIEW_BI / TB_REVIEW_IMAGE_BI / TB_COMMUNITY_POST_BI / TB_COMMUNITY_COMMENT_BI / TB_RESTAURANT_MENU_BI
+SELECT trigger_name, table_name, status FROM user_triggers ORDER BY trigger_name;
+
+-- ============================================================
+-- SELECT(조회)
+-- ============================================================
+
+-- USERS
+SELECT
+    id, name, nickname, email, password, nationality, sns_type,
+    role, security_question, security_answer, notify_email, location_enabled,
+    created_at, updated_at
+FROM users
+ORDER BY id;
+
+-- RESTAURANTS (요약)
+SELECT id, name, category, menu_name, menu_price
+FROM restaurants
+ORDER BY id;
+
+SELECT COUNT(*) AS total_count FROM restaurants;
+
+SELECT table_name FROM user_tables ORDER BY table_name;
+
+-- WASTE_BIN (테이블 생성 확인용, 데이터는 WasteBinDbLoader 실행 후 채워짐)
+SELECT COUNT(*) AS waste_bin_count FROM waste_bin;
+
+-- RESTAURANTS (전체)
+SELECT
+    id, name, category, tags, rating, review_count,
+    description, address, latitude, longitude,
+    opening_hours, phone, price_range, website_url,
+    seat_info, reservation_info, payment_methods, languages,
+    main_image_url, menu_name, menu_description,
+    menu_price, menu_image_url, created_at, updated_at
+FROM restaurants
+ORDER BY id;
+
+-- REVIEWS (작성자+식당+별점+내용, 정합성 확인용)
+SELECT
+    r.id,
+    u.name AS 작성자,
+    res.name AS 식당명,
+    r.rating AS 별점,
+    r.content AS 내용,
+    r.created_at AS 작성일
+FROM reviews r
+JOIN users u
+    ON r.user_id = u.id
+JOIN restaurants res
+    ON r.target_id = TO_CHAR(res.id)
+WHERE r.target_type = 'RESTAURANT'
+ORDER BY r.id;

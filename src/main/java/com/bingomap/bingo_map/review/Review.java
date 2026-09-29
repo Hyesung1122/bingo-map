@@ -1,96 +1,119 @@
 package com.bingomap.bingo_map.review;
 
 import jakarta.persistence.*;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
-//kdk 0929 db 테이블 수정작업
-/**
- * 맛집에 대한 회원 리뷰(별점·방문정보·사진 포함)를 표현하는 엔티티.
- * DB 테이블: TB_REVIEW -> reviews
- */
 @Entity
-//수정하기 테이블명
-@Table(name = "TB_REVIEW")
-//@Table(name = "TB_REVIEW")
+@Table(name = "reviews")
 public class Review {
 
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "review_seq")
-    @SequenceGenerator(name = "review_seq", sequenceName = "SEQ_REVIEW", allocationSize = 1)
-    @Column(name = "REVIEW_ID")
+    @SequenceGenerator(
+            name = "review_seq",
+            sequenceName = "SEQ_REVIEW",
+            allocationSize = 1
+    )
+    @Column(name = "id")
     private Long reviewId;
 
-    @Column(name = "USER_ID", nullable = false)
+    @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(name = "RESTAURANT_ID", nullable = false)
-    private Long restaurantId;
+    @Column(name = "target_type", nullable = false, length = 20)
+    private String targetType;
 
-    @Column(name = "RATING", nullable = false)
+    @Column(name = "target_id", nullable = false, length = 100)
+    private String targetId;
+
+    @Column(name = "rating", nullable = false, precision = 2, scale = 1)
     private Double rating;
 
-    @Column(name = "CONTENT", nullable = false, length = 2000)
+    @Column(name = "content", length = 2000)
     private String content;
 
-    @Column(name = "VISIT_DATE")
+    @Column(name = "visit_date")
     private LocalDate visitDate;
 
-    @Column(name = "VISIT_TIME_SLOT", length = 20)
+    @Column(name = "visit_time_slot", length = 20)
     private String visitTimeSlot;
 
-    @Column(name = "VISIT_PURPOSE", length = 20)
+    @Column(name = "visit_purpose", length = 20)
     private String visitPurpose;
 
-    @Column(name = "RECOMMEND_YN")
-    private Boolean recommendYn;
+    @Column(name = "recommend_yn")
+    private Integer recommendYn;
 
-    @Column(name = "HELP_COUNT", nullable = false)
+    @Column(name = "help_count")
     private Integer helpCount = 0;
 
-    @Column(name = "CREATED_AT", nullable = false)
+    @Column(name = "created_at")
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
+    @OneToMany(
+            mappedBy = "review",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
     private List<ReviewImage> images = new ArrayList<>();
 
     protected Review() {
-        // JPA 기본 생성자
     }
 
-    public Review(Long userId, Long restaurantId, Double rating, String content,
-                  LocalDate visitDate, String visitTimeSlot, String visitPurpose,
-                  Boolean recommendYn) {
+    public Review(
+            Long userId,
+            String targetType,
+            String targetId,
+            Double rating,
+            String content,
+            LocalDate visitDate,
+            String visitTimeSlot,
+            String visitPurpose,
+            Boolean recommendYn
+    ) {
         this.userId = userId;
-        this.restaurantId = restaurantId;
+        this.targetType = targetType;
+        this.targetId = targetId;
         this.rating = rating;
         this.content = content;
         this.visitDate = visitDate;
         this.visitTimeSlot = visitTimeSlot;
         this.visitPurpose = visitPurpose;
-        this.recommendYn = recommendYn;
+        this.recommendYn = toRecommendValue(recommendYn);
         this.helpCount = 0;
         this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
     }
 
-    // ── 도메인 메서드 (클래스 다이어그램 기준: create/edit/delete/markHelpful) ──
-
-    /** 리뷰 내용을 수정한다. */
-    public void edit(Double rating, String content, LocalDate visitDate,
-                      String visitTimeSlot, String visitPurpose, Boolean recommendYn) {
+    public void edit(
+            Double rating,
+            String content,
+            LocalDate visitDate,
+            String visitTimeSlot,
+            String visitPurpose,
+            Boolean recommendYn
+    ) {
         this.rating = rating;
         this.content = content;
         this.visitDate = visitDate;
         this.visitTimeSlot = visitTimeSlot;
         this.visitPurpose = visitPurpose;
-        this.recommendYn = recommendYn;
-}
+        this.recommendYn = toRecommendValue(recommendYn);
+        this.updatedAt = LocalDateTime.now();
+    }
 
-    /** '도움이 돼요' 카운트를 1 증가시킨다. */
     public void markHelpful() {
-        this.helpCount = (this.helpCount == null ? 0 : this.helpCount) + 1;
+        this.helpCount =
+                (this.helpCount == null ? 0 : this.helpCount) + 1;
+
+        this.updatedAt = LocalDateTime.now();
     }
 
     public void addImage(ReviewImage image) {
@@ -98,18 +121,75 @@ public class Review {
         image.setReview(this);
     }
 
-    // ── getters ──
+    private Integer toRecommendValue(Boolean value) {
+        if (value == null) {
+            return null;
+        }
 
-    public Long getReviewId() { return reviewId; }
-    public Long getUserId() { return userId; }
-    public Long getRestaurantId() { return restaurantId; }
-    public Double getRating() { return rating; }
-    public String getContent() { return content; }
-    public LocalDate getVisitDate() { return visitDate; }
-    public String getVisitTimeSlot() { return visitTimeSlot; }
-    public String getVisitPurpose() { return visitPurpose; }
-    public Boolean getRecommendYn() { return recommendYn; }
-    public Integer getHelpCount() { return helpCount; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public List<ReviewImage> getImages() { return images; }
+        return value ? 1 : 0;
+    }
+
+    public Long getReviewId() {
+        return reviewId;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public String getTargetType() {
+        return targetType;
+    }
+
+    public String getTargetId() {
+        return targetId;
+    }
+
+    public Double getRating() {
+        return rating;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public LocalDate getVisitDate() {
+        return visitDate;
+    }
+
+    public String getVisitTimeSlot() {
+        return visitTimeSlot;
+    }
+
+    public String getVisitPurpose() {
+        return visitPurpose;
+    }
+
+    public Integer getRecommendYnValue() {
+        return recommendYn;
+    }
+
+    public Boolean getRecommendYn() {
+        if (recommendYn == null) {
+            return null;
+        }
+
+        return recommendYn == 1;
+    }
+
+    public Integer getHelpCount() {
+        return helpCount;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public List<ReviewImage> getImages() {
+        return images;
+    }
 }

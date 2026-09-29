@@ -12,7 +12,10 @@ public class ReviewResponseDto {
 
     private Long reviewId;
     private Long userId;
-    private Long restaurantId;
+
+    private String targetType;
+    private String targetId;
+
     private Double rating;
     private String content;
     private LocalDate visitDate;
@@ -21,12 +24,17 @@ public class ReviewResponseDto {
     private Boolean recommendYn;
     private Integer helpCount;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
     private List<String> imageUrls;
 
     public ReviewResponseDto(Review review) {
         this.reviewId = review.getReviewId();
         this.userId = review.getUserId();
-        this.restaurantId = review.getRestaurantId();
+
+        this.targetType = review.getTargetType();
+        this.targetId = review.getTargetId();
+
         this.rating = review.getRating();
         this.content = review.getContent();
         this.visitDate = review.getVisitDate();
@@ -35,21 +43,67 @@ public class ReviewResponseDto {
         this.recommendYn = review.getRecommendYn();
         this.helpCount = review.getHelpCount();
         this.createdAt = review.getCreatedAt();
-        this.imageUrls = review.getImages().stream()
+        this.updatedAt = review.getUpdatedAt();
+
+        this.imageUrls = review.getImages()
+                .stream()
                 .map(ReviewImage::getImageUrl)
                 .collect(Collectors.toList());
     }
 
-    public Long getReviewId() { return reviewId; }
-    public Long getUserId() { return userId; }
-    public Long getRestaurantId() { return restaurantId; }
-    public Double getRating() { return rating; }
-    public String getContent() { return content; }
-    public LocalDate getVisitDate() { return visitDate; }
-    public String getVisitTimeSlot() { return visitTimeSlot; }
-    public String getVisitPurpose() { return visitPurpose; }
-    public Boolean getRecommendYn() { return recommendYn; }
-    public Integer getHelpCount() { return helpCount; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public List<String> getImageUrls() { return imageUrls; }
+    public Long getReviewId() {
+        return reviewId;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public String getTargetType() {
+        return targetType;
+    }
+
+    public String getTargetId() {
+        return targetId;
+    }
+
+    public Double getRating() {
+        return rating;
+    }
+
+    public String getContent() {
+        return content;
+    }
+
+    public LocalDate getVisitDate() {
+        return visitDate;
+    }
+
+    public String getVisitTimeSlot() {
+        return visitTimeSlot;
+    }
+
+    public String getVisitPurpose() {
+        return visitPurpose;
+    }
+
+    public Boolean getRecommendYn() {
+        return recommendYn;
+    }
+
+    public Integer getHelpCount() {
+        return helpCount;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public List<String> getImageUrls() {
+        return imageUrls;
+    }
 }

@@ -11,49 +11,111 @@ import static com.bingomap.bingo_map.restaurantmap.RestaurantMapModels.Place;
 
 @Repository
 public class RestaurantMapRepository {
-    private final JdbcTemplate jdbc;
-    public RestaurantMapRepository(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
-    // 업로드된 SQL의 실제 테이블은 TB_RESTAURANTS가 아니라 RESTAURANT입니다.
-    // 현재는 팀이 선별해 넣은 소규모 목록을 조회합니다.
-    // 도시 전체로 데이터가 늘어나면 화면 범위 조건과 결과 개수 제한을 추가하세요.
-    static final String SQL = """
-        SELECT RESTAURANT_ID, NAME, CATEGORY, TAGS, RATING, REVIEW_COUNT,
-               DESCRIPTION, ADDRESS, LATITUDE, LONGITUDE, OPENING_HOURS,
-               PHONE, PRICE_RANGE, WEBSITE_URL, SEAT_INFO, RESERVATION_INFO,
-               PAYMENT_METHODS, LANGUAGES, MAIN_IMAGE_URL,
-               MENU_NAME, MENU_DESCRIPTION, MENU_PRICE, MENU_IMAGE_URL
-            FROM RESTAURANT
-            WHERE IS_PUBLISHED = 'Y'
-            ORDER BY RESTAURANT_ID
+    private final JdbcTemplate jdbc;
+
+    public RestaurantMapRepository(JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    private static final String SQL = """
+        SELECT
+            restaurant_id,
+            name,
+            category,
+            tags,
+            rating,
+            review_count,
+            description,
+            address,
+            latitude,
+            longitude,
+            opening_hours,
+            phone,
+            price_range,
+            website_url,
+            seat_info,
+            reservation_info,
+            payment_methods,
+            languages,
+            main_image_url,
+            menu_name,
+            menu_description,
+            menu_price,
+            menu_image_url
+        FROM restaurants
+        WHERE is_published = 'Y'
+        ORDER BY restaurant_id
         """;
 
-    public List<Place> findAll() { return jdbc.query(SQL, (rs, index) -> read(rs)); }
+    public List<Place> findAll() {
+        return jdbc.query(SQL, (rs, rowNum) -> read(rs));
+    }
 
     static Place read(ResultSet rs) throws SQLException {
-        long id = rs.getLong("RESTAURANT_ID");
-        return new Place(Long.toString(id), id, text(rs,"NAME"), text(rs,"CATEGORY"), text(rs,"TAGS"),
-                rs.getBigDecimal("RATING"), nullableLong(rs,"REVIEW_COUNT"), text(rs,"DESCRIPTION"),
-                text(rs,"ADDRESS"), coordinate(rs,"LATITUDE"), coordinate(rs,"LONGITUDE"),
-                text(rs,"OPENING_HOURS"), text(rs,"PHONE"), text(rs,"PRICE_RANGE"), text(rs,"WEBSITE_URL"),
-                text(rs,"SEAT_INFO"), text(rs,"RESERVATION_INFO"), text(rs,"PAYMENT_METHODS"),
-                text(rs,"LANGUAGES"), text(rs,"MAIN_IMAGE_URL"), text(rs,"MENU_NAME"),
-                text(rs,"MENU_DESCRIPTION"), text(rs,"MENU_PRICE"), text(rs,"MENU_IMAGE_URL"));
+        long restaurantId = rs.getLong("restaurant_id");
+
+        return new Place(
+                Long.toString(restaurantId),
+                restaurantId,
+                text(rs, "name"),
+                text(rs, "category"),
+                text(rs, "tags"),
+                rs.getBigDecimal("rating"),
+                nullableLong(rs, "review_count"),
+                text(rs, "description"),
+                text(rs, "address"),
+                coordinate(rs, "latitude"),
+                coordinate(rs, "longitude"),
+                text(rs, "opening_hours"),
+                text(rs, "phone"),
+                text(rs, "price_range"),
+                text(rs, "website_url"),
+                text(rs, "seat_info"),
+                text(rs, "reservation_info"),
+                text(rs, "payment_methods"),
+                text(rs, "languages"),
+                text(rs, "main_image_url"),
+                text(rs, "menu_name"),
+                text(rs, "menu_description"),
+                text(rs, "menu_price"),
+                text(rs, "menu_image_url")
+        );
     }
 
-    static boolean hasCoordinates(Place p) {
-        return p.lat() != null && p.lon() != null && Double.isFinite(p.lat()) && Double.isFinite(p.lon())
-                && Math.abs(p.lat()) <= 90 && Math.abs(p.lon()) <= 180;
+    static boolean hasCoordinates(Place place) {
+        return place.lat() != null
+                && place.lon() != null
+                && Double.isFinite(place.lat())
+                && Double.isFinite(place.lon())
+                && Math.abs(place.lat()) <= 90
+                && Math.abs(place.lon()) <= 180;
     }
 
-    private static Double coordinate(ResultSet rs, String key) throws SQLException {
-        double value = rs.getDouble(key);
-        return rs.wasNull() ? null : value; // NULL을 0도 좌표로 표시하지 않습니다.
+    private static Double coordinate(
+            ResultSet rs,
+            String column
+    ) throws SQLException {
+
+        double value = rs.getDouble(column);
+        return rs.wasNull() ? null : value;
     }
-    private static Long nullableLong(ResultSet rs, String key) throws SQLException {
-        long value = rs.getLong(key); return rs.wasNull() ? null : value;
+
+    private static Long nullableLong(
+            ResultSet rs,
+            String column
+    ) throws SQLException {
+
+        long value = rs.getLong(column);
+        return rs.wasNull() ? null : value;
     }
-    private static String text(ResultSet rs, String key) throws SQLException {
-        String value = rs.getString(key); return value == null ? "" : value;
+
+    private static String text(
+            ResultSet rs,
+            String column
+    ) throws SQLException {
+
+        String value = rs.getString(column);
+        return value == null ? "" : value;
     }
 }

@@ -9,36 +9,69 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "FAVORITES", uniqueConstraints = @UniqueConstraint(
-        name = "UQ_FAVORITES_TARGET",
-        columnNames = {"USER_ID", "TARGET_TYPE", "TARGET_ID"}
-))
+@Table(
+        name = "favorites",
+        uniqueConstraints = @UniqueConstraint(
+                name = "UQ_FAVORITES_TARGET",
+                columnNames = {
+                        "user_id",
+                        "target_type",
+                        "target_id"
+                }
+        )
+)
 @Getter
 @Setter
 @NoArgsConstructor
 public class Favorite extends BaseEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "favorites_seq_gen")
-    @SequenceGenerator(name = "favorites_seq_gen", sequenceName = "FAVORITES_SEQ", allocationSize = 1)
-    @Column(name = "ID")
+    @GeneratedValue(
+            strategy = GenerationType.SEQUENCE,
+            generator = "favorites_seq_gen"
+    )
+    @SequenceGenerator(
+            name = "favorites_seq_gen",
+            sequenceName = "FAVORITES_SEQ",
+            allocationSize = 1
+    )
+    @Column(name = "id")
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "USER_ID", nullable = false)
+    @JoinColumn(
+            name = "user_id",
+            nullable = false
+    )
     private User user;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "TARGET_TYPE", nullable = false, length = 20)
+    @Column(
+            name = "target_type",
+            nullable = false,
+            length = 20
+    )
     private TargetType targetType;
 
-    @Column(name = "TARGET_ID", nullable = false, length = 100)
+    @Column(
+            name = "target_id",
+            nullable = false,
+            length = 100
+    )
     private String targetId;
 
-    @Column(name = "TARGET_NAME", length = 200)
+    @Column(
+            name = "target_name",
+            length = 200
+    )
     private String targetName;
 
-    public Favorite(User user, TargetType targetType, String targetId, String targetName) {
+    public Favorite(
+            User user,
+            TargetType targetType,
+            String targetId,
+            String targetName
+    ) {
         this.user = user;
         this.targetType = targetType;
         this.targetId = targetId;
