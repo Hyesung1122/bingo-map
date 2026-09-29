@@ -157,68 +157,93 @@ function toRestaurantArray(raw) {
 
 // 공개(IS_PUBLISHED = 'Y')된 맛집 전체를 가져옴.
 // 응답이 여러 페이지로 나뉘어 있으면 나머지 페이지도 이어서 가져옴 (0부터/1부터 시작하는 두 방식 모두 대응, 최대 10페이지)
-async function fetchAllRestaurants() {
-    // region=all: 지역(도톤보리/우메다/신사이바시) 필터 없이 공개된 맛집 전체를 가져옴
-    // (RestaurantService.findPagedByRegion 에 추가된 옵션. 기본값 dotonbori로 두면 그 지역
-    //  주소를 가진 맛집만 나와서, 다른 지역 맛집이 리뷰 목록에서 다 빠지는 문제가 있었음)
-    const BASE = '/api/restaurants?region=all&size=100';
-    const first = await fetchJson(BASE);
-    let items = toRestaurantArray(first);
+async function fetchTestRestaurants(summaries) {
+    const result = [];
+    const targets = summaries.filter(s => s && s.restaurantId != null);
 
-    let totalPages = 1;
-    if (first && !Array.isArray(first)) {
-        totalPages = first.totalPages ?? (first.page && first.page.totalPages) ?? 1;
-        const total = first.totalElements ?? first.total ?? (first.page && first.page.totalElements);
-        const size = first.size ?? first.pageSize ?? items.length;
-        if (totalPages === 1 && total && size) totalPages = Math.ceil(total / size);
+    for (let i = 0; i < targets.length; i += 10) {
+        const batch = targets.slice(i, i + 10);
+
+        const rows = await Promise.all(
+            batch.map(async summary => {
+                try {
+                    const restaurant = await fetchJson(
+                        '/api/restaurants/' + summary.restaurantId,
+                        10000
+                    );
+
+                    return restaurant
+                        ? { summary, restaurant }
+                        : null;
+                } catch (e) {
+                    return null;
+                }
+            })
+        );
+
+        result.push(...rows.filter(Boolean));
     }
 
-    for (let p = 1; p <= Math.min(totalPages, 10); p++) {
-        try {
-            items = items.concat(toRestaurantArray(await fetchJson(BASE + '&page=' + p)));
-        } catch (e) { /* 범위를 벗어난 페이지는 무시 */ }
-    }
-
-    const seen = new Set();
-    return items.filter(r => r.restaurantId != null && !seen.has(r.restaurantId) && seen.add(r.restaurantId));
+    return result;
 }
 
 async function loadSummaries() {
     const grid = document.getElementById('rv-grid');
     const countEl = document.getElementById('rv-count');
+    const TEST_REVIEW_PREFIX = '[BinGo REVIEW TEST 25]';
 
     try {
-        const [reviewSummaries, restaurants] = await Promise.all([
-            fetchJson('/api/reviews/restaurants'),
-            fetchAllRestaurants()
-        ]);
-        const reviewSummaryMap = Object.fromEntries(
-            (Array.isArray(reviewSummaries) ? reviewSummaries : []).map(s => [String(s.restaurantId), s]));
-        restaurantMap = Object.fromEntries(restaurants.map(r => [String(r.restaurantId), r]));
+        const rawSummaries = await fetchJson('/api/reviews/restaurants', 20000);
 
-        // 목록의 기준은 리뷰가 아니라 맛집 테이블 전체 — 리뷰가 0개인 맛집도 카드에 나오게 함
-        summaryList = restaurants.map(r => {
-            const s = reviewSummaryMap[String(r.restaurantId)];
-            return {
-                restaurantId: r.restaurantId,
-                reviewCount: s ? s.reviewCount : 0,
-                avgRating: s ? s.avgRating : 0,
-                previewContent: s ? s.previewContent : '',
-                thumbnailUrl: s ? s.thumbnailUrl : null
-            };
-        });
+        const testSummaries = (Array.isArray(rawSummaries) ? rawSummaries : [])
+            .filter(s =>
+                s &&
+                s.restaurantId != null &&
+                String(s.previewContent || '').startsWith(TEST_REVIEW_PREFIX)
+            )
+            .slice(0, 25);
 
-        // 기준 위치 드롭다운: "내 위치"만 제공
+        if (!testSummaries.length) {
+            grid.innerHTML = '';
+            countEl.textContent = '등록된 테스트 리뷰가 없습니다.';
+            return;
+        }
+
+        const pairs = await fetchTestRestaurants(testSummaries);
+
+        restaurantMap = Object.fromEntries(
+            pairs.map(({ restaurant }) => [
+                String(restaurant.restaurantId),
+                restaurant
+            ])
+        );
+
+        summaryList = pairs.map(({ summary }) => ({
+            restaurantId: summary.restaurantId,
+            reviewCount: summary.reviewCount ?? 0,
+            avgRating: summary.avgRating ?? 0,
+            previewContent: String(summary.previewContent || '')
+                .replace(TEST_REVIEW_PREFIX, '')
+                .trim(),
+            thumbnailUrl: summary.thumbnailUrl || null
+        }));
+
         const originSelect = document.getElementById('origin-select');
-        originSelect.innerHTML = '<option value="">기준 위치: 선택 안 함</option>' +
+        originSelect.innerHTML =
+            '<option value="">기준 위치: 선택 안 함</option>' +
             '<option value="__my_location__">📍 내 위치</option>';
 
-        render();               // 메뉴를 기다리지 않고 카드부터 바로 표시
-        loadMenus(restaurants); // 대표 메뉴는 뒤에서 가져와서 도착하면 다시 그림
+        render();
+        loadMenus(pairs.map(({ restaurant }) => restaurant));
     } catch (e) {
         grid.innerHTML = '';
-        const reason = e && e.name === 'AbortError' ? '응답 시간 초과' : (e && e.message) || '알 수 없는 오류';
-        countEl.textContent = '맛집/리뷰를 불러오지 못했습니다. (' + reason + ')';
+        const reason =
+            e && e.name === 'AbortError'
+                ? '응답 시간 초과'
+                : (e && e.message) || '알 수 없는 오류';
+
+        countEl.textContent =
+            '맛집 리뷰를 불러오지 못했습니다. (' + reason + ')';
     }
 }
 
