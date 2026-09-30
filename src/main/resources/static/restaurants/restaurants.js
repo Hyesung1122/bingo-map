@@ -18,6 +18,7 @@
 
     let allItems = [];
     let filteredItems = [];
+    let favoriteIdsByRestaurant = new Map();
     let currentPage = 0;
 
     let state = 'loading';
@@ -132,12 +133,23 @@
             '/restaurants/detail?id=' +
             encodeURIComponent(item._id);
 
+        const isFavorite = favoriteIdsByRestaurant.has(item._id);
+
         return `
-            <a
-                class="restaurant-list-card"
-                href="${detailUrl}"
-                data-restaurant-id="${escapeHtml(item._id)}"
-            >
+            <article class="restaurant-list-card" data-restaurant-id="${escapeHtml(item._id)}">
+                <button
+                    class="favorite-btn${isFavorite ? ' is-saved' : ''}"
+                    type="button"
+                    data-favorite-id="${escapeHtml(item._id)}"
+                    aria-pressed="${isFavorite}"
+                    aria-label="${escapeHtml(item.name || '맛집')} 즐겨찾기 ${isFavorite ? '해제' : '저장'}"
+                    title="${isFavorite ? '즐겨찾기 해제' : '즐겨찾기 저장'}"
+                >
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"></path>
+                    </svg>
+                </button>
+                <a class="restaurant-card-link" href="${detailUrl}">
 
                 <div class="card-photo">
 
@@ -244,8 +256,104 @@
 
                 </div>
 
-            </a>
+                </a>
+            </article>
         `;
+    }
+
+    function paintFavoriteButton(button, item, saved) {
+        button.classList.toggle('is-saved', saved);
+        button.setAttribute('aria-pressed', String(saved));
+        button.setAttribute(
+            'aria-label',
+            (item.name || '맛집') + ' 즐겨찾기 ' + (saved ? '해제' : '저장')
+        );
+        button.title = saved ? '즐겨찾기 해제' : '즐겨찾기 저장';
+    }
+
+    async function refreshFavoriteStatuses() {
+        favoriteIdsByRestaurant = new Map();
+
+        try {
+            const response = await fetch(
+                '/api/favorites/status?targetType=RESTAURANT',
+                {
+                    headers: { Accept: 'application/json' },
+                    credentials: 'same-origin',
+                    cache: 'no-store'
+                }
+            );
+
+            // 비로그인 방문자는 목록을 볼 수 있고, 하트를 누를 때 로그인으로 안내합니다.
+            if (response.status === 401) return;
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+
+            const statuses = await response.json();
+            if (!Array.isArray(statuses)) throw new Error('즐겨찾기 상태 응답 오류');
+
+            favoriteIdsByRestaurant = new Map(
+                statuses.map(item => [String(item.targetId), item.favoriteId])
+            );
+        } catch (error) {
+            // 상태 API 장애가 식당 목록 자체를 가리지 않도록 저장 버튼만 기본 상태로 둡니다.
+            favoriteIdsByRestaurant = new Map();
+        }
+    }
+
+    async function toggleRestaurantFavorite(button) {
+        const restaurantId = String(button.dataset.favoriteId);
+        const restaurant = allItems.find(item => item._id === restaurantId);
+        if (!restaurant) return;
+
+        button.disabled = true;
+        try {
+            const favoriteId = favoriteIdsByRestaurant.get(restaurantId);
+            const response = favoriteId == null
+                ? await fetch('/api/favorites', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json'
+                    },
+                    body: JSON.stringify({
+                        targetType: 'RESTAURANT',
+                        targetId: restaurantId,
+                        targetName: restaurant.name
+                    })
+                })
+                : await fetch('/api/favorites/' + encodeURIComponent(favoriteId), {
+                    method: 'DELETE',
+                    credentials: 'same-origin'
+                });
+
+            if (response.status === 401) {
+                const returnUrl = window.location.pathname + window.location.search;
+                window.location.assign('/login?returnUrl=' + encodeURIComponent(returnUrl));
+                return;
+            }
+
+            if (response.status === 409) {
+                await refreshFavoriteStatuses();
+                renderPage();
+                return;
+            }
+            if (!response.ok && response.status !== 204) {
+                throw new Error('즐겨찾기를 변경하지 못했습니다.');
+            }
+
+            if (favoriteId == null) {
+                const saved = await response.json();
+                favoriteIdsByRestaurant.set(restaurantId, saved.id);
+            } else {
+                favoriteIdsByRestaurant.delete(restaurantId);
+            }
+            paintFavoriteButton(button, restaurant, favoriteIdsByRestaurant.has(restaurantId));
+        } catch (error) {
+            button.title = error.message || '즐겨찾기 변경에 실패했습니다.';
+        } finally {
+            button.disabled = false;
+        }
     }
 
     function renderPagination() {
@@ -856,6 +964,9 @@
                 invalid +
                 '곳은 목록에서 제외했어요.';
 
+            await refreshFavoriteStatuses();
+            if (mine !== requestNumber) return;
+
             state = 'ready';
 
             applyFilters();
@@ -1098,6 +1209,17 @@
                             });
                     }
                 );
+
+            $('restaurantListContainer').addEventListener(
+                'click',
+                event => {
+                    const button = event.target.closest('button[data-favorite-id]');
+                    if (!button) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    toggleRestaurantFavorite(button);
+                }
+            );
 
             applyFilters();
             load();

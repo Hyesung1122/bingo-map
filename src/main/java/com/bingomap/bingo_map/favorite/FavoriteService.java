@@ -11,6 +11,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional(readOnly = true)
@@ -34,10 +38,49 @@ public class FavoriteService {
     }
 
     public List<FavoriteResponseDto> findByUser(Long userId) {
-        return favoriteRepository
-                .findByUserUserIdOrderByCreatedAtDesc(userId)
+        List<Favorite> favorites = favoriteRepository
+                .findByUserUserIdOrderByCreatedAtDesc(userId);
+
+        Set<Long> restaurantIds = favorites.stream()
+                .filter(favorite -> favorite.getTargetType() == TargetType.RESTAURANT)
+                .map(favorite -> parseId(favorite.getTargetId()))
+                .filter(id -> id != null)
+                .collect(Collectors.toSet());
+
+        Map<Long, Restaurant> restaurants = restaurantRepository.findAllById(restaurantIds)
                 .stream()
-                .map(this::toResponse)
+                .collect(Collectors.toMap(Restaurant::getRestaurantId, Function.identity()));
+
+        Map<Long, com.bingomap.bingo_map.map.WasteBinDto> wasteBins = favorites.stream()
+                .filter(favorite -> favorite.getTargetType() == TargetType.WASTE_BIN)
+                .map(favorite -> parseId(favorite.getTargetId()))
+                .filter(id -> id != null)
+                .findAny()
+                .map(ignored -> wasteBinService.getWasteBins("osaka").stream()
+                        .filter(bin -> bin.getOsmId() != null)
+                        .collect(Collectors.toMap(
+                                com.bingomap.bingo_map.map.WasteBinDto::getOsmId,
+                                Function.identity(),
+                                (first, duplicate) -> first
+                        )))
+                .orElseGet(Map::of);
+
+        return favorites.stream()
+                .map(favorite -> toResponse(favorite, restaurants, wasteBins))
+                .toList();
+    }
+
+    public List<FavoriteStatusDto> findStatusesByUserAndType(
+            Long userId,
+            TargetType targetType
+    ) {
+        return favoriteRepository
+                .findByUserUserIdAndTargetTypeOrderByCreatedAtDesc(userId, targetType)
+                .stream()
+                .map(favorite -> new FavoriteStatusDto(
+                        favorite.getTargetId(),
+                        favorite.getId()
+                ))
                 .toList();
     }
 
@@ -83,6 +126,20 @@ public class FavoriteService {
         String targetName =
                 request.targetName();
 
+        if (request.targetType() == TargetType.RESTAURANT) {
+            try {
+                Restaurant restaurant = restaurantRepository
+                        .findById(Long.valueOf(targetId))
+                        .filter(found -> "Y".equals(found.getIsPublished()))
+                        .orElseThrow(() -> new IllegalArgumentException(
+                                "공개된 맛집을 찾을 수 없습니다."
+                        ));
+                targetName = restaurant.getName();
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("올바르지 않은 맛집 번호입니다.");
+            }
+        }
+
         if (targetName == null
                 || targetName.isBlank()) {
 
@@ -121,27 +178,33 @@ public class FavoriteService {
             Long favoriteId
     ) {
 
-        if (!favoriteRepository.existsById(favoriteId)) {
+        if (favoriteRepository.deleteByIdAndUserUserId(favoriteId, userId) == 0) {
             throw new IllegalArgumentException(
                     "즐겨찾기를 찾을 수 없습니다."
             );
         }
-
-        favoriteRepository.deleteByIdAndUserUserId(
-                favoriteId,
-                userId
-        );
     }
 
     private FavoriteResponseDto toResponse(
-            Favorite favorite
+            Favorite favorite,
+            Map<Long, Restaurant> restaurants,
+            Map<Long, com.bingomap.bingo_map.map.WasteBinDto> wasteBins
     ) {
-
-        TargetLocation location =
-                resolveLocation(
-                        favorite.getTargetType(),
-                        favorite.getTargetId()
-                );
+        Long targetNumericId = parseId(favorite.getTargetId());
+        TargetLocation location = switch (favorite.getTargetType()) {
+            case RESTAURANT -> {
+                Restaurant restaurant = targetNumericId == null ? null : restaurants.get(targetNumericId);
+                yield restaurant == null
+                        ? new TargetLocation("주소 정보 없음", null, null)
+                        : new TargetLocation(restaurant.getAddress(), restaurant.getLatitude(), restaurant.getLongitude());
+            }
+            case WASTE_BIN -> {
+                com.bingomap.bingo_map.map.WasteBinDto bin = targetNumericId == null ? null : wasteBins.get(targetNumericId);
+                yield bin == null
+                        ? new TargetLocation("지도에서 위치를 확인하세요", null, null)
+                        : new TargetLocation(bin.getAddress(), bin.getLat(), bin.getLon());
+            }
+        };
 
         return new FavoriteResponseDto(
                 favorite.getId(),
@@ -153,6 +216,28 @@ public class FavoriteService {
                 location.longitude(),
                 favorite.getCreatedAt()
         );
+    }
+
+    private FavoriteResponseDto toResponse(Favorite favorite) {
+        TargetLocation location = resolveLocation(favorite.getTargetType(), favorite.getTargetId());
+        return new FavoriteResponseDto(
+                favorite.getId(),
+                favorite.getTargetType(),
+                favorite.getTargetId(),
+                favorite.getTargetName(),
+                location.location(),
+                location.latitude(),
+                location.longitude(),
+                favorite.getCreatedAt()
+        );
+    }
+
+    private Long parseId(String value) {
+        try {
+            return value == null ? null : Long.valueOf(value);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 
     private String resolveName(

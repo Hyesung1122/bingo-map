@@ -9,6 +9,11 @@
     margin: 0 auto;
 }
 
+/* 컴포넌트의 display 선언보다 hidden 상태가 우선되어야 합니다. */
+.favorites-section [hidden] {
+    display: none !important;
+}
+
 .favorites-heading {
     display: flex;
     justify-content: space-between;

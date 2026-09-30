@@ -2,6 +2,8 @@ package com.bingomap.bingo_map.user;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -14,15 +16,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class SessionController {
 
     @GetMapping("/api/session")
-    public SessionResponseDto getSession(HttpServletRequest request) {
+    public ResponseEntity<SessionResponseDto> getSession(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
 
         if (session == null || session.getAttribute(LoginController.SESSION_USER_ID) == null) {
-            return new SessionResponseDto(false, null, null);
+            return ResponseEntity.ok()
+                    .cacheControl(CacheControl.noStore())
+                    .body(new SessionResponseDto(false, null, null));
         }
 
         String name = (String) session.getAttribute(LoginController.SESSION_USER_NAME);
         String role = (String) session.getAttribute(LoginController.SESSION_USER_ROLE);
-        return new SessionResponseDto(true, name, role);
+        return ResponseEntity.ok()
+                .cacheControl(CacheControl.noStore())
+                .body(new SessionResponseDto(true, name, role));
     }
 }

@@ -1,5 +1,6 @@
 package com.bingomap.bingo_map.favorite;
 
+import com.bingomap.bingo_map.entity.TargetType;
 import com.bingomap.bingo_map.user.LoginController;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -23,6 +24,18 @@ public class FavoriteApiController {
         Long userId = getLoginUserId(request);
         if (userId == null) return unauthorized();
         return ResponseEntity.ok(favoriteService.findByUser(userId));
+    }
+
+    @GetMapping("/status")
+    public ResponseEntity<?> getFavoriteStatuses(
+            @RequestParam(defaultValue = "RESTAURANT") TargetType targetType,
+            HttpServletRequest request
+    ) {
+        Long userId = getLoginUserId(request);
+        if (userId == null) return unauthorized();
+        return ResponseEntity.ok(
+                favoriteService.findStatusesByUserAndType(userId, targetType)
+        );
     }
 
     @PostMapping

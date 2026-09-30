@@ -26,7 +26,11 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .catch(() => {});
 
-    fetch("/api/session")
+    fetch("/api/session", {
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { Accept: "application/json" }
+    })
         .then((res) => res.json())
         .then((data) => {
             const actions = document.querySelector(".header-actions");
@@ -42,7 +46,7 @@ document.addEventListener("DOMContentLoaded", function () {
             // 로그아웃 버튼 추가
             const logoutLink = document.createElement("a");
             logoutLink.href = "/logout";
-            logoutLink.className = "language";
+            logoutLink.className = "language logout";
             logoutLink.textContent = "로그아웃";
             loginLink.after(logoutLink);
 
