@@ -90,7 +90,7 @@ function render(p) {
         ${tags ? `<div class="board-tags">${tags}</div>` : ''}
         <h1 class="board-detail-title">${escapeHtml(p.title)}</h1>
         <div class="board-detail-meta">
-            <span>by 회원${p.userId ?? ''} | ${dateStr} | 조회수 ${p.viewCount ?? 0}</span>
+            <span>by ${escapeHtml(p.authorName ?? ('회원' + (p.userId ?? '')))} | ${dateStr} | 조회수 ${p.viewCount ?? 0}</span>
             <span class="actions">
                 <a onclick="location.href='/community/write?edit=${p.postId}'">수정</a>
                 <a onclick="deletePost()">삭제</a>
@@ -123,7 +123,7 @@ function commentItemHtml(c) {
     const dateStr = c.createdAt ? c.createdAt.substring(0, 16).replace('T', ' ') : '';
     return `
         <div style="padding:10px 0;border-bottom:1px solid #f2f2f2;">
-            <div style="font-size:12px;color:#999;margin-bottom:4px;">회원${c.userId ?? ''} · ${dateStr}
+            <div style="font-size:12px;color:#999;margin-bottom:4px;">${escapeHtml(c.authorName ?? ('회원' + (c.userId ?? '')))} · ${dateStr}
                 <a onclick="deleteComment(${c.commentId})" style="color:#e05a5a;cursor:pointer;margin-left:8px;">삭제</a>
             </div>
             <div style="font-size:13px;color:#333;">${escapeHtml(c.content)}</div>
@@ -157,7 +157,10 @@ async function submitComment() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: DEMO_USER_ID, content })
         });
-        if (!res.ok) throw new Error('failed');
+        // [09/30 유해성] 실패 이유별 안내
+        if (res.status === 401) { alert('로그인이 필요합니다.'); location.href = '/login'; return; }
+        if (res.status === 400) { alert('댓글 내용을 입력해주세요.'); return; }
+        if (!res.ok) throw new Error('HTTP ' + res.status);
         input.value = '';
         await loadComments();
     } catch (e) {
