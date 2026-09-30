@@ -16,7 +16,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-
+//깃허브 풀 리퀘스트 테스트 0930
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(favoritesPageGuard())
