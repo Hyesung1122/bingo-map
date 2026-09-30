@@ -148,9 +148,9 @@ public class RestaurantDbLoader {
                 [out:json][timeout:90];
                 area["name"="%s"]["boundary"="administrative"]["admin_level"="7"]->.a;
                 (
-                  node["amenity"="fast_food"]["name"]["takeaway"~"yes|only"]["!"brand"](area.a);
-                  node["amenity"="cafe"]["name"]["!"brand"](area.a);
-                  node["amenity"="restaurant"]["name"]["takeaway"~"yes|only"]["!"brand"](area.a);
+                  node["amenity"="fast_food"]["name"]["takeaway"~"yes|only"][!"brand"](area.a);
+                  node["amenity"="cafe"]["name"][!"brand"](area.a);
+                  node["amenity"="restaurant"]["name"]["takeaway"~"yes|only"][!"brand"](area.a);
                 );
                 out body;
                 """.formatted(AREA_NAME);
