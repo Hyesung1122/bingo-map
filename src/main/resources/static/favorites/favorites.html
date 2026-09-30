@@ -1,44 +1,51 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>즐겨찾기 | BinGo Map</title>
     <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/favorites/favorites.css">
+    <script src="/js/header-auth.js"></script>
 </head>
-<script src="/js/header-auth.js"></script>
 <body>
 <header class="header">
     <div class="header-inner">
         <a class="logo" href="/">
             <span class="logo-mark">♜</span>
-            <span>
-                <strong>BinGo Map</strong>
-                <small>Clean &amp; Gourmet</small>
-            </span>
+            <span><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>
         </a>
-
-        <nav class="nav">
+        <nav class="nav" aria-label="주 메뉴">
             <a href="/">홈</a>
             <a href="/map">지도</a>
             <a href="/restaurants">주변 맛집</a>
-            <a class="active" href="/favorites">즐겨찾기</a>
+            <a class="active" href="/favorites" aria-current="page">즐겨찾기</a>
             <a href="/reviews">리뷰</a>
             <a href="/notices">공지사항</a>
         </nav>
-
         <div class="header-actions">
-            <button class="language">🇰🇷 한국어 <span>⌄</span></button>
+            <button class="language" type="button">🇰🇷 한국어 <span>⌄</span></button>
             <a class="login" href="/login">로그인</a>
         </div>
     </div>
 </header>
 
-<main>
-    <section class="section">
-        <h2 class="section-title">즐겨찾기</h2>
-        <div class="title-line"></div>
-        <p style="text-align:center;color:#777;padding: 40px 0;">저장한 쓰레기통/맛집 목록이 여기에 표시됩니다. (개발 예정)</p>
+<main class="favorites-main">
+    <section class="favorites-section" aria-labelledby="favoritesTitle">
+        <div class="favorites-heading">
+            <div>
+                <p class="favorites-eyebrow">MY COLLECTION</p>
+                <h1 id="favoritesTitle">내 즐겨찾기</h1>
+                <p class="favorites-description">저장한 맛집과 쓰레기통을 한곳에서 확인할 수 있어요.</p>
+            </div>
+            <span class="favorites-count" id="favoritesCount" aria-live="polite">불러오는 중</span>
+        </div>
+
+        <div id="favoritesState" class="favorites-state" role="status" aria-live="polite">
+            즐겨찾기를 불러오는 중입니다.
+        </div>
+        <div id="favoritesList" class="favorites-list" aria-label="저장한 항목" hidden></div>
+        <button id="retryFavorites" class="favorites-retry" type="button" hidden>다시 불러오기</button>
     </section>
 </main>
 
@@ -51,11 +58,12 @@
         <p>BinGo Map은 깨끗한 일본 여행 문화를 응원합니다.<br>모두가 함께 만들어가는 깨끗하고 즐거운 여행 플랫폼!</p>
         <div class="footer-links">
             <div>◎ ♥ f</div>
-            <small>이용약관  개인정보처리방침  문의하기</small>
+            <small>이용약관 개인정보처리방침 문의하기</small>
             <small>© 2026 BinGo Map. All rights reserved.</small>
         </div>
-        <a class="top-btn" href="#">↑<small>TOP</small></a>
+        <a class="top-btn" href="#favoritesTitle">↑<small>TOP</small></a>
     </div>
 </footer>
+<script src="/favorites/favorites.js" defer></script>
 </body>
 </html>

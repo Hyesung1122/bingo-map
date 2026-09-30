@@ -87,6 +87,7 @@
                 - method="post": POST 방식(비밀번호 같은 민감한 개인정보를 주소창에 띄우지 않고 본문 속에 숨겨 안전하게 전달하는 전송 규격)
             -->
             <form action="/login" method="post">
+                <input type="hidden" name="returnUrl" id="loginReturnUrl">
 
                 <!-- 이메일 입력 칸 (오라클 USERS 테이블의 EMAIL 컬럼과 대조) -->
                 <div class="auth-field">
@@ -143,5 +144,11 @@
     </div>
 </footer>
 <script src="/auth/auth.js"></script>
+<script>
+    const loginReturnUrl = new URLSearchParams(window.location.search).get('returnUrl');
+    if (loginReturnUrl) {
+        document.getElementById('loginReturnUrl').value = loginReturnUrl;
+    }
+</script>
 </body>
 </html>

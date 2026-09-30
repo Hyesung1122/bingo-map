@@ -55,8 +55,8 @@
         <a href="/restaurants" class="text-decoration-none text-dark fw-medium small">
             <i class="bi bi-arrow-left"></i> 주변 맛집으로 돌아가기
         </a>
-        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3 bg-white text-dark border-light shadow-sm">
-            <i class="bi bi-heart text-secondary me-1"></i> 즐겨찾기
+        <button type="button" id="favoriteToggle" aria-pressed="false" class="btn btn-outline-secondary btn-sm rounded-pill px-3 bg-white text-dark border-light shadow-sm">
+            <i class="bi bi-heart text-secondary me-1" aria-hidden="true"></i> 즐겨찾기 저장
         </button>
     </div>
 
@@ -237,6 +237,100 @@
             </div>`;
     }
 
+    function setFavoriteButton(saved) {
+        const button = document.getElementById('favoriteToggle');
+        button.setAttribute('aria-pressed', String(saved));
+        button.classList.toggle('btn-success', saved);
+        button.classList.toggle('text-white', saved);
+        button.classList.toggle('btn-outline-secondary', !saved);
+        button.innerHTML = saved
+            ? '<i class="bi bi-heart-fill me-1" aria-hidden="true"></i> 즐겨찾기 저장됨'
+            : '<i class="bi bi-heart me-1" aria-hidden="true"></i> 즐겨찾기 저장';
+    }
+
+    async function connectFavoriteButton(restaurant) {
+        const button = document.getElementById('favoriteToggle');
+        const restaurantId = String(restaurant.restaurantId || getRestaurantIdFromUrl());
+        let favoriteId = null;
+        button.disabled = true;
+
+        async function sync() {
+            const response = await fetch('/api/favorites', {
+                credentials: 'same-origin',
+                headers: { Accept: 'application/json' },
+                cache: 'no-store'
+            });
+            if (response.status === 401) return false;
+            if (!response.ok) throw new Error('즐겨찾기 상태를 확인하지 못했습니다.');
+            const favorites = await response.json();
+            const saved = favorites.find(item =>
+                item.targetType === 'RESTAURANT'
+                && String(item.targetId) === restaurantId
+            );
+            favoriteId = saved ? saved.id : null;
+            setFavoriteButton(Boolean(saved));
+            return true;
+        }
+
+        try {
+            await sync();
+        } catch (error) {
+            button.title = '즐겨찾기 상태를 불러오지 못했습니다.';
+        } finally {
+            button.disabled = false;
+        }
+
+        button.addEventListener('click', async () => {
+            button.disabled = true;
+            try {
+                if (favoriteId == null) {
+                    const response = await fetch('/api/favorites', {
+                        method: 'POST',
+                        credentials: 'same-origin',
+                        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                        body: JSON.stringify({
+                            targetType: 'RESTAURANT',
+                            targetId: restaurantId,
+                            targetName: restaurant.name
+                        })
+                    });
+                    if (response.status === 401) {
+                        const returnUrl = window.location.pathname + window.location.search;
+                        window.location.assign('/login?returnUrl=' + encodeURIComponent(returnUrl));
+                        return;
+                    }
+                    if (response.status === 409) {
+                        await sync();
+                        return;
+                    }
+                    if (!response.ok) throw new Error('즐겨찾기에 저장하지 못했습니다.');
+                    const saved = await response.json();
+                    favoriteId = saved.id;
+                    setFavoriteButton(true);
+                } else {
+                    const response = await fetch('/api/favorites/' + encodeURIComponent(favoriteId), {
+                        method: 'DELETE',
+                        credentials: 'same-origin'
+                    });
+                    if (response.status === 401) {
+                        const returnUrl = window.location.pathname + window.location.search;
+                        window.location.assign('/login?returnUrl=' + encodeURIComponent(returnUrl));
+                        return;
+                    }
+                    if (!response.ok && response.status !== 204) {
+                        throw new Error('즐겨찾기에서 삭제하지 못했습니다.');
+                    }
+                    favoriteId = null;
+                    setFavoriteButton(false);
+                }
+            } catch (error) {
+                button.title = error.message;
+            } finally {
+                button.disabled = false;
+            }
+        });
+    }
+
     document.addEventListener("DOMContentLoaded", async function () {
         const id = getRestaurantIdFromUrl();
 
@@ -247,6 +341,7 @@
 
             fillDetail(restaurant);
             document.getElementById('detailMain').style.display = '';
+            connectFavoriteButton(restaurant);
 
             const nearbyRes = await fetch(`/api/restaurants/${id}/nearby?limit=4`);
             const nearbyList = nearbyRes.ok ? await nearbyRes.json() : [];
