@@ -26,6 +26,7 @@
             <a href="/restaurants">주변 맛집</a>
             <a href="/favorites">즐겨찾기</a>
             <a class="active" href="/reviews">리뷰</a>
+            <a href="/community">커뮤니티</a>
             <a href="/notices">공지사항</a>
         </nav>
         <div class="header-actions">
@@ -115,7 +116,7 @@ function render() {
     const radius = Number($('radius-select').value), sort = $('sort-select').value;
     const keyword=$('restaurant-search').value.trim().toLocaleLowerCase();
     $('origin-status').textContent = origin ? `${origin.label} 기준 직선 거리 ${radius / 1000}km 이내입니다.` : '기준 장소를 불러오지 못했습니다. 페이지를 새로고침해주세요.';
-    let list = allRestaurants.map(r => ({r,s:reviewSummaries.get(r.restaurantId),distance:origin ? D.distance(origin,r) : null}));
+    let list = allRestaurants.map(r => ({r,s:reviewSummaries.get(String(r.restaurantId)),distance:origin ? D.distance(origin,r) : null}));
     if(keyword) list=list.filter(({r}) => [r.name,r.address,r.category].some(v => String(v||'').toLocaleLowerCase().includes(keyword)));
     list = origin ? list.filter(p => p.distance!==null && p.distance<=radius) : [];
     list.sort((a,b) => {
