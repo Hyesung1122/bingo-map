@@ -40,7 +40,15 @@
         <div class="board-toolbar">
             <span></span>
             <div class="board-search">
-                <input type="text" id="keyword" placeholder="제목/내용 검색">
+                <!-- [09/30 유해성] 검색 범위 선택 -->
+                <select id="search-field" style="border:1px solid #ddd;border-radius:8px;padding:8px 8px;font-size:13px;background:#fff;">
+                    <option value="all">전체</option>
+                    <option value="title">제목</option>
+                    <option value="content">내용</option>
+                    <option value="author">작성자</option>
+                    <option value="comment">댓글</option>
+                </select>
+                <input type="text" id="keyword" placeholder="검색어를 입력하세요">
                 <button onclick="search()">검색</button>
             </div>
         </div>
@@ -70,9 +78,12 @@
 <script>
 let currentPage = 0;
 let currentKeyword = '';
+let currentField = 'all';   // [09/30 유해성] 검색 범위
+const FIELD_LABEL = { all: '전체', title: '제목', content: '내용', author: '작성자', comment: '댓글' };
 
 function search() {
     currentKeyword = document.getElementById('keyword').value.trim();
+    currentField = document.getElementById('search-field').value;
     currentPage = 0;
     loadPosts();
 }
@@ -89,7 +100,10 @@ async function loadPosts() {
     const url = new URL('/api/community', location.origin);
     url.searchParams.set('page', currentPage);
     url.searchParams.set('size', 10);
-    if (currentKeyword) url.searchParams.set('keyword', currentKeyword);
+    if (currentKeyword) {
+        url.searchParams.set('keyword', currentKeyword);
+        url.searchParams.set('field', currentField);
+    }
 
     try {
         const res = await fetch(url);
@@ -99,6 +113,10 @@ async function loadPosts() {
 
         if (!posts.length) {
             listEl.innerHTML = '';
+            // [09/30 유해성] 검색 중이면 검색 결과 없음 안내
+            emptyEl.textContent = currentKeyword
+                ? `[${FIELD_LABEL[currentField]}] '${currentKeyword}' 검색 결과가 없습니다.`
+                : '등록된 글이 없습니다.';
             emptyEl.style.display = 'block';
             pagerEl.innerHTML = '';
             return;
@@ -112,7 +130,7 @@ async function loadPosts() {
             <div class="board-item" onclick="location.href='/community/${p.postId}'">
                 ${tags ? `<div class="board-tags">${tags}</div>` : ''}
                 <p class="board-item-title">${escapeHtml(p.title)}</p>
-                <div class="board-item-meta">by 회원${p.userId ?? ''} | ${dateStr} | 조회수 ${p.viewCount ?? 0} | 댓글 ${p.commentCount ?? 0}</div>
+                <div class="board-item-meta">by ${escapeHtml(p.authorName ?? ('회원' + (p.userId ?? '')))} | ${dateStr} | 조회수 ${p.viewCount ?? 0} | 댓글 ${p.commentCount ?? 0}</div>
             </div>`;
         }).join('');
 

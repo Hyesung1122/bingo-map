@@ -16,6 +16,7 @@ public class CommunityPostResponseDto {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private long commentCount;
+    private String authorName;   // [09/30 유해성] 작성자 닉네임(없으면 이름)
 
     public CommunityPostResponseDto(CommunityPost post) {
         this.postId = post.getPostId();
@@ -74,4 +75,12 @@ public class CommunityPostResponseDto {
     public void setCommentCount(long commentCount) {
         this.commentCount = commentCount;
     }
-}
+
+    public String getAuthorName() {
+        return authorName;
+    }
+
+    public void setAuthorName(String authorName) {
+        this.authorName = authorName;
+    }
+}
