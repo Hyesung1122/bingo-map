@@ -20,10 +20,10 @@ import java.util.Map;
 
 /**
  * Overpass API에서 오사카시 전체 테이크아웃 맛집을 가져와
- * RESTAURANT 테이블에 최초 1회 적재하는 로더.
+ * RESTAURANTS 테이블에 최초 1회 적재하는 로더.
  *
  * 실행 정책
- * 1. RESTAURANT에 OSM_ID 데이터가 이미 있으면
+ * 1. RESTAURANTS에 OSM_ID 데이터가 이미 있으면
  *    → Overpass 서버에 접속하지 않는다.
  *
  * 2. OSM_ID 데이터가 없으면
@@ -222,7 +222,7 @@ public class RestaurantDbLoader {
             try {
 
                 String insertSql = """
-                        INSERT INTO RESTAURANT (
+                        INSERT INTO RESTAURANTS (
                             RESTAURANT_ID,
                             OSM_ID,
                             NAME,
@@ -256,7 +256,7 @@ public class RestaurantDbLoader {
                         FROM DUAL
                         WHERE NOT EXISTS (
                             SELECT 1
-                            FROM RESTAURANT
+                            FROM RESTAURANTS
                             WHERE OSM_ID = ?
                         )
                         """;
@@ -454,7 +454,7 @@ public class RestaurantDbLoader {
     }
 
     /**
-     * RESTAURANT에 OSM 데이터가 이미 존재하는지 확인한다.
+     * RESTAURANTS에 OSM 데이터가 이미 존재하는지 확인한다.
      *
      * OSM_ID가 NULL인 기존 수기 데이터가 있더라도
      * Loader가 최초 적재를 수행할 수 있도록 한다.
@@ -464,7 +464,7 @@ public class RestaurantDbLoader {
 
         String sql = """
                 SELECT COUNT(*)
-                FROM RESTAURANT
+                FROM RESTAURANTS
                 WHERE OSM_ID IS NOT NULL
                 """;
 

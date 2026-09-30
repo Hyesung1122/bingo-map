@@ -30,8 +30,15 @@ public class Review {
     @Column(name = "target_id", nullable = false, length = 100)
     private String targetId;
 
-    @Column(name = "rating", nullable = false, precision = 2, scale = 1)
+    //0929 kdk 스케일 수정
+    @Column(
+            name = "rating",
+            nullable = false
+    )
     private Double rating;
+
+//    @Column(name = "rating", nullable = false, precision = 2, scale = 1)
+//    private Double rating;
 
     @Column(name = "content", length = 2000)
     private String content;

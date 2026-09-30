@@ -7,20 +7,23 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "restaurants")
+@Table(name = "RESTAURANTS")
 @Getter
 @Setter
 @NoArgsConstructor
 public class Restaurant extends BaseEntity {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "restaurant_seq")
+    @GeneratedValue(
+            strategy = GenerationType.SEQUENCE,
+            generator = "restaurant_seq"
+    )
     @SequenceGenerator(
             name = "restaurant_seq",
             sequenceName = "SEQ_RESTAURANT",
             allocationSize = 1
     )
-    @Column(name = "restaurant_id")
+    @Column(name = "RESTAURANT_ID")
     private Long restaurantId;
 
     private String name;
