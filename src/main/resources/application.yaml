@@ -21,7 +21,8 @@ spring:
   jpa:
     hibernate:
       ddl-auto: none
-    show-sql: true
+#0930 kdk sql문 출력 해제
+    show-sql: false
     database-platform: org.hibernate.community.dialect.OracleLegacyDialect
     properties:
       hibernate:

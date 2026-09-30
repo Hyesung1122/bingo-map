@@ -250,7 +250,7 @@ public class RestaurantDbLoader {
                             ?,
                             ?,
                             ?,
-                            'N',
+                            'Y',
                             SYSTIMESTAMP,
                             SYSTIMESTAMP
                         FROM DUAL
