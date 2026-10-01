@@ -50,22 +50,30 @@ document.addEventListener("DOMContentLoaded", function () {
         return "★ " + rating.toFixed(1);
     }
 
+    // 리뷰 내용/맛집 이름 같은 사용자 입력이 화면 태그로 해석되지 않도록 변환
+    function escapeHtml(value) {
+        const div = document.createElement("div");
+        div.textContent = value == null ? "" : String(value);
+        return div.innerHTML;
+    }
+
     function reviewCardHtml(review) {
         const thumbStyle = review.thumbnailUrl
-            ? ' style="background-image:url(\'' + review.thumbnailUrl + '\')"'
+            ? ' style="background-image:url(\'' + encodeURI(review.thumbnailUrl) + '\')"'
             : "";
+        const href = review.linkUrl || "/reviews/" + review.reviewId;
         return (
-            '<div class="my-review-card">' +
+            '<a class="my-review-card" href="' + escapeHtml(href) + '">' +
             '<div class="my-review-thumb"' + thumbStyle + '></div>' +
             '<div class="my-review-body">' +
             '<div class="my-review-top">' +
-            '<span class="my-review-restaurant">' + review.restaurantName + "</span>" +
+            '<span class="my-review-restaurant">' + escapeHtml(review.restaurantName) + "</span>" +
             '<span class="my-review-rating">' + renderStars(review.rating) + "</span>" +
             "</div>" +
-            '<p class="my-review-content">' + review.content + "</p>" +
-            '<span class="my-review-meta">' + review.createdAt + " · 도움이 돼요 " + review.helpCount + "</span>" +
+            '<p class="my-review-content">' + escapeHtml(review.content) + "</p>" +
+            '<span class="my-review-meta">' + escapeHtml(review.createdAt) + " · 도움이 돼요 " + review.helpCount + "</span>" +
             "</div>" +
-            "</div>"
+            "</a>"
         );
     }
 
@@ -102,7 +110,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     loadMyReviews().then(renderRecentReviews);
 
-    // 1-3) 작성한 제보 (제보 탭 전용, 프로필 탭에는 별도 미리보기 없음)
+    // 1-3) 작성한 제보 (프로필 탭 '최근 제보 내역' + 제보 탭 전체 목록에서 공용으로 사용)
     let myReportsCache = null;
 
     const reportStatusLabel = { PENDING: "보류중", APPROVED: "승인됨", REJECTED: "반려됨" };
@@ -124,6 +132,15 @@ document.addEventListener("DOMContentLoaded", function () {
             '<span class="my-report-status ' + reportStatusClass[r.status] + '">' + reportStatusLabel[r.status] + "</span>" +
             "</div>"
         );
+    }
+
+    function renderRecentReports(reports) {
+        const el = document.getElementById("recent-reports-list");
+        if (!reports.length) {
+            el.innerHTML = '<p class="mypage-empty">아직 제보한 내역이 없습니다.<br><a href="/report">쓰레기통 위치 제보하러 가기</a></p>';
+            return;
+        }
+        el.innerHTML = reports.slice(0, 3).map(reportCardHtml).join("");
     }
 
     function renderReports(reports) {
@@ -148,6 +165,8 @@ document.addEventListener("DOMContentLoaded", function () {
             .catch(() => []);
     }
 
+    loadMyReports().then(renderRecentReports);
+
     // 2) 사이드바 메뉴 클릭 -> 페이지 이동 없이 해당 탭만 보여주기
     const navLinks = document.querySelectorAll(".mypage-nav a[data-tab]");
     const tabSections = document.querySelectorAll(".mypage-tab-content");
@@ -167,6 +186,9 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         if (tabName === "reports") {
             loadMyReports().then(renderReports);
+        }
+        if (tabName === "notifications") {
+            resetNotificationTab();
         }
     }
 
@@ -329,5 +351,101 @@ document.addEventListener("DOMContentLoaded", function () {
                 settingsLoaded = true;
             })
             .catch(() => showSaveMessage("설정을 불러오지 못했습니다.", true));
+    }
+
+    // ===== 알림 탭: 받은 알림 목록(더 보기) / 읽음 / 삭제 =====
+    const NOTIF_PAGE_SIZE = 10;
+    const NOTIF_ICONS = { NOTICE: "📢", COMMENT: "💬", REVIEW: "⭐", REPORT: "🗑️" };
+    let notifPage = 0;
+    const notifListEl = document.getElementById("notif-tab-list");
+    const notifEmptyEl = document.getElementById("notif-tab-empty");
+    const notifMoreEl = document.getElementById("notif-tab-more");
+    const notifUnreadEl = document.getElementById("notif-tab-unread");
+
+    function refreshHeaderBell() {
+        if (window.BingoNotifications) window.BingoNotifications.refresh();
+    }
+
+    function resetNotificationTab() {
+        notifPage = 0;
+        notifListEl.innerHTML = "";
+        loadNotificationPage();
+    }
+
+    function loadNotificationPage() {
+        fetch("/api/notifications?page=" + notifPage + "&size=" + NOTIF_PAGE_SIZE)
+            .then((res) => {
+                if (res.status === 401) { window.location.href = "/login"; return null; }
+                return res.json();
+            })
+            .then((data) => {
+                if (!data) return;
+                data.items.forEach(appendNotificationRow);
+                notifEmptyEl.hidden = data.totalElements > 0;
+                notifUnreadEl.textContent = data.unreadCount > 0 ? "안 읽음 " + data.unreadCount : "";
+                notifMoreEl.hidden = data.page + 1 >= data.totalPages;
+            })
+            .catch(() => {
+                notifEmptyEl.hidden = false;
+                notifEmptyEl.textContent = "알림을 불러오지 못했습니다.";
+            });
+    }
+
+    function appendNotificationRow(n) {
+        const row = document.createElement("div");
+        row.className = "notif-tab-item" + (n.read ? "" : " unread");
+
+        const ic = document.createElement("span");
+        ic.className = "notif-item-icon";
+        ic.textContent = NOTIF_ICONS[n.type] || "🔔";
+
+        const body = document.createElement("div");
+        body.className = "notif-tab-body";
+        const msg = document.createElement("span");
+        msg.className = "notif-tab-msg";
+        msg.textContent = n.message;
+        const time = document.createElement("span");
+        time.className = "notif-tab-time";
+        time.textContent = n.createdAt;
+        body.appendChild(msg);
+        body.appendChild(time);
+
+        const del = document.createElement("button");
+        del.type = "button";
+        del.className = "notif-tab-delete";
+        del.title = "삭제";
+        del.textContent = "×";
+
+        row.appendChild(ic);
+        row.appendChild(body);
+        row.appendChild(del);
+
+        row.addEventListener("click", function (e) {
+            if (e.target === del) return;
+            const go = () => { window.location.href = n.linkUrl || "/mypage?tab=notifications"; };
+            if (n.read) { go(); return; }
+            fetch("/api/notifications/" + n.id + "/read", { method: "POST" }).then(go, go);
+        });
+        del.addEventListener("click", function () {
+            fetch("/api/notifications/" + n.id, { method: "DELETE" })
+                .then(() => { resetNotificationTab(); refreshHeaderBell(); });
+        });
+        notifListEl.appendChild(row);
+    }
+
+    notifMoreEl.addEventListener("click", function () {
+        notifPage += 1;
+        loadNotificationPage();
+    });
+
+    document.getElementById("notif-tab-readall").addEventListener("click", function () {
+        fetch("/api/notifications/read-all", { method: "POST" })
+            .then(() => { resetNotificationTab(); refreshHeaderBell(); });
+    });
+
+    // 알림 링크(/mypage?tab=reports 등)로 들어오면 해당 탭을 바로 열어준다
+    const initialTab = new URLSearchParams(window.location.search).get("tab");
+    if (initialTab && document.getElementById("tab-" + initialTab)) {
+        activateTab(initialTab);
     }
 });

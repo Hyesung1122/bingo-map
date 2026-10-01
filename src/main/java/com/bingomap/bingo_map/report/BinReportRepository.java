@@ -14,4 +14,10 @@ public interface BinReportRepository extends JpaRepository<BinReport, Long> {
     List<BinReport> findAllByOrderByCreatedAtDesc();
 
     long countByStatus(String status);
+
+    // 마이페이지 통계: 내가 제출한 제보 수
+    long countByUserId(Long userId);
+
+    // 지도 표시용: 특정 상태(승인 등)의 제보를 최신순으로
+    List<BinReport> findByStatusOrderByCreatedAtDesc(String status);
 }

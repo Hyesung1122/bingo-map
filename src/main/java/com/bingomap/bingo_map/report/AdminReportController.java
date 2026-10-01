@@ -54,6 +54,16 @@ public class AdminReportController {
         return ResponseEntity.ok(result);
     }
 
+    // 관리자 알림용: 검수 대기(PENDING) 제보 수 (헤더 배지/알림 토스트가 주기적으로 호출)
+    @GetMapping("/api/admin/reports/pending-count")
+    @ResponseBody
+    public ResponseEntity<?> pendingCount(HttpServletRequest request) {
+        if (!isAdmin(request)) {
+            return ResponseEntity.status(403).body(Map.of("message", "관리자만 접근할 수 있습니다."));
+        }
+        return ResponseEntity.ok(Map.of("count", binReportRepository.countByStatus(BinReport.STATUS_PENDING)));
+    }
+
     // 보류(PENDING)가 맨 위, 그다음 승인/반려 순으로 보여주기 위한 정렬 우선순위
     private static int statusOrder(BinReport r) {
         return switch (r.getStatus()) {
@@ -91,6 +101,20 @@ public class AdminReportController {
         binReportRepository.save(report);
 
         return ResponseEntity.ok(Map.of("message", "처리되었습니다."));
+    }
+
+    // 제보 삭제 (관리자 페이지의 삭제 버튼이 호출)
+    @DeleteMapping("/api/admin/reports/{reportId}")
+    @ResponseBody
+    public ResponseEntity<?> deleteReport(@PathVariable Long reportId, HttpServletRequest request) {
+        if (!isAdmin(request)) {
+            return ResponseEntity.status(403).body(Map.of("message", "관리자만 접근할 수 있습니다."));
+        }
+        if (!binReportRepository.existsById(reportId)) {
+            return ResponseEntity.status(404).body(Map.of("message", "존재하지 않는 제보입니다."));
+        }
+        binReportRepository.deleteById(reportId);
+        return ResponseEntity.ok(Map.of("message", "삭제되었습니다."));
     }
 
     private boolean isAdmin(HttpServletRequest request) {

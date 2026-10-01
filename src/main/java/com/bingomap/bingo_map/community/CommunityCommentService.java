@@ -1,5 +1,6 @@
 package com.bingomap.bingo_map.community;
 
+import com.bingomap.bingo_map.notification.NotificationService;
 import com.bingomap.bingo_map.user.User;
 import com.bingomap.bingo_map.user.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
@@ -16,31 +17,36 @@ public class CommunityCommentService {
 
     private final CommunityCommentRepository repository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     public CommunityCommentService(CommunityCommentRepository repository,
-                                   UserRepository userRepository) {
+                                   UserRepository userRepository,
+                                   NotificationService notificationService) {
         this.repository = repository;
         this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
-    /**
-     * [10/01 유해성] adminFirst = true(요청 글)이면 관리자 답변을 맨 위로
-     */
+    /** 요청 글이면 관리자 댓글을 먼저 보여줍니다. */
     public List<CommentResponseDto> getComments(Long postId, boolean adminFirst) {
         List<CommentResponseDto> list = repository.findByPostIdOrderByCreatedAtAsc(postId).stream()
                 .map(this::toDto)
                 .collect(Collectors.toList());
         if (adminFirst) {
-            list.sort(Comparator.comparing((CommentResponseDto c) -> !c.isAuthorAdmin()));
+            list.sort(Comparator.comparing((CommentResponseDto comment) -> !comment.isAuthorAdmin()));
         }
         return list;
     }
 
-    // [09/30 유해성] 작성자 id 를 컨트롤러에서 결정해서 받음 (로그인 사용자 우선)
+    /** 댓글 작성자 ID는 컨트롤러가 로그인 세션에서 결정합니다. */
     @Transactional
     public CommentResponseDto create(Long postId, Long userId, String content) {
         CommunityComment comment = new CommunityComment(postId, userId, content);
-        return toDto(repository.save(comment));
+        CommunityComment saved = repository.save(comment);
+
+        // 본인 글에 본인이 댓글을 단 경우에는 알림을 만들지 않습니다.
+        notificationService.onCommentCreated(postId, userId);
+        return toDto(saved);
     }
 
     @Transactional
