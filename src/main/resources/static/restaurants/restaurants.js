@@ -7,12 +7,52 @@
     const SPOT_STORAGE_KEY = 'bingo.origin.spot.v1';
 
     const CATEGORIES = {
-        '타코야끼': ['타코야끼', '타코야키', 'takoyaki'],
-        '야끼소바': ['야끼소바', '야키소바', 'yakisoba'],
-        '오코노미야끼': ['오코노미야끼', '오코노미야키', 'okonomiyaki'],
-        '붕어빵': ['붕어빵', '타이야키', '타이야끼', 'taiyaki'],
-        '야키니쿠': ['야키니쿠', '야끼니꾸', '야끼니쿠', 'yakiniku']
+        '카페': [
+            '카페', '디저트', '베이커리', '티', '밀크티',
+            '킷사텐', '파르페', '스위츠', '케이크', '타르트', 'cafe', 'dessert'
+        ],
+        '일식': [
+            '일식', '우동', '소바', '라멘', '츠케멘',
+            '스시', '초밥', '야키토리', '닭꼬치', '사시미', 'udon', 'ramen', 'sushi'
+        ],
+        '양식': [
+            '양식', '비스트로', '스테이크', '함바그',
+            '이탈리안', '파스타', '피자', '포케', 'bistro', 'steak', 'pasta', 'pizza'
+        ],
+        '주점': [
+            '주점', '이자카야', '바', '바르', '펍', '칵테일',
+            '와인', '술집', '맥주', '크래프트', 'bar', 'pub', '치로리'
+        ],
+        '분식': [
+            '분식', '타코야끼', '타코야키', '오코노미야끼', '오코노미야키',
+            '야끼소바', '야키소바', '붕어빵', '타이야키', '카라아게', '간식'
+        ],
+        '카레': [
+            '카레', '커리', '비리야니', '인도 요리', '아시안', 'curry', 'biryani'
+        ],
+        '다이닝': [
+            '다이닝', '파인다이닝', '가이세키', '오마카세', '코스 요리', 'dining'
+        ]
     };
+
+    function categoryMatches(selected, rawCategory) {
+        if (!selected || selected === '전체') {
+            return true;
+        }
+
+        const categoryText = String(rawCategory || '').toLowerCase();
+
+        const matches = name => {
+            const aliases = CATEGORIES[name] || [];
+            return aliases.some(alias => categoryText.includes(alias.toLowerCase()));
+        };
+
+        if (selected === '기타') {
+            return !Object.keys(CATEGORIES).some(matches);
+        }
+
+        return matches(selected);
+    }
 
     const $ = id => document.getElementById(id);
 

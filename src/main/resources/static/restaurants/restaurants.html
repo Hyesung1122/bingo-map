@@ -852,68 +852,70 @@
                             id="categoryFilterContainer"
                     >
 
+                        <!-- 전체 보기 (2열 차지) -->
                         <button
                                 type="button"
                                 class="btn-filter-tag active"
                                 data-category="전체"
                                 aria-pressed="true"
+                                style="grid-column: span 2;"
                         >
-                            전체
+                            전체 보기
+                        </button>
+
+                        <!-- 단축 카테고리 버튼 -->
+                        <button
+                                type="button"
+                                class="btn-filter-tag"
+                                data-category="카페"
+                                aria-pressed="false"
+                        >
+                            카페
                         </button>
 
                         <button
                                 type="button"
                                 class="btn-filter-tag"
-                                data-category="타코야끼"
+                                data-category="일식"
                                 aria-pressed="false"
                         >
-                            타코야끼
+                            일식
                         </button>
 
                         <button
                                 type="button"
                                 class="btn-filter-tag"
-                                data-category="야끼소바"
+                                data-category="양식"
                                 aria-pressed="false"
                         >
-                            야끼소바
+                            양식
                         </button>
 
                         <button
                                 type="button"
                                 class="btn-filter-tag"
-                                data-category="오코노미야끼"
+                                data-category="주점"
                                 aria-pressed="false"
                         >
-                            오코노미야끼
+                            주점
                         </button>
 
                         <button
                                 type="button"
                                 class="btn-filter-tag"
-                                data-category="붕어빵"
+                                data-category="분식"
                                 aria-pressed="false"
                         >
-                            붕어빵
+                            분식
                         </button>
 
                         <button
                                 type="button"
                                 class="btn-filter-tag"
-                                data-category="야키니쿠"
+                                data-category="카레"
                                 aria-pressed="false"
                         >
-                            야키니쿠
-                        </button>
-
-                        <button
-                                type="button"
-                                class="btn-filter-tag"
-                                data-category="기타"
-                                aria-pressed="false"
-                                style="grid-column:span 2"
-                        >
-                            기타
+                            카레
                         </button>
 
                     </div>
@@ -1218,14 +1220,6 @@
 
                 <div class="results-actions">
 
-                    <button
-                            type="button"
-                            id="refreshList"
-                            class="btn btn-outline-secondary btn-sm"
-                    >
-                        새로 조회
-                    </button>
-
                     <a
                             href="/map"
                             id="mapLink"
@@ -1306,6 +1300,16 @@
     </div>
 
 </main>
+
+<!-- JS(restaurants.js)에서 refreshList 요소를 찾지 못해 발생할 수 있는 null 참조 방지 스크립트 -->
+<script>
+    if (!document.getElementById('refreshList')) {
+        const dummy = document.createElement('div');
+        dummy.id = 'refreshList';
+        dummy.style.display = 'none';
+        document.body.appendChild(dummy);
+    }
+</script>
 
 </body>
 </html>
