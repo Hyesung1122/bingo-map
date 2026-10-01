@@ -20,15 +20,39 @@
     }
     function photo(place) {
         const frame = el('div', 'brm-photo');
-        const fallback = el('span', 'brm-photo-fallback'); fallback.innerHTML = FOOD_ICON;
+        const fallback = el('span', 'brm-photo-fallback');
+        fallback.innerHTML = FOOD_ICON;
         frame.append(fallback);
-        // 기존 프로젝트의 /images/ 파일만 사용합니다. 누락 시 기본 아이콘을 유지합니다.
-        const url = place.mainImageUrl;
-        if (typeof url === 'string' && /^\/images\/[a-zA-Z0-9_/-]+\.(png|jpe?g|webp)$/i.test(url)) {
-            const img = el('img'); img.alt = place.name; img.loading = 'lazy';
-            img.addEventListener('error', function () { img.remove(); });
-            img.src = url; frame.append(img);
+
+        const path = typeof place.mainImageUrl === 'string'
+            ? place.mainImageUrl.trim() : '';
+
+        if (!path) return frame;
+
+        try {
+            // 공백·한글·일본어가 있는 사진 경로도 처리
+            const url = new URL(path, window.location.origin + '/');
+
+            if (!['http:', 'https:'].includes(url.protocol)) {
+                return frame;
+            }
+
+            const img = el('img');
+            img.alt = place.name || '식당 사진';
+            img.loading = 'lazy';
+            img.decoding = 'async';
+
+            // 사진 파일이 없으면 기존 기본 아이콘 표시
+            img.addEventListener('error', function () {
+                img.remove();
+            }, {once: true});
+
+            img.src = url.href;
+            frame.append(img);
+        } catch (error) {
+            console.warn('식당 사진 경로를 확인해주세요:', path);
         }
+
         return frame;
     }
     function link(label, value) {

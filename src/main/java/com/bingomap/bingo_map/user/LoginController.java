@@ -44,6 +44,24 @@ public class LoginController
             session.setAttribute(SESSION_USER_NAME, user.getName());
             session.setAttribute(SESSION_USER_ROLE, user.getRole());
 
+// 제보 화면에서 로그인하러 왔는지 확인
+            Object reportRequestedAt =
+                    session.getAttribute("BIN_REPORT_LOGIN_REQUESTED_AT");
+
+// 로그인에 성공했으므로 임시 표시 삭제
+            session.removeAttribute("BIN_REPORT_LOGIN_REQUESTED_AT");
+
+// 별도의 돌아갈 주소가 없고, 제보하다가 로그인한 경우
+            if ("/".equals(safeReturnUrl)
+                    && reportRequestedAt instanceof Long startedAt) {
+
+                long elapsed = System.currentTimeMillis() - startedAt;
+
+                if (elapsed >= 0 && elapsed <= 30 * 60 * 1000L) {
+                    safeReturnUrl = "/report";
+                }
+            }
+
             return "redirect:" + safeReturnUrl;
         } catch (LoginException e) {
             String message = URLEncoder.encode(e.getMessage(), StandardCharsets.UTF_8);
