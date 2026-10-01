@@ -6,6 +6,8 @@
     <title>커뮤니티 | BinGo Map</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/community/community.css">
+    <!-- [10/01 유해성] 헤더 로그인 상태(이름님/로그아웃/관리자 페이지) 표시 -->
+    <script src="/js/header-auth.js"></script>
 </head>
 <body>
 <header class="header">
@@ -31,10 +33,21 @@
 </header>
 
 <main>
+  <div class="community-layout">  <!-- [10/01 유해성] 목록 + 오른쪽 사이드바 -->
     <div class="board-wrap">
         <div class="board-top">
             <h2>커뮤니티</h2>
-            <button class="btn-write" onclick="location.href='/community/write'">✏️ 글쓰기</button>
+            <button class="btn-write" onclick="goWrite()">✏️ 글쓰기</button>
+        </div>
+
+        <!-- [10/01 유해성] 말머리 탭 -->
+        <div class="board-tabs" id="board-tabs">
+            <button class="active" data-cat="">전체</button>
+            <button data-cat="공지">공지</button>
+            <button data-cat="자유">자유</button>
+            <button data-cat="질문">질문</button>
+            <button data-cat="꿀팁">꿀팁</button>
+            <button data-cat="요청">요청</button>
         </div>
 
         <div class="board-toolbar">
@@ -47,6 +60,7 @@
                     <option value="content">내용</option>
                     <option value="author">작성자</option>
                     <option value="comment">댓글</option>
+                    <option value="tag">태그</option>
                 </select>
                 <input type="text" id="keyword" placeholder="검색어를 입력하세요">
                 <button onclick="search()">검색</button>
@@ -57,6 +71,31 @@
         <div id="board-empty" class="board-empty" style="display:none;">등록된 글이 없습니다.</div>
         <div class="board-pagination" id="pagination"></div>
     </div>
+
+    <!-- [10/01 유해성] 오른쪽 사이드바 -->
+    <aside class="board-side">
+        <!-- 내 활동 (로그인 여부에 따라 내용이 바뀜) -->
+        <div class="side-card side-me" id="side-me"></div>
+        <div class="side-card">
+            <h3>❤️ 좋아요 인기글</h3>
+            <ol class="side-rank" id="side-popular"><li class="side-empty">불러오는 중...</li></ol>
+        </div>
+        <div class="side-card">
+            <h3>📢 공지사항 <a class="side-more" href="/notices">더보기 ›</a></h3>
+            <ul class="side-notice" id="side-notices"><li class="side-empty">불러오는 중...</li></ul>
+        </div>
+        <div class="side-card side-tip">
+            <h3>♻️ 오늘의 여행 매너 <button class="side-more" id="tip-next" type="button">다음 ›</button></h3>
+            <p id="side-tip"></p>
+        </div>
+        <div class="side-card">
+            <div class="side-links">
+                <a href="/map"><span>🗑️</span>근처 쓰레기통</a>
+                <a href="/reviews"><span>🍜</span>맛집 리뷰</a>
+            </div>
+        </div>
+    </aside>
+  </div>
 </main>
 
 <footer class="footer">
@@ -76,10 +115,51 @@
 </footer>
 
 <script>
+// [09/30 유해성] 비로그인이면 글쓰기 대신 로그인 페이지로
+async function goWrite() {
+    try {
+        const res = await fetch('/api/reviews/current-user', { cache: 'no-store' });
+        const u = res.ok ? await res.json() : { loggedIn: false };
+        if (!u.loggedIn) {
+            alert('로그인한 회원만 글을 쓸 수 있습니다.');
+            location.href = '/login?returnUrl=' + encodeURIComponent(location.pathname + location.search);   // [10/01 유해성] 로그인 후 커뮤니티로 복귀
+            return;
+        }
+    } catch (e) { /* 확인 실패 시 글쓰기 화면에서 한 번 더 확인 */ }
+    // [10/01 유해성] 보고 있던 말머리 탭으로 글쓰기 시작
+    location.href = currentCategory && currentCategory !== '공지'
+        ? '/community/write?category=' + encodeURIComponent(currentCategory)
+        : '/community/write';
+}
+
 let currentPage = 0;
 let currentKeyword = '';
 let currentField = 'all';   // [09/30 유해성] 검색 범위
-const FIELD_LABEL = { all: '전체', title: '제목', content: '내용', author: '작성자', comment: '댓글' };
+const FIELD_LABEL = { all: '전체', title: '제목', content: '내용', author: '작성자', comment: '댓글', tag: '태그' };
+let currentCategory = '';   // [10/01 유해성] 말머리 탭 ('' = 전체)
+
+// [10/01 유해성] 말머리 탭 클릭
+document.querySelectorAll('#board-tabs button').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('#board-tabs button').forEach(b => b.classList.toggle('active', b === btn));
+        currentCategory = btn.dataset.cat;
+        currentPage = 0;
+        loadPosts();
+    });
+});
+
+// [10/01 유해성] 말머리 / 요청 상태 / 비공개 배지
+function badgesHtml(p) {
+    const parts = [];
+    if (p.category && p.category !== '자유') {
+        parts.push(`<span class="badge badge-cat cat-${p.category}">${p.category === '공지' ? '📌 공지' : escapeHtml(p.category)}</span>`);
+    }
+    if (p.category === '요청' && p.status) {
+        parts.push(`<span class="badge badge-status st-${p.status}">${escapeHtml(p.status)}</span>`);
+    }
+    if (p.privateRequest) parts.push('<span class="badge badge-status">🔒 비공개</span>');
+    return parts.join('');
+}
 
 function search() {
     currentKeyword = document.getElementById('keyword').value.trim();
@@ -104,6 +184,7 @@ async function loadPosts() {
         url.searchParams.set('keyword', currentKeyword);
         url.searchParams.set('field', currentField);
     }
+    if (currentCategory) url.searchParams.set('category', currentCategory);
 
     try {
         const res = await fetch(url);
@@ -116,7 +197,7 @@ async function loadPosts() {
             // [09/30 유해성] 검색 중이면 검색 결과 없음 안내
             emptyEl.textContent = currentKeyword
                 ? `[${FIELD_LABEL[currentField]}] '${currentKeyword}' 검색 결과가 없습니다.`
-                : '등록된 글이 없습니다.';
+                : (currentCategory ? '이 말머리에 등록된 글이 없습니다.' : '등록된 글이 없습니다.');
             emptyEl.style.display = 'block';
             pagerEl.innerHTML = '';
             return;
@@ -126,11 +207,15 @@ async function loadPosts() {
         listEl.innerHTML = posts.map(p => {
             const tags = (p.tags || []).map(t => `<span class="board-tag">${escapeHtml(t)}</span>`).join('');
             const dateStr = p.createdAt ? p.createdAt.substring(0, 10) : '';
+            const badges = badgesHtml(p);
+            const itemClass = 'board-item' + (p.pinned ? ' pinned' : '') + (p.hidden ? ' hidden-post' : '');
+            const adminBadge = p.authorAdmin ? '<span class="badge badge-admin">관리자</span>' : '';
             return `
-            <div class="board-item" onclick="location.href='/community/${p.postId}'">
+            <div class="${itemClass}" onclick="location.href='/community/${p.postId}'">
+                ${badges ? `<div class="board-badges">${badges}</div>` : ''}
                 ${tags ? `<div class="board-tags">${tags}</div>` : ''}
                 <p class="board-item-title">${escapeHtml(p.title)}</p>
-                <div class="board-item-meta">by ${escapeHtml(p.authorName ?? ('회원' + (p.userId ?? '')))} | ${dateStr} | 조회수 ${p.viewCount ?? 0} | 댓글 ${p.commentCount ?? 0}</div>
+                <div class="board-item-meta">by ${escapeHtml(p.authorName ?? ('회원' + (p.userId ?? '')))}${adminBadge} | ${dateStr} | 조회수 ${p.viewCount ?? 0} | 댓글 ${p.commentCount ?? 0} | ❤️ ${p.likeCount ?? 0}</div>
             </div>`;
         }).join('');
 
@@ -164,7 +249,97 @@ function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 }
 
+// ── [10/01 유해성] 오른쪽 사이드바 ──
+async function loadSidebar() {
+    try {
+        const res = await fetch('/api/community/sidebar', { cache: 'no-store' });
+        if (!res.ok) throw new Error('failed');
+        const d = await res.json();
+
+        const popular = d.popular || [];
+        document.getElementById('side-popular').innerHTML = popular.length
+            ? popular.map((p, i) => `
+                <li onclick="location.href='/community/${p.postId}'">
+                    <span class="num">${i + 1}</span>
+                    <span class="side-title">${escapeHtml(p.title)}</span>
+                    <span class="side-sub">❤️ ${p.likeCount ?? 0}</span>
+                </li>`).join('')
+            : '<li class="side-empty">아직 좋아요를 받은 글이 없어요.</li>';
+
+        renderMe(d);
+    } catch (e) {
+        document.getElementById('side-popular').innerHTML = '<li class="side-empty">불러오지 못했어요.</li>';
+        renderMe({});
+    }
+}
+
+// 내 활동 카드: 로그인했으면 내 글·댓글 수, 아니면 로그인 안내
+async function renderMe(d) {
+    const el = document.getElementById('side-me');
+    let u = { loggedIn: false };
+    try {
+        const res = await fetch('/api/reviews/current-user', { cache: 'no-store' });
+        if (res.ok) u = await res.json();
+    } catch (e) { /* 비로그인으로 표시 */ }
+
+    if (!u.loggedIn) {
+        el.innerHTML = `
+            <div class="side-me-hello">👋 반가워요!</div>
+            <p class="side-me-text">로그인하고 여행 이야기에 참여해 보세요.</p>
+            <a class="side-me-btn" href="/login?returnUrl=%2Fcommunity">로그인</a>`;
+        return;
+    }
+    el.innerHTML = `
+        <div class="side-me-hello">👋 ${escapeHtml(u.name || '회원')}님</div>
+        <div class="side-me-stats">
+            <div><b>${d.myPostCount ?? 0}</b><span>내 글</span></div>
+            <div><b>${d.myCommentCount ?? 0}</b><span>내 댓글</span></div>
+        </div>
+        <button class="side-me-btn" type="button" onclick="goWrite()">✏️ 글쓰기</button>`;
+}
+
+// 공지사항 최신 3개 (공지 담당 API 읽기만)
+async function loadNotices() {
+    const el = document.getElementById('side-notices');
+    try {
+        const res = await fetch('/api/notices');
+        if (!res.ok) throw new Error('failed');
+        const list = (await res.json()).slice(0, 3);
+        el.innerHTML = list.length
+            ? list.map(n => `
+                <li onclick="location.href='/notices'">
+                    <span class="side-title">${escapeHtml(n.title)}</span>
+                    <span class="side-sub">${escapeHtml(String(n.createdAt || '').substring(5, 10))}</span>
+                </li>`).join('')
+            : '<li class="side-empty">공지가 없어요.</li>';
+    } catch (e) {
+        el.innerHTML = '<li class="side-empty">불러오지 못했어요.</li>';
+    }
+}
+
+// 여행 매너 팁 (고정 문구, "다음" 으로 넘기기)
+const TIPS = [
+    '일본은 길에 쓰레기통이 적어요. 작은 비닐봉투를 챙겨 다니면 편해요.',
+    '편의점 쓰레기통은 그 가게에서 산 물건 위주로 버리는 게 매너예요.',
+    '페트병은 뚜껑과 라벨을 떼고, 병은 헹궈서 버려요.',
+    '자판기 옆 수거함은 캔·페트병 전용이에요. 다른 쓰레기는 넣지 마세요.',
+    '걸으면서 먹는 건 실례로 보일 수 있어요. 가게 앞에서 먹고 가요.',
+    '숙소 쓰레기는 가연·불연·자원으로 나눠 버려요.',
+    '지도에서 가까운 쓰레기통을 미리 확인해 두면 여행이 편해져요.'
+];
+let tipIndex = Math.floor(Math.random() * TIPS.length);
+function showTip() {
+    document.getElementById('side-tip').textContent = TIPS[tipIndex];
+}
+document.getElementById('tip-next').addEventListener('click', () => {
+    tipIndex = (tipIndex + 1) % TIPS.length;
+    showTip();
+});
+
 loadPosts();
+loadSidebar();
+loadNotices();
+showTip();
 </script>
 </body>
 </html>

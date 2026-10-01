@@ -6,6 +6,8 @@
     <title>리뷰 상세 | BinGo Map</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/reviews/reviews.css">
+    <!-- [10/01 유해성] 헤더 로그인 상태(이름님/로그아웃/관리자 페이지) 표시 -->
+    <script src="/js/header-auth.js"></script>
 </head>
 <body>
 <header class="header">
@@ -58,6 +60,11 @@
 
 <script>
 const reviewId = location.pathname.split('/').pop();
+
+// [09/30 유해성] 로그인 정보 (작성자 본인 / 관리자만 삭제 버튼 보이기)
+const loginReady = fetch('/api/reviews/current-user', { cache: 'no-store' })
+    .then(res => res.ok ? res.json() : { loggedIn: false })
+    .catch(() => ({ loggedIn: false }));
 const card = document.getElementById('detail-card');
 
 const purposeLabel = { '데이트':'데이트','여행':'여행','가족외식':'가족외식','친구모임':'친구모임','기타':'기타' };
@@ -72,6 +79,8 @@ async function loadReview() {
         const res = await fetch(`/api/reviews/${reviewId}`);
         if (!res.ok) throw new Error('not found');
         const r = await res.json();
+        const u = await loginReady;
+        r.canEdit = u.loggedIn && (u.role === 'ADMIN' || String(u.userId) === String(r.userId));
         render(r);
     } catch (e) {
         card.innerHTML = '<p style="text-align:center;color:#999;">리뷰를 찾을 수 없습니다.</p>';
@@ -113,13 +122,14 @@ function render(r) {
         <button class="helpful-btn" id="helpful-btn" style="font-size:13px;padding:9px 16px;">
             👍 도움이 돼요 <span id="help-count">${r.helpCount ?? 0}</span>
         </button>
-        <button id="delete-btn" style="float:right;font-size:13px;padding:9px 16px;border:1px solid #e2e2e2;background:#fff;border-radius:14px;color:#e05a5a;cursor:pointer;">
+        ${r.canEdit ? `<button id="delete-btn" style="float:right;font-size:13px;padding:9px 16px;border:1px solid #e2e2e2;background:#fff;border-radius:14px;color:#e05a5a;cursor:pointer;">
             🗑 삭제
-        </button>
+        </button>` : ''}
     `;
 
     document.getElementById('helpful-btn').addEventListener('click', markHelpful);
-    document.getElementById('delete-btn').addEventListener('click', deleteReview);
+    const deleteBtn = document.getElementById('delete-btn');
+    if (deleteBtn) deleteBtn.addEventListener('click', deleteReview);
 }
 
 async function deleteReview() {
@@ -129,6 +139,8 @@ async function deleteReview() {
     btn.disabled = true;
     try {
         const res = await fetch(`/api/reviews/${reviewId}`, { method: 'DELETE' });
+        if (res.status === 401) { alert('로그인이 필요합니다.'); location.href = '/login'; return; }
+        if (res.status === 403) { alert('본인이 작성한 리뷰만 삭제할 수 있습니다.'); btn.disabled = false; return; }
         if (!res.ok) throw new Error('failed');
         alert('삭제되었습니다.');
         location.href = '/reviews';
