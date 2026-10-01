@@ -30,7 +30,7 @@
     </div>
 </header>
 
-<main>
+<main id="reviewWriteMain" style="display:none;">
     <div class="review-wrap" style="max-width:560px;">
         <a class="back-link" href="/reviews">‹ 리뷰 목록</a>
         <div class="review-top"><h2>리뷰 작성</h2></div>
@@ -117,10 +117,27 @@
 </footer>
 
 <script>
-const DEMO_USER_ID = 1;
-
 const params = new URLSearchParams(location.search);
 const restaurantId = params.get('restaurantId') || '';
+const writePath = `${location.pathname}${location.search}`;
+
+async function requireLoginForReview() {
+    try {
+        const response = await fetch('/api/reviews/current-user', { cache: 'no-store' });
+        if (!response.ok) throw new Error('login status unavailable');
+        const user = await response.json();
+        if (!user.loggedIn) {
+            location.replace(`/login?returnUrl=${encodeURIComponent(writePath)}`);
+            return false;
+        }
+        document.getElementById('reviewWriteMain').style.display = '';
+        return true;
+    } catch (error) {
+        console.error(error);
+        location.replace(`/login?returnUrl=${encodeURIComponent(writePath)}`);
+        return false;
+    }
+}
 
 async function loadRestaurant() {
     const nameEl = document.getElementById('restaurant-name');
@@ -146,7 +163,9 @@ async function loadRestaurant() {
     }
 }
 
-loadRestaurant();
+requireLoginForReview().then(isLoggedIn => {
+    if (isLoggedIn) loadRestaurant();
+});
 
 let rating = 0;
 const starPicker = document.getElementById('star-picker');
@@ -226,7 +245,6 @@ form.addEventListener('submit', async (e) => {
     if (!contentEl.value.trim()) { alert('리뷰 내용을 입력해주세요.'); return; }
 
     const reviewData = {
-        userId: DEMO_USER_ID,
         restaurantId: Number(restaurantId),
         rating: rating,
         content: contentEl.value.trim(),
@@ -247,7 +265,7 @@ form.addEventListener('submit', async (e) => {
         const res = await fetch('/api/reviews', { method: 'POST', body: formData });
         if (!res.ok) throw new Error('failed');
         const created = await res.json();
-        location.href = `/reviews/${created.reviewId}`;
+        location.href = `/reviews/restaurant/${encodeURIComponent(restaurantId)}`;
     } catch (err) {
         alert('리뷰 등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
         submitBtn.disabled = false;

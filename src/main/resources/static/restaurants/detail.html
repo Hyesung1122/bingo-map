@@ -94,8 +94,8 @@
                 <a id="directionsLink" href="#" class="btn btn-outline-success btn-sm flex-fill d-flex align-items-center justify-content-center gap-1 py-2 fw-semibold text-decoration-none">
                     <i class="bi bi-signpost-split"></i> 길찾기
                 </a>
-                <a id="callLink" href="#" class="btn btn-outline-success btn-sm flex-fill d-flex align-items-center justify-content-center gap-1 py-2 fw-semibold">
-                    <i class="bi bi-telephone"></i> 전화하기
+                <a id="reviewLink" href="#" class="btn btn-outline-success btn-sm flex-fill d-flex align-items-center justify-content-center gap-1 py-2 fw-semibold text-decoration-none">
+                    <i class="bi bi-chat-left-text"></i> 리뷰
                 </a>
                 <button type="button" onclick="shareCurrentPage()" class="btn btn-outline-success btn-sm flex-fill d-flex align-items-center justify-content-center gap-1 py-2 fw-semibold">
                     <i class="bi bi-share"></i> 공유하기
@@ -202,8 +202,8 @@
             link.innerText = r.websiteUrl;
         }
 
-        const phone = r.phone || '+81662115512';
-        document.getElementById('callLink').href = 'tel:' + phone;
+        const restaurantId = r.restaurantId;
+        document.getElementById('reviewLink').href = `/reviews/restaurant/${encodeURIComponent(restaurantId)}`;
         document.getElementById('directionsLink').href = `/map/map.html?lat=${r.latitude}&lon=${r.longitude}&name=${encodeURIComponent(r.name)}&route=true`;
         document.getElementById('mapLink').href = `/map/map.html?lat=${r.latitude}&lon=${r.longitude}&name=${encodeURIComponent(r.name)}`;
 

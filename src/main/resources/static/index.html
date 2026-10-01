@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- 타임리프(Thymeleaf) 문법을 쓰겠다고 선언합니다 -->
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="ko">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -116,42 +116,14 @@
       <a href="/restaurants">더보기 <span>›</span></a>
     </div>
 
-    <div class="restaurant-grid">
-      <!--
-        [DB 반복문(Loop) 카드]
-        - th:each="store : ${popularRestaurants}"
-          : 서버가 컨트롤러에서 넘겨준 맛집 목록(최대 5개) 개수만큼 카드를 자동으로 복제해 화면에 뿌립니다.
-        - th:href="@{/restaurants/detail(id=${store.id})}"
-          : 카드를 클릭하면 식당의 고유번호(예: id=1, id=2)를 달고 상세 페이지로 자동 이동합니다.
-      -->
-      <a class="restaurant-card"
-         th:each="store : ${popularRestaurants}"
-         th:href="@{/restaurants/detail(id=${store.id})}">
-
-        <!-- [매장 대표 사진]: DB에 사진이 없으면 기본 타코야끼 이미지 출력 -->
-        <img th:src="${store.mainImageUrl != null ? store.mainImageUrl : '/images/food-takoyaki.png'}"
-             th:alt="${store.name}">
-
-        <div class="restaurant-info">
-          <!-- [식당 이름]: DB의 NAME 컬럼 데이터 출력 -->
-          <h3 th:text="${store.name}">식당 이름</h3>
-
-          <!-- [한 줄 소개]: DB의 DESCRIPTION 컬럼 데이터 출력 -->
-          <p th:text="${store.description}">겉은 바삭, 속은 촉촉!</p>
-
-          <!-- [별점 평점 및 거리 정보]: DB의 RATING 컬럼 데이터 출력 -->
-          <div class="meta">
-            <span th:text="'★ ' + ${store.rating != null ? store.rating : '0.0'}">★ 4.6</span>
-            <em>320m</em>
-          </div>
+    <div class="popular-carousel" id="popularCarousel">
+      <button class="popular-nav" id="popularPrev" type="button" aria-label="이전 인기 맛집">‹</button>
+      <div class="popular-viewport">
+        <div class="restaurant-grid" id="popularRestaurantGrid" aria-live="polite">
+          <p class="restaurant-grid-message">인기 맛집을 불러오는 중입니다.</p>
         </div>
-      </a>
-
-      <!-- [데이터가 없을 때 예외 처리]: DB에 등록된 식당이 0개일 때만 아래 문구가 나옵니다 -->
-      <p class="text-secondary small py-3"
-         th:if="${popularRestaurants == null || #lists.isEmpty(popularRestaurants)}">
-        등록된 맛집 정보가 없습니다.
-      </p>
+      </div>
+      <button class="popular-nav" id="popularNext" type="button" aria-label="다음 인기 맛집">›</button>
     </div>
   </section>
 
@@ -190,5 +162,85 @@
     <a class="top-btn" href="#">↑<small>TOP</small></a>
   </div>
 </footer>
+<script>
+  const popularGrid = document.getElementById('popularRestaurantGrid');
+  const popularPrev = document.getElementById('popularPrev');
+  const popularNext = document.getElementById('popularNext');
+  let popularRestaurants = [];
+  let carouselStartIndex = 0;
+
+  const escapeRestaurantText = (value) => String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  })[char]);
+
+  function visiblePopularCount() {
+    return window.matchMedia('(max-width: 700px)').matches ? 2 : 5;
+  }
+
+  function renderPopularRestaurants() {
+    if (!popularRestaurants.length) return;
+    const visibleCount = Math.min(visiblePopularCount(), popularRestaurants.length);
+    const hasMoreThanOnePage = popularRestaurants.length > visibleCount;
+    popularPrev.disabled = !hasMoreThanOnePage;
+    popularNext.disabled = !hasMoreThanOnePage;
+
+    const visibleRestaurants = Array.from({ length: visibleCount }, (_, offset) => {
+      const rankIndex = (carouselStartIndex + offset) % popularRestaurants.length;
+      return { restaurant: popularRestaurants[rankIndex], rank: rankIndex + 1 };
+    });
+    popularGrid.innerHTML = visibleRestaurants.map(({ restaurant, rank }) => {
+      const id = encodeURIComponent(restaurant.restaurantId);
+      const image = restaurant.mainImageUrl || '/images/restaurant-banner.png';
+      const title = escapeRestaurantText(restaurant.name || '이름 미등록 맛집');
+      const description = escapeRestaurantText(restaurant.description || restaurant.category || '테이크아웃 맛집');
+      const count = Number(restaurant.reviewCount || 0);
+      const rating = Number(restaurant.rating || 0);
+      const hasReviews = count > 0 && restaurant.rating != null;
+      const badge = hasReviews ? '리뷰 평점순' : '등록 순서';
+      const ratingText = hasReviews ? `★ ${rating.toFixed(1)} · 리뷰 ${count}` : '아직 리뷰가 없어요';
+      return `<a class="restaurant-card" href="/restaurants/detail?id=${id}">
+        <img src="${escapeRestaurantText(image)}" alt="${title}" loading="lazy" onerror="this.src='/images/restaurant-banner.png'">
+        <div class="restaurant-info">
+          <span class="restaurant-rank-badge">${rank}위</span>
+          <span class="restaurant-popular-badge">${badge}</span>
+          <h3>${title}</h3>
+          <p>${description}</p>
+          <div class="meta"><span>${ratingText}</span><em>상세 보기 ›</em></div>
+        </div>
+      </a>`;
+    }).join('');
+  }
+
+  popularPrev.addEventListener('click', () => {
+    if (!popularRestaurants.length) return;
+    carouselStartIndex = (carouselStartIndex - 1 + popularRestaurants.length) % popularRestaurants.length;
+    renderPopularRestaurants();
+  });
+  popularNext.addEventListener('click', () => {
+    if (!popularRestaurants.length) return;
+    carouselStartIndex = (carouselStartIndex + 1) % popularRestaurants.length;
+    renderPopularRestaurants();
+  });
+  window.addEventListener('resize', renderPopularRestaurants);
+
+  fetch('/api/restaurants/popular')
+    .then(response => {
+      if (!response.ok) throw new Error('popular restaurants unavailable');
+      return response.json();
+    })
+    .then(restaurants => {
+      if (!Array.isArray(restaurants) || restaurants.length === 0) {
+        popularGrid.innerHTML = '<p class="restaurant-grid-message">등록된 맛집 정보가 없습니다.</p>';
+        return;
+      }
+
+      popularRestaurants = restaurants.slice(0, 10);
+      renderPopularRestaurants();
+    })
+    .catch(error => {
+      console.error(error);
+      popularGrid.innerHTML = '<p class="restaurant-grid-message">맛집 정보를 불러오지 못했습니다. 잠시 후 다시 확인해주세요.</p>';
+    });
+</script>
 </body>
 </html>
