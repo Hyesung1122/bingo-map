@@ -53,18 +53,17 @@ public class CommunityCommentService {
     public void delete(Long commentId, Long loginUserId, boolean admin) {
         CommunityComment comment = repository.findById(commentId)
                 .orElseThrow(() -> new EntityNotFoundException("댓글을 찾을 수 없습니다. id=" + commentId));
+        // [09/30 유해성] 댓글 작성자 본인 또는 관리자만
         CommunityPostService.checkCanModify(comment.getUserId(), loginUserId, admin, "댓글");
         repository.delete(comment);
     }
 
-    private CommentResponseDto toDto(CommunityComment comment) {
-        CommentResponseDto dto = new CommentResponseDto(comment);
-        User author = comment.getUserId() == null
-                ? null
-                : userRepository.findById(comment.getUserId()).orElse(null);
-        dto.setAuthorName(author != null
-                ? CommunityPostService.displayName(author)
-                : comment.getUserId() == null ? "알 수 없음" : "회원" + comment.getUserId());
+    private CommentResponseDto toDto(CommunityComment c) {
+        CommentResponseDto dto = new CommentResponseDto(c);
+        User author = c.getUserId() == null ? null : userRepository.findById(c.getUserId()).orElse(null);
+        dto.setAuthorName(author != null ? CommunityPostService.displayName(author)
+                : c.getUserId() == null ? "알 수 없음" : "회원" + c.getUserId());
+        // [10/01 유해성] 관리자 댓글 배지
         dto.setAuthorAdmin(author != null && "ADMIN".equals(author.getRole()));
         return dto;
     }
