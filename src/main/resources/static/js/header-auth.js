@@ -14,6 +14,9 @@
  * 모든 페이지 <body> 하단에 <script src="/js/header-auth.js"></script> 를 넣어서 사용한다.
  */
 document.addEventListener("DOMContentLoaded", function () {
+    renderSharedHeader();
+    renderSharedFooter();
+
     // 점검 모드 배너 표시
     fetch("/api/settings/public")
         .then((res) => res.json())
@@ -29,10 +32,10 @@ document.addEventListener("DOMContentLoaded", function () {
     fetch("/api/session")
         .then((res) => res.json())
         .then((data) => {
-            const actions = document.querySelector(".header-actions");
+            const actions = document.querySelector(".site-header__actions");
             if (!actions) return;
 
-            const loginLink = actions.querySelector("a.login");
+            const loginLink = actions.querySelector("a.site-header__login");
             if (!data.loggedIn || !loginLink) return;
 
             // "로그인" 버튼 -> "{이름}님" 텍스트로 변경, 마이페이지로 이동하는 링크로 만듦
@@ -42,7 +45,7 @@ document.addEventListener("DOMContentLoaded", function () {
             // 로그아웃 버튼 추가
             const logoutLink = document.createElement("a");
             logoutLink.href = "/logout";
-            logoutLink.className = "language";
+            logoutLink.className = "site-header__aux";
             logoutLink.textContent = "로그아웃";
             loginLink.after(logoutLink);
 
@@ -50,14 +53,14 @@ document.addEventListener("DOMContentLoaded", function () {
             if (data.role === "ADMIN") {
                 const adminLink = document.createElement("a");
                 adminLink.href = "/admin";
-                adminLink.className = "language";
+                adminLink.className = "site-header__aux";
                 adminLink.textContent = "관리자 페이지";
                 loginLink.after(adminLink);
                 startAdminReportAlert(adminLink);
             }
 
             // 메뉴 바(nav)에도 "마이페이지"를 추가 (비회원에게는 애초에 추가하지 않음)
-            const nav = document.querySelector(".header .nav");
+            const nav = document.querySelector(".site-header__nav");
             if (nav && !nav.querySelector('a[href="/mypage"]')) {
                 const mypageNavLink = document.createElement("a");
                 mypageNavLink.href = "/mypage";
@@ -69,6 +72,99 @@ document.addEventListener("DOMContentLoaded", function () {
             // 세션 확인 실패 시 기존 "로그인" 버튼 그대로 둠
         });
 });
+
+/** 모든 페이지에서 같은 상단 로고와 메뉴를 사용합니다. */
+function renderSharedHeader() {
+    const previousHeader = document.querySelector("body > header");
+    if (!previousHeader || previousHeader.dataset.sharedHeader === "true") return;
+
+    // 주변 맛집 페이지와 동일한 Bootstrap 쓰레기통 아이콘을 공통 헤더에서 사용합니다.
+    if (!document.querySelector('link[href*="bootstrap-icons"]')) {
+        const iconStylesheet = document.createElement("link");
+        iconStylesheet.rel = "stylesheet";
+        iconStylesheet.href = "https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css";
+        document.head.appendChild(iconStylesheet);
+    }
+
+    const path = window.location.pathname;
+    const navItems = [
+        ["home", "홈", "/"],
+        ["map", "지도", "/map"],
+        ["restaurants", "주변 맛집", "/restaurants"],
+        ["favorites", "즐겨찾기", "/favorites"],
+        ["reviews", "리뷰", "/reviews"],
+        ["community", "커뮤니티", "/community"],
+        ["notices", "공지사항", "/notices"]
+    ];
+    const activeKey = path === "/" ? "home"
+        : path.startsWith("/map") ? "map"
+        : path.startsWith("/restaurants") ? "restaurants"
+        : path.startsWith("/favorites") ? "favorites"
+        : path.startsWith("/reviews") ? "reviews"
+        : path.startsWith("/community") ? "community"
+        : path.startsWith("/notices") ? "notices"
+        : path.startsWith("/mypage") ? "mypage"
+        : null;
+
+    const header = document.createElement("header");
+    header.className = "site-header";
+    header.dataset.sharedHeader = "true";
+
+    const inner = document.createElement("div");
+    inner.className = "site-header__inner";
+    if (path === "/") inner.classList.add("site-header__inner--with-translation");
+
+    const brand = document.createElement("a");
+    brand.className = "site-header__brand";
+    brand.href = "/";
+    brand.setAttribute("aria-label", "BinGo Map 홈");
+    brand.innerHTML = '<i class="bi bi-trash3-fill site-brand__trash" aria-hidden="true"></i><span class="site-header__brand-copy"><strong>BinGo Map</strong><small>Clean &amp; Gourmet</small></span>';
+
+    const nav = document.createElement("nav");
+    nav.className = "site-header__nav";
+    nav.setAttribute("aria-label", "주 메뉴");
+    navItems.forEach(function (item) {
+        const link = document.createElement("a");
+        link.href = item[2];
+        link.textContent = item[1];
+        if (item[0] === activeKey) link.setAttribute("aria-current", "page");
+        nav.appendChild(link);
+    });
+
+    const actions = document.createElement("div");
+    actions.className = "site-header__actions";
+    const login = document.createElement("a");
+    login.className = "site-header__login";
+    login.href = "/login";
+    login.textContent = "로그인";
+    actions.appendChild(login);
+
+    inner.append(brand, nav, actions);
+    if (path === "/") {
+        const translationNote = document.createElement("div");
+        translationNote.className = "site-header__translation-note";
+        translationNote.setAttribute("aria-label", "Chrome 번역 안내");
+        translationNote.innerHTML = '<span>영어·일본어는 Chrome 메뉴에서 ‘번역’을 선택해 주세요.</span><span lang="en">English: Choose “Translate” in Chrome.</span><span lang="ja">日本語：Chromeのメニューから「翻訳」を選択してください。</span>';
+        inner.appendChild(translationNote);
+    }
+
+    header.appendChild(inner);
+    previousHeader.replaceWith(header);
+}
+
+/** 푸터 로고도 헤더와 같은 Bootstrap 쓰레기통 아이콘으로 맞춥니다. */
+function renderSharedFooter() {
+    const footerBrand = document.querySelector("footer .footer-brand");
+    if (!footerBrand) return;
+
+    const oldIcon = footerBrand.querySelector(".logo-mark, .site-header__trash, .site-brand__trash");
+    if (!oldIcon) return;
+
+    const icon = document.createElement("i");
+    icon.className = "bi bi-trash3-fill site-brand__trash";
+    icon.setAttribute("aria-hidden", "true");
+    oldIcon.replaceWith(icon);
+}
 
 /**
  * 관리자 알림: 검수 대기(PENDING) 쓰레기통 제보 수를
