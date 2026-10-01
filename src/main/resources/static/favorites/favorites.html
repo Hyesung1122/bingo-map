@@ -6,7 +6,33 @@
     <title>즐겨찾기 | BinGo Map</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/favorites/favorites.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <script src="/js/header-auth.js"></script>
+
+    <style>
+        /* 즐겨찾기 카테고리별 썸네일 박스 */
+        .category-illust-box {
+            width: 58px;
+            height: 58px;
+            min-width: 58px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        }
+        .category-illust-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .category-illust-box i {
+            font-size: 1.7rem;
+        }
+    </style>
     <link rel="stylesheet" href="/css/site-header.css">
 </head>
 <body>
@@ -66,6 +92,134 @@
         <a class="top-btn" href="#favoritesTitle">↑<small>TOP</small></a>
     </div>
 </footer>
+
 <script src="/favorites/favorites.js" defer></script>
+
+<!-- 즐겨찾기 항목을 실제 카테고리별 일러스트로 표시 -->
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        // DB 카테고리 7종에 맞춘 테마 스타일 매핑
+        const categoryTheme = {
+            '카페': {
+                color: '#b45309', bg: '#fef3c7',
+                illustration: '<path d="M7 9h10v7a4 4 0 0 1-4 4h-2a4 4 0 0 1-4-4V9Z"/><path d="M17 11h2a2.5 2.5 0 0 1 0 5h-2M9 5c0 1 1 1 1 2M13 4c0 1 1 1 1 2"/>'
+            },
+            '일식': {
+                color: '#dc2626', bg: '#fee2e2',
+                illustration: '<g fill="currentColor" stroke="none"><ellipse cx="12" cy="6.2" rx="2.5" ry="4"/><ellipse cx="17.5" cy="10.2" rx="2.5" ry="4" transform="rotate(72 17.5 10.2)"/><ellipse cx="15.4" cy="17" rx="2.5" ry="4" transform="rotate(144 15.4 17)"/><ellipse cx="8.6" cy="17" rx="2.5" ry="4" transform="rotate(216 8.6 17)"/><ellipse cx="6.5" cy="10.2" rx="2.5" ry="4" transform="rotate(288 6.5 10.2)"/><circle cx="12" cy="12" r="2.1" fill="#f59e0b"/></g>'
+            },
+            '양식': {
+                color: '#2563eb', bg: '#dbeafe',
+                illustration: '<path d="M5 4v7M8 4v7M5 8h3M6.5 11v9M15 4c-2 3-2 6 0 8v8M15 12c3-1 4-4 4-8v16"/><path d="M11 6c-1 1-1 3 0 4s1 3 0 4" stroke="#f59e0b"/>'
+            },
+            '주점': {
+                color: '#0891b2', bg: '#cffafe',
+                illustration: '<path d="M6 8h10v10a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3V8Z"/><path d="M16 10h2.2a2.8 2.8 0 0 1 0 5.6H16"/><path d="M6 8c0-1.1.9-2 2-2 .4-1.3 1.5-2 2.7-1.5C11.6 3 14 3.4 14.8 5c1.4-.1 2.2 1.1 2.2 2.2 0 .3-.1.6-.2.8H6Z" fill="#fff"/><path d="M7.5 10h7v8.5a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V10Z" fill="#fbbf24" stroke="none"/><path d="M10 12v3M13 11v2" stroke="#fff7cc" stroke-width="1.2"/>'
+            },
+            '분식': {
+                color: '#ea580c', bg: '#ffedd5',
+                illustration: '<path d="M4 17h16l-2 3H6l-2-3Z"/><circle cx="8" cy="13" r="2.5" fill="#fbbf24"/><circle cx="14" cy="13" r="2.5" fill="#fbbf24"/><circle cx="11" cy="9" r="2.5" fill="#fbbf24"/><path d="M7.2 12.5h1.6M13.2 12.5h1.6M10.2 8.5h1.6" stroke="#7c2d12"/><path d="M17 5v5M16 5v2M18 5v2"/>'
+            },
+            '카레': {
+                color: '#ca8a04', bg: '#fef9c3',
+                illustration: '<path d="M4 13h16l-2 5a3 3 0 0 1-3 2H9a3 3 0 0 1-3-2l-2-5Z"/><path d="M6 11c2-2 3 2 5 0s3 2 7 0M9 8c-1-1 1-2 0-3M14 8c-1-1 1-2 0-3"/><circle cx="9" cy="15" r="1" fill="#65a30d" stroke="none"/><circle cx="15" cy="16" r="1" fill="#65a30d" stroke="none"/>'
+            },
+            '다이닝': {
+                color: '#7c3aed', bg: '#ede9fe',
+                illustration: '<path d="M12 3 14.5 9h6l-4.8 3.7 1.8 6L12 15l-5.5 3.7 1.8-6L3.5 9h6L12 3Z"/>'
+            },
+            '쓰레기통': {
+                color: '#16a34a', bg: '#dcfce7',
+                illustration: '<path d="M5 7h14M9 7V4h6v3M7 7l1 13h8l1-13M10 10v7M14 10v7"/>'
+            }
+        };
+
+        function illustrationSvg(theme) {
+            return `<svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:${theme.color}" aria-hidden="true">${theme.illustration}</svg>`;
+        }
+
+        function normalizeCategory(value) {
+            const category = String(value || '').trim();
+            if (category.includes('카페') || category.includes('디저트')) return '카페';
+            if (category.includes('일식') || category.includes('야키토리') || category.includes('스시') || category.includes('사시미') || category.includes('면 요리')) return '일식';
+            if (category.includes('양식') || category.includes('비스트로') || category.includes('스테이크')) return '양식';
+            if (category.includes('주점') || category.includes('이자카야') || category.includes('펍') || category.includes('바')) return '주점';
+            if (category.includes('분식') || category.includes('길거리')) return '분식';
+            if (category.includes('카레') || category.includes('커리') || category.includes('아시안')) return '카레';
+            if (category.includes('다이닝') || category.includes('코스')) return '다이닝';
+            return categoryTheme[category] ? category : '일식';
+        }
+
+        // 식당 ID로 실제 카테고리를 조회합니다. (캐시 적용)
+        const restaurantCache = {};
+        async function fetchRestaurantDetail(restaurantId) {
+            if (restaurantCache[restaurantId]) return restaurantCache[restaurantId];
+            try {
+                const res = await fetch(`/api/restaurants/${restaurantId}`);
+                if (!res.ok) return null;
+                const data = await res.json();
+                restaurantCache[restaurantId] = data;
+                return data;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        async function updateCardVisuals() {
+            const list = document.getElementById('favoritesList');
+            if (!list) return;
+
+            const cards = Array.from(list.children);
+            for (const card of cards) {
+                if (card.dataset.visualProcessed === 'true') continue;
+
+                const typeLabel = card.querySelector('.favorite-type');
+                const isWasteBin = typeLabel?.textContent.trim() === '쓰레기통';
+                const detailLink = card.querySelector('.favorite-name');
+                const idMatch = detailLink?.href.match(/[?&]id=(\d+)/);
+                const restaurantId = idMatch?.[1];
+                const oldIconBox = card.querySelector('.favorite-card-icon');
+
+                if (!oldIconBox) continue;
+
+                card.dataset.visualProcessed = 'true';
+
+                const newBox = document.createElement('div');
+                newBox.className = 'category-illust-box';
+
+                if (isWasteBin) {
+                    const theme = categoryTheme['쓰레기통'];
+                    newBox.style.backgroundColor = theme.bg;
+                    newBox.innerHTML = illustrationSvg(theme);
+                } else if (restaurantId) {
+                    const restData = await fetchRestaurantDetail(restaurantId);
+                    const category = normalizeCategory(restData?.category);
+                    const theme = categoryTheme[category];
+                    newBox.style.backgroundColor = theme.bg;
+                    newBox.innerHTML = illustrationSvg(theme);
+                    if (typeLabel && restData?.category) {
+                        typeLabel.textContent = category;
+                    }
+                } else {
+                    const theme = categoryTheme['일식'];
+                    newBox.style.backgroundColor = theme.bg;
+                    newBox.innerHTML = illustrationSvg(theme);
+                }
+
+                newBox.setAttribute('aria-hidden', 'true');
+                oldIconBox.replaceWith(newBox);
+            }
+        }
+
+        // 비동기 렌더링 감지
+        const targetList = document.getElementById('favoritesList');
+        if (targetList) {
+            const observer = new MutationObserver(() => {
+                updateCardVisuals();
+            });
+            observer.observe(targetList, { childList: true, subtree: true });
+        }
+    });
+</script>
 </body>
 </html>

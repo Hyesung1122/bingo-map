@@ -15,9 +15,83 @@
         .main-gallery-img { width: 100%; height: 380px; object-fit: cover; border-radius: 12px; background-color: #e9ecef; }
         .info-card { background: #fff; border-radius: 12px; padding: 24px; border: 1px solid #edf2f7; height: 100%; }
         .menu-thumb { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; background-color: #e9ecef; }
-        .recommend-card { background: #fff; border-radius: 12px; border: 1px solid #edf2f7; overflow: hidden; transition: transform 0.2s; text-decoration: none; color: inherit; display: block; }
-        .recommend-card:hover { transform: translateY(-3px); }
-        .recommend-img { width: 100%; height: 130px; object-fit: cover; }
+
+        /* 추천 맛집 카드 스타일 */
+        .recommend-card {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid #edf2f7;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+            width: 190px;
+            flex-shrink: 0;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+        .recommend-card img {
+            pointer-events: none; /* 드래그 시 이미지 잡힘 방지 */
+        }
+        .recommend-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .recommend-img { width: 100%; height: 120px; object-fit: cover; }
+
+        /* 수동 마우스 드래그 & 스크롤 컨테이너 */
+        .recommend-scroll-container {
+            position: relative;
+        }
+        .recommend-slider-wrapper {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            scroll-behavior: smooth;
+            padding: 8px 4px 14px 4px;
+            cursor: grab;
+            user-select: none;
+            -webkit-overflow-scrolling: touch;
+        }
+        .recommend-slider-wrapper.active {
+            cursor: grabbing;
+            scroll-behavior: auto; /* 드래그 중엔 지연 없이 바로 추적 */
+        }
+        /* 스크롤바 숨기기 (깔끔한 UI) */
+        .recommend-slider-wrapper::-webkit-scrollbar {
+            display: none;
+        }
+        .recommend-slider-wrapper {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* 좌우 이동 수동 버튼 */
+        .scroll-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #fff;
+            border: 1px solid #dee2e6;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            color: #333;
+            transition: background 0.2s, color 0.2s;
+        }
+        .scroll-btn:hover {
+            background: #198754;
+            color: #fff;
+            border-color: #198754;
+        }
+        .scroll-btn.prev { left: -14px; }
+        .scroll-btn.next { right: -14px; }
     </style>
     <link rel="stylesheet" href="/css/site-header.css">
 </head>
@@ -155,13 +229,18 @@
         </div>
     </div>
 
+    <!-- 주변 다른 맛집 추천 (수동 커서 드래그 & 스크롤) -->
     <div class="row mb-5">
         <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
                 <h5 class="fw-bold m-0">주변 다른 맛집 추천</h5>
                 <a id="moreLink" href="/restaurants" class="text-success small fw-semibold text-decoration-none">더 많은 맛집 보기 ></a>
             </div>
-            <div class="row g-3" id="recommendGrid"></div>
+            <div class="recommend-scroll-container">
+                <button type="button" class="scroll-btn prev" id="scrollPrev" aria-label="이전"><i class="bi bi-chevron-left"></i></button>
+                <div class="recommend-slider-wrapper" id="recommendGrid"></div>
+                <button type="button" class="scroll-btn next" id="scrollNext" aria-label="다음"><i class="bi bi-chevron-right"></i></button>
+            </div>
         </div>
     </div>
 </main>
@@ -210,6 +289,7 @@
         document.getElementById('directionsLink').href = `/map/map.html?lat=${r.latitude}&lon=${r.longitude}&name=${encodeURIComponent(r.name)}&route=true`;
         document.getElementById('mapLink').href = `/map/map.html?lat=${r.latitude}&lon=${r.longitude}&name=${encodeURIComponent(r.name)}`;
 
+        
         document.getElementById('menuImage').src = r.menuImageUrl || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=150&q=80';
         document.getElementById('menuName').innerText = r.menuName || '대표 메뉴';
         document.getElementById('menuDescription').innerText = r.menuDescription || '설명';
@@ -238,19 +318,70 @@
     function buildRecommendCardHtml(rec) {
         const image = rec.mainImageUrl || 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=200&q=80';
         return `
-            <div class="col-md-2 col-6">
-                <a class="recommend-card h-100" href="/restaurants/detail?id=${rec.restaurantId}">
-                    <img src="${image}" class="recommend-img" alt="가게">
-                    <div class="p-2">
-                        <span class="badge bg-warning text-dark" style="font-size: 0.65rem;">추천</span>
-                        <div class="fw-bold small text-dark mt-1 text-truncate">${escapeHtml(rec.name)}</div>
-                        <div class="d-flex align-items-center justify-content-between small text-muted mt-1" style="font-size: 0.75rem;">
-                            <span><i class="bi bi-star-fill text-warning"></i> ${rec.rating != null ? rec.rating : '4.0'}</span>
-                            <span class="text-success fw-semibold">${escapeHtml(rec.category || '')}</span>
-                        </div>
+            <a class="recommend-card" href="/restaurants/detail?id=${rec.restaurantId}">
+                <img src="${image}" class="recommend-img" alt="${escapeHtml(rec.name)}">
+                <div class="p-2">
+                    <span class="badge bg-warning text-dark" style="font-size: 0.65rem;">추천</span>
+                    <div class="fw-bold small text-dark mt-1 text-truncate">${escapeHtml(rec.name)}</div>
+                    <div class="d-flex align-items-center justify-content-between small text-muted mt-1" style="font-size: 0.75rem;">
+                        <span><i class="bi bi-star-fill text-warning"></i> ${rec.rating != null ? rec.rating : '4.0'}</span>
+                        <span class="text-success fw-semibold text-truncate ms-1">${escapeHtml(rec.category || '')}</span>
                     </div>
-                </a>
-            </div>`;
+                </div>
+            </a>`;
+    }
+
+    // 마우스 커서 드래그 앤 드롭 이동 이벤트 세팅
+    function setupDragScroll(slider) {
+        let isDown = false;
+        let startX;
+        let scrollLeft;
+        let isDragging = false;
+
+        slider.addEventListener('mousedown', (e) => {
+            isDown = true;
+            isDragging = false;
+            slider.classList.add('active');
+            startX = e.pageX - slider.offsetLeft;
+            scrollLeft = slider.scrollLeft;
+        });
+
+        slider.addEventListener('mouseleave', () => {
+            isDown = false;
+            slider.classList.remove('active');
+        });
+
+        slider.addEventListener('mouseup', () => {
+            isDown = false;
+            slider.classList.remove('active');
+        });
+
+        slider.addEventListener('mousemove', (e) => {
+            if (!isDown) return;
+            e.preventDefault();
+            const x = e.pageX - slider.offsetLeft;
+            const walk = (x - startX) * 1.5; // 드래그 감도 조절
+            if (Math.abs(walk) > 5) {
+                isDragging = true;
+            }
+            slider.scrollLeft = scrollLeft - walk;
+        });
+
+        // 드래그 중 실수로 카드 링크 클릭 방지
+        slider.addEventListener('click', (e) => {
+            if (isDragging) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }, true);
+
+        // 이전 / 다음 버튼 클릭 이벤트
+        document.getElementById('scrollPrev').addEventListener('click', () => {
+            slider.scrollBy({ left: -420, behavior: 'smooth' });
+        });
+        document.getElementById('scrollNext').addEventListener('click', () => {
+            slider.scrollBy({ left: 420, behavior: 'smooth' });
+        });
     }
 
     function setFavoriteButton(saved) {
@@ -361,14 +492,18 @@
             document.getElementById('detailMain').style.display = '';
             connectFavoriteButton(restaurant);
 
-            const nearbyRes = await fetch(`/api/restaurants/${id}/nearby?limit=4`);
+            // 주변 맛집 최대 10개 조회
+            const nearbyRes = await fetch(`/api/restaurants/${id}/nearby?limit=10`);
             const nearbyList = nearbyRes.ok ? await nearbyRes.json() : [];
             const grid = document.getElementById('recommendGrid');
 
             if (nearbyList.length === 0) {
-                grid.innerHTML = '<div class="col-12 text-muted small py-3">근처에 추천할 맛집이 없습니다.</div>';
+                grid.parentElement.innerHTML = '<div class="col-12 text-muted small py-3">근처에 추천할 맛집이 없습니다.</div>';
             } else {
-                grid.innerHTML = nearbyList.map(buildRecommendCardHtml).join('');
+                // 최대 10개만 정확히 렌더링
+                const limitedList = nearbyList.slice(0, 10);
+                grid.innerHTML = limitedList.map(buildRecommendCardHtml).join('');
+                setupDragScroll(grid);
             }
         } catch (err) {
             console.error(err);
