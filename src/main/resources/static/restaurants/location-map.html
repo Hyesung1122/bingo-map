@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>식당 위치 지도 | BinGo Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.css">
+    <link rel="stylesheet" href="/map/bingo-basemap.css">
+    <style>
+        html, body { height: 100%; margin: 0; }
+        body { font-family: system-ui, sans-serif; background: #f8f7f3; }
+        #map { width: 100%; height: 100%; }
+        #message { position: absolute; inset: 0; display: grid; place-items: center;
+            padding: 20px; text-align: center; color: #536273; background: #f8f7f3; z-index: 1000; }
+        #message[hidden] { display: none; }
+        .restaurant-location-marker { background: transparent; border: 0; }
+        .restaurant-location-pin { display: flex; align-items: center; justify-content: center;
+            box-sizing: border-box; width: 34px; height: 34px; border: 3px solid white;
+            border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+            background: #df7951; color: white; box-shadow: 0 2px 6px #0004; }
+        .restaurant-location-pin svg { transform: rotate(45deg); }
+        .leaflet-control-attribution { max-width: 100%; font-size: 10px; }
+        .leaflet-popup-content { margin: 10px 14px; overflow-wrap: anywhere; }
+        #map .bingo-basemap-status { top: 8px; left: 8px; padding: 8px; max-width: calc(100% - 90px); }
+    </style>
+</head>
+<body>
+<div id="map" aria-label="식당 위치 지도"></div>
+<div id="message" role="status">식당 위치를 불러오는 중입니다.</div>
+
+<!-- 본 지도와 같은 라이브러리/배경 설정을 재사용합니다. -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/maplibre-gl@5.6.2/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet@0.1.3/leaflet-maplibre-gl.js"></script>
+<script src="/map/bingo-basemap.js"></script>
+<script>
+(function () {
+    'use strict';
+    const host = document.getElementById('map');
+    const message = document.getElementById('message');
+    const query = new URLSearchParams(window.location.search);
+    const latText = (query.get('lat') || '').trim();
+    const lonText = (query.get('lon') || '').trim();
+    const lat = latText ? Number(latText) : NaN;
+    const lon = lonText ? Number(lonText) : NaN;
+    const name = (query.get('name') || '').trim() || '선택한 식당';
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+        message.textContent = '등록된 식당 좌표가 없어 위치를 표시할 수 없습니다.';
+        return;
+    }
+    if (!window.L || !window.BinGoBasemap) {
+        message.textContent = '지도를 불러오지 못했습니다. 잠시 후 새로고침해주세요.';
+        return;
+    }
+
+    let map;
+    try {
+        map = L.map(host, {zoomControl: false, scrollWheelZoom: false, minZoom: 3, maxZoom: 19})
+            .setView([lat, lon], 16);
+        L.control.zoom({position: 'topright'}).addTo(map);
+        const icon = L.divIcon({
+            className: 'restaurant-location-marker',
+            html: '<div class="restaurant-location-pin"><svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3v6a3 3 0 0 0 6 0V3M8 3v18M19 21V3c-4 3-4 9 0 9"/></svg></div>',
+            iconSize: [34, 42], iconAnchor: [17, 42], popupAnchor: [0, -38]
+        });
+        const label = document.createElement('strong');
+        label.textContent = name;
+        L.marker([lat, lon], {icon, title: name, alt: name + ' 위치', keyboard: true})
+            .addTo(map).bindPopup(label, {maxWidth: 220, maxHeight: 90});
+        host.setAttribute('aria-label', name + ' 위치 지도');
+        message.hidden = true;
+
+        // 기존 BinGoBasemap 설정을 함께 사용하므로 본 지도와 같은 배경이 표시됩니다.
+        Promise.resolve(BinGoBasemap.addTo(map)).catch(function (error) {
+            console.error('식당 위치 배경 지도 오류:', error);
+            message.textContent = '배경 지도를 불러오지 못했습니다. 잠시 후 새로고침해주세요.';
+            message.hidden = false;
+        });
+
+        // 상세 화면이 처음에 숨겨져 있어도 표시되는 시점에 지도 크기를 맞춥니다.
+        let shown = host.clientWidth > 0 && host.clientHeight > 0;
+        function resize() {
+            if (!host.clientWidth || !host.clientHeight) return;
+            map.invalidateSize({pan: false});
+            if (!shown) { map.setView([lat, lon], 16, {animate: false}); shown = true; }
+        }
+        if (window.ResizeObserver) new ResizeObserver(resize).observe(host);
+        window.addEventListener('resize', resize);
+        requestAnimationFrame(resize);
+    } catch (error) {
+        console.error('식당 위치 지도 초기화 실패:', error);
+        message.textContent = '지도를 불러오지 못했습니다. 잠시 후 새로고침해주세요.';
+        message.hidden = false;
+    }
+})();
+</script>
+</body>
+</html>
