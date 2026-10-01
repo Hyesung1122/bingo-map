@@ -123,6 +123,13 @@ public class Review {
         this.updatedAt = LocalDateTime.now();
     }
 
+    // [10/01 유해성] "도움이 돼요" 취소 (0 아래로는 안 내려감)
+    public void unmarkHelpful() {
+        int count = this.helpCount == null ? 0 : this.helpCount;
+        this.helpCount = Math.max(0, count - 1);
+        this.updatedAt = LocalDateTime.now();
+    }
+
     public void addImage(ReviewImage image) {
         images.add(image);
         image.setReview(this);

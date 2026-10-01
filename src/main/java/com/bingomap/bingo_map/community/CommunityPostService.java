@@ -144,39 +144,55 @@ public class CommunityPostService {
                     .collect(Collectors.toList());
         }
 
-        // [10/01 유해성] 관리자 공지를 맨 위로 (나머지는 최신순 그대로)
-        all = all.stream()
-                .sorted(Comparator.comparing((CommunityPost p) -> !isPinned(p, adminIds)))
+        // [10/01 유해성] 관리자 공지는 모든 페이지 맨 위에 고정.
+        // 페이지 나누기는 일반 글로만 하고, 각 페이지 앞에 공지를 붙임.
+        // (공지 탭처럼 전부 공지이거나 공지가 없으면 평소처럼 나눔)
+        List<CommunityPost> pinned = all.stream()
+                .filter(p -> isPinned(p, adminIds))
                 .collect(Collectors.toList());
+        List<CommunityPost> paged = (pinned.isEmpty() || pinned.size() == all.size())
+                ? all
+                : all.stream().filter(p -> !isPinned(p, adminIds)).collect(Collectors.toList());
+        List<CommunityPost> onTop = paged == all ? List.of() : pinned;
 
         int start =
                 (int) pageable.getOffset();
 
-        if (start >= all.size()) {
-            return new PageImpl<>(
-                    List.of(),
-                    pageable,
-                    all.size()
-            );
-        }
-
         int end =
                 Math.min(
                         start + pageable.getPageSize(),
-                        all.size()
+                        paged.size()
                 );
 
+        List<CommunityPost> pagePosts = new java.util.ArrayList<>(onTop);
+        if (start < paged.size()) {
+            pagePosts.addAll(paged.subList(start, end));
+        }
+
         List<CommunityPostResponseDto> pageContent =
-                all.subList(start, end)
+                pagePosts
                         .stream()
                         .map(p -> toDto(p, names, adminIds, loginUserId, admin))
                         .collect(Collectors.toList());
 
+        // 페이지 수는 일반 글 수 기준 (앞에 붙인 공지 때문에 PageImpl 이 전체 개수를 늘려 잡지 않게 고정)
+        long totalPaged = paged.size();
+        int totalPages = (int) Math.max(1, (totalPaged + pageable.getPageSize() - 1) / pageable.getPageSize());
         return new PageImpl<>(
                 pageContent,
                 pageable,
-                all.size()
-        );
+                totalPaged
+        ) {
+            @Override
+            public long getTotalElements() {
+                return totalPaged;
+            }
+
+            @Override
+            public int getTotalPages() {
+                return totalPages;
+            }
+        };
     }
 
     /**
@@ -419,7 +435,8 @@ public class CommunityPostService {
         CommunityPost post =
                 findOrThrow(postId);
 
-        checkCanModify(post.getUserId(), loginUserId, admin, "게시글");
+        // [10/01 유해성] 수정은 작성자 본인만 (관리자도 남의 글은 수정 불가, 삭제는 가능)
+        checkCanModify(post.getUserId(), loginUserId, false, "게시글");
 
         // [10/01 유해성] 말머리는 바꿀 수 있고, 요청 글로 남으면 기존 처리 상태는 유지
         CommunityTags old = CommunityTags.parse(post.getTags());
