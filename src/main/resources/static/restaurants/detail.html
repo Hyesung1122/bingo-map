@@ -93,6 +93,7 @@
         .scroll-btn.prev { left: -14px; }
         .scroll-btn.next { right: -14px; }
     </style>
+    <link rel="stylesheet" href="/css/site-header.css">
 </head>
 <body>
 
@@ -212,16 +213,14 @@
             <div class="info-card d-flex flex-column justify-content-between">
                 <div>
                     <h5 class="fw-bold mb-3">위치</h5>
-                    <div class="position-relative bg-light rounded-2 overflow-hidden mb-2" style="height: 120px; border: 1px solid #dee2e6;">
-                        <img id="mapPreviewImage"
-                             src="/images/mini-map.jpg"
-                             class="w-100 h-100 object-fit-cover"
-                             alt="지도 위치"
-                             onerror="this.src='/images/mini-map.jpg';">
-                        <div class="position-absolute top-50 start-50 translate-middle text-danger fs-3">
-                            <i class="bi bi-geo-alt-fill shadow"></i>
-                        </div>
-                    </div>
+
+                    <iframe
+                            id="restaurantLocationMap"
+                            title="식당 위치 지도"
+                            src="about:blank"
+                            loading="lazy"
+                            style="display:block; width:100%; height:220px; border:1px solid #dee2e6; border-radius:8px;">
+                    </iframe>
                 </div>
                 <a id="mapLink" href="#" class="btn btn-outline-success btn-sm w-100 fw-semibold mt-2 text-decoration-none text-center">
                     지도로 크게 보기
@@ -290,9 +289,7 @@
         document.getElementById('directionsLink').href = `/map/map.html?lat=${r.latitude}&lon=${r.longitude}&name=${encodeURIComponent(r.name)}&route=true`;
         document.getElementById('mapLink').href = `/map/map.html?lat=${r.latitude}&lon=${r.longitude}&name=${encodeURIComponent(r.name)}`;
 
-        const customMapImage = r.mapImageUrl || '/images/mini-map.jpg';
-        document.getElementById('mapPreviewImage').src = customMapImage;
-
+        
         document.getElementById('menuImage').src = r.menuImageUrl || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=150&q=80';
         document.getElementById('menuName').innerText = r.menuName || '대표 메뉴';
         document.getElementById('menuDescription').innerText = r.menuDescription || '설명';
@@ -305,6 +302,17 @@
         document.getElementById('languages').innerText = r.languages || '일본어';
 
         document.getElementById('moreLink').href = `/restaurants?region=${r.region || 'dotonbori'}`;
+        const locationParams = new URLSearchParams({
+            lat: r.latitude == null ? '' : String(r.latitude),
+            lon: r.longitude == null ? '' : String(r.longitude),
+            name: r.name || '선택한 식당'
+        });
+
+        document.getElementById('restaurantLocationMap').src =
+            '/restaurants/location-map.html?' + locationParams.toString();
+
+        document.getElementById('mapLink').href =
+            '/map/map.html?' + locationParams.toString();
     }
 
     function buildRecommendCardHtml(rec) {

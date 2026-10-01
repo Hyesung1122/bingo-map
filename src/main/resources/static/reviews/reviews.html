@@ -9,6 +9,7 @@
 <style>
 .rv-toolbar{display:block}.rv-toolbar #origin-status{margin-top:8px!important}.rv-refresh{margin-bottom:12px}.rv-search:focus{outline:2px solid #159b35;outline-offset:2px}.rv-card-link{display:block;color:inherit;text-decoration:none}.rv-actions{display:flex;gap:8px;margin-top:12px}.rv-actions a{border:1px solid #159b35;border-radius:8px;padding:8px 12px;color:#159b35;text-decoration:none;font-size:13px}.rv-actions a:last-child{background:#159b35;color:white}.rv-search{box-sizing:border-box;width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;margin-bottom:12px}.rv-message{color:#765b23;font-size:13px}.rv-refresh{border:1px solid #ddd;border-radius:20px;background:white;padding:8px 12px;cursor:pointer}.rv-card:focus-within{outline:2px solid #159b35}.rv-empty{grid-column:1/-1;padding:30px;text-align:center;color:#666}.rv-thumb-wrap img{width:100%;height:100%;object-fit:cover}.rv-placeholder{display:grid;place-items:center;height:100%;background:#f5f6f5;color:#777}.rv-rating-picker{display:flex;gap:8px}.rv-rating-picker button{background:#fff;border:1px solid #bbb;border-radius:8px;padding:10px;color:#896600;font-size:22px;cursor:pointer}.rv-rating-picker button[aria-pressed="true"]{border-color:#159b35;background:#edf9ef}#rd-stats{color:#16883a;margin:10px 0}#write-status{font-size:13px;line-height:1.6}#rv-warning:empty{display:none}@media(max-width:600px){.rv-toolbar select{max-width:100%}.rv-actions{flex-wrap:wrap}.review-wrap{padding:24px 16px}.rd-carousel{max-width:100%}}
 </style>
+    <link rel="stylesheet" href="/css/site-header.css">
 </head>
 <body>
 <header class="header">
@@ -49,6 +50,7 @@
                     <option value="">기준 장소 불러오는 중</option>
                 </select>
                 <select id="radius-select" aria-label="거리 범위" onchange="render()">
+                    <option value="all" selected>전체 거리</option><!-- [10/01 유해성] 기본값: 거리 제한 없이 전체 -->
                     <option value="1000">1km 이내</option>
                     <option value="3000">3km 이내</option>
                     <option value="5000">5km 이내</option>
@@ -58,7 +60,6 @@
                     <option value="rating">평점 높은순</option>
                     <option value="distance">거리순</option>
                 </select>
-                <button class="btn-write" onclick="location.href='/community'" style="margin-left:4px;">커뮤니티</button>
             </div>
             <p style="font-size:12px;color:#999;margin:6px 0 0;" id="origin-status"></p>
         </div>
@@ -92,7 +93,7 @@ const D = window.BinGoReviews, $ = id => document.getElementById(id);
 let allRestaurants = [], reviewSummaries = new Map(), summaryReady = false, loading = false;
 const spots = window.BinGoSpots?.SPOTS || [];
 $('origin-select').innerHTML = spots.map(s => `<option value="${D.escape(s.id)}">${D.escape(s.label)}</option>`).join('');
-// 화면을 열면 도톤보리 기준 1km 범위를 바로 적용합니다.
+// 화면을 열면 도톤보리 기준, 전체 거리로 바로 적용합니다. ([10/01 유해성] 기본값 1km → 전체 거리)
 $('origin-select').value = (spots.find(s => s.id === 'dotonbori') || spots[0])?.id || '';
 async function loadSummaries() {
     if (loading) return;
@@ -113,12 +114,15 @@ async function loadSummaries() {
 function onOriginSelectChange() { render(); }
 function render() {
     const origin = spots.find(s => s.id === $('origin-select').value);
-    const radius = Number($('radius-select').value), sort = $('sort-select').value;
+    const allDistance = $('radius-select').value === 'all';   // [10/01 유해성] 전체 거리
+    const radius = allDistance ? Infinity : Number($('radius-select').value), sort = $('sort-select').value;
     const keyword=$('restaurant-search').value.trim().toLocaleLowerCase();
-    $('origin-status').textContent = origin ? `${origin.label} 기준 직선 거리 ${radius / 1000}km 이내입니다.` : '기준 장소를 불러오지 못했습니다. 페이지를 새로고침해주세요.';
+    $('origin-status').textContent = allDistance
+        ? (origin ? `${origin.label} 기준 · 거리 제한 없이 전체 식당을 표시합니다.` : '거리 제한 없이 전체 식당을 표시합니다.')
+        : origin ? `${origin.label} 기준 직선 거리 ${radius / 1000}km 이내입니다.` : '기준 장소를 불러오지 못했습니다. 페이지를 새로고침해주세요.';
     let list = allRestaurants.map(r => ({r,s:reviewSummaries.get(String(r.restaurantId)),distance:origin ? D.distance(origin,r) : null}));
     if(keyword) list=list.filter(({r}) => [r.name,r.address,r.category].some(v => String(v||'').toLocaleLowerCase().includes(keyword)));
-    list = origin ? list.filter(p => p.distance!==null && p.distance<=radius) : [];
+    if (!allDistance) list = origin ? list.filter(p => p.distance!==null && p.distance<=radius) : [];
     list.sort((a,b) => {
         const difference = sort==='distance' && origin ? (a.distance??Infinity)-(b.distance??Infinity) : sort==='rating' ? (Number(b.s?.avgRating)||0)-(Number(a.s?.avgRating)||0) : (Number(b.s?.reviewCount)||0)-(Number(a.s?.reviewCount)||0);
         return difference || a.r.name.localeCompare(b.r.name,'ko') || a.r.restaurantId.localeCompare(b.r.restaurantId);

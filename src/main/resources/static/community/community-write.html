@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/community/community.css">
     <!-- [10/01 유해성] 헤더 로그인 상태(이름님/로그아웃/관리자 페이지) 표시 -->
     <script src="/js/header-auth.js"></script>
+    <link rel="stylesheet" href="/css/site-header.css">
 </head>
 <body>
 <header class="header">
@@ -139,7 +140,8 @@ if (editId) {
             const res = await fetch(`/api/community/${editId}`);
             if (!res.ok) throw new Error('not found');
             const p = await res.json();
-            if (u.role !== 'ADMIN' && String(u.userId) !== String(p.userId)) {
+            // [10/01 유해성] 수정은 작성자 본인만 (관리자도 남의 글은 수정 불가)
+            if (String(u.userId) !== String(p.userId)) {
                 alert('본인이 작성한 게시글만 수정할 수 있습니다.');
                 location.href = `/community/${editId}`;
                 return;
