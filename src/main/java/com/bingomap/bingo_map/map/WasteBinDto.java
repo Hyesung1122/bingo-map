@@ -45,7 +45,17 @@ public class WasteBinDto {
     }
 
     public String getName() {
-        return name;
+        String type = category == null ? "" : category.trim();
+
+        if ("recycle".equalsIgnoreCase(type)) {
+            return "재활용 수거함";
+        }
+
+        if ("can".equalsIgnoreCase(type)) {
+            return "캔/병 수거함";
+        }
+
+        return "쓰레기통";
     }
 
     public String getCategory() {

@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/community/community.css">
     <!-- [10/01 유해성] 헤더 로그인 상태(이름님/로그아웃/관리자 페이지) 표시 -->
     <script src="/js/header-auth.js"></script>
+    <link rel="stylesheet" href="/css/site-header.css">
 </head>
 <body>
 <header class="header">
@@ -81,12 +82,11 @@ const loginReady = fetch('/api/reviews/current-user', { cache: 'no-store' })
     .then(u => { loginUser = u || { loggedIn: false }; return loginUser; });
 
 function canEdit(ownerId) {
-    if (!loginUser.loggedIn) return false;
-    return loginUser.role === 'ADMIN' || String(loginUser.userId) === String(ownerId);
+    return loginUser.loggedIn && String(loginUser.userId) === String(ownerId);
 }
 
 function canDelete(ownerId) {
-    return canEdit(ownerId) || (loginUser.loggedIn && loginUser.role === 'MANAGER');
+    return canEdit(ownerId) || (loginUser.loggedIn && ['ADMIN', 'MANAGER'].includes(loginUser.role));
 }
 
 function goLogin(message) {

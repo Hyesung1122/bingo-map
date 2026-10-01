@@ -28,6 +28,9 @@ public class ReviewResponseDto {
 
     private List<String> imageUrls;
 
+    private String authorName;   // [10/01 유해성] 작성자 닉네임 (없으면 이름)
+    private boolean helped;      // [10/01 유해성] 보고 있는 사람이 "도움이 돼요"를 눌렀는지
+
     public ReviewResponseDto(Review review) {
         this.reviewId = review.getReviewId();
         this.userId = review.getUserId();
@@ -105,5 +108,21 @@ public class ReviewResponseDto {
 
     public List<String> getImageUrls() {
         return imageUrls;
+    }
+
+    public String getAuthorName() {
+        return authorName;
+    }
+
+    public void setAuthorName(String authorName) {
+        this.authorName = authorName;
+    }
+
+    public boolean isHelped() {
+        return helped;
+    }
+
+    public void setHelped(boolean helped) {
+        this.helped = helped;
     }
 }

@@ -29,13 +29,28 @@ public class BinReportController {
     }
 
     // 제보 화면 진입: 로그인 안 되어있으면 로그인 페이지로 돌려보냄
+    // 제보 페이지에 들어갈 때 로그인 여부 확인
     @GetMapping("/report")
     public String reportPage(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
-        if (session == null || session.getAttribute(LoginController.SESSION_USER_ID) == null) {
-            String message = URLEncoder.encode("로그인이 필요한 페이지입니다.", StandardCharsets.UTF_8);
+
+        if (session == null ||
+                session.getAttribute(LoginController.SESSION_USER_ID) == null) {
+
+            // 제보하다가 로그인 화면으로 이동했다는 것을 기억
+            request.getSession().setAttribute(
+                    "BIN_REPORT_LOGIN_REQUESTED_AT",
+                    System.currentTimeMillis()
+            );
+
+            String message = URLEncoder.encode(
+                    "로그인이 필요한 페이지입니다.",
+                    StandardCharsets.UTF_8
+            );
+
             return "redirect:/login?error=" + message;
         }
+
         return "forward:/report/report.html";
     }
 
