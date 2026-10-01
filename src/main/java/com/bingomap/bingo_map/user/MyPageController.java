@@ -1,7 +1,10 @@
 package com.bingomap.bingo_map.user;
 
+import com.bingomap.bingo_map.community.CommunityComment;
+import com.bingomap.bingo_map.community.CommunityCommentRepository;
+import com.bingomap.bingo_map.community.CommunityPost;
+import com.bingomap.bingo_map.community.CommunityPostRepository;
 import com.bingomap.bingo_map.entity.TargetType;
-import com.bingomap.bingo_map.favorite.FavoriteRepository;
 import com.bingomap.bingo_map.report.BinReportRepository;
 import com.bingomap.bingo_map.restaurant.Restaurant;
 import com.bingomap.bingo_map.restaurant.RestaurantRepository;
@@ -35,18 +38,21 @@ public class MyPageController {
     private final ReviewRepository reviewRepository;
     private final RestaurantRepository restaurantRepository;
     private final BinReportRepository binReportRepository;
-    private final FavoriteRepository favoriteRepository;
+    private final CommunityPostRepository communityPostRepository;
+    private final CommunityCommentRepository communityCommentRepository;
 
     public MyPageController(UserRepository userRepository,
                             ReviewRepository reviewRepository,
                             RestaurantRepository restaurantRepository,
                             BinReportRepository binReportRepository,
-                            FavoriteRepository favoriteRepository) {
+                            CommunityPostRepository communityPostRepository,
+                            CommunityCommentRepository communityCommentRepository) {
         this.userRepository = userRepository;
         this.reviewRepository = reviewRepository;
         this.restaurantRepository = restaurantRepository;
         this.binReportRepository = binReportRepository;
-        this.favoriteRepository = favoriteRepository;
+        this.communityPostRepository = communityPostRepository;
+        this.communityCommentRepository = communityCommentRepository;
     }
 
     // 마이페이지 화면 진입: 로그인 안 되어있으면 로그인 페이지로 돌려보냄
@@ -71,7 +77,7 @@ public class MyPageController {
         return toDto(user);
     }
 
-    // 마이페이지 통계 카드 API (내가 쓴 리뷰 수 / 제보 수 / 즐겨찾기 수 / 받은 '도움이 돼요' 합계)
+    // 마이페이지 통계 카드 API (작성한 게시글 / 댓글 / 리뷰 / 제보 수). 카드를 누르면 해당 탭 전체 목록으로 이동한다.
     @GetMapping("/api/mypage/stats")
     @ResponseBody
     public ResponseEntity<?> stats(HttpServletRequest request) {
@@ -79,11 +85,61 @@ public class MyPageController {
         if (userId == null) {
             return ResponseEntity.status(401).body(Map.of("message", "로그인이 필요합니다."));
         }
-        return ResponseEntity.ok(new MyPageStatsDto(
+        return ResponseEntity.ok(new MyPageStatsDto(communityPostRepository.countByUserId(userId),
+                communityCommentRepository.countByUserId(userId),
                 reviewRepository.countByUserId(userId),
-                binReportRepository.countByUserId(userId),
-                favoriteRepository.countByUserUserId(userId),
-                reviewRepository.sumHelpCountByUserId(userId)));
+                binReportRepository.countByUserId(userId)));
+    }
+
+    // 작성한 게시글 목록 API (최신순)
+    @GetMapping("/api/mypage/posts")
+    @ResponseBody
+    public ResponseEntity<?> myPosts(HttpServletRequest request) {
+        Long userId = currentUserId(request);
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("message", "로그인이 필요합니다."));
+        }
+
+        List<MyPostResponseDto> result = communityPostRepository.findByUserIdOrderByCreatedAtDesc(userId).stream()
+                .map(this::toMyPostDto)
+                .toList();
+        return ResponseEntity.ok(result);
+    }
+
+    // 작성한 댓글 목록 API (최신순). 어느 글에 단 댓글인지 제목을 같이 내려준다.
+    @GetMapping("/api/mypage/comments")
+    @ResponseBody
+    public ResponseEntity<?> myComments(HttpServletRequest request) {
+        Long userId = currentUserId(request);
+        if (userId == null) {
+            return ResponseEntity.status(401).body(Map.of("message", "로그인이 필요합니다."));
+        }
+
+        List<CommunityComment> comments = communityCommentRepository.findByUserIdOrderByCreatedAtDesc(userId);
+
+        Set<Long> postIds = comments.stream().map(CommunityComment::getPostId).collect(Collectors.toSet());
+        Map<Long, String> titleByPostId = new HashMap<>();
+        for (CommunityPost post : communityPostRepository.findAllById(postIds)) {
+            titleByPostId.put(post.getPostId(), post.getTitle());
+        }
+
+        List<MyCommentResponseDto> result = comments.stream()
+                .map(c -> new MyCommentResponseDto(
+                        c.getCommentId(), c.getPostId(),
+                        titleByPostId.getOrDefault(c.getPostId(), "삭제된 글"),
+                        c.getContent(),
+                        c.getCreatedAt() != null ? c.getCreatedAt().format(JOINED_FORMAT) : "-",
+                        "/community/" + c.getPostId()))
+                .toList();
+        return ResponseEntity.ok(result);
+    }
+
+    private MyPostResponseDto toMyPostDto(CommunityPost post) {
+        String content = post.getContent() != null ? post.getContent() : "";
+        String preview = content.length() > 80 ? content.substring(0, 80) + "..." : content;
+        String createdAt = post.getCreatedAt() != null ? post.getCreatedAt().format(JOINED_FORMAT) : "-";
+        return new MyPostResponseDto(post.getPostId(), post.getTitle(), preview,
+                post.getViewCount(), createdAt, "/community/" + post.getPostId());
     }
 
     // 내가 쓴 리뷰 목록 API (최신순). 맛집 이름은 이 목록에 나온 맛집만 한 번에 조회한다.
@@ -113,6 +169,28 @@ public class MyPageController {
                 .map(r -> toMyReviewDto(r, restaurantNames))
                 .toList();
         return ResponseEntity.ok(result);
+    }
+
+    // 마이페이지에서 본인이 작성한 리뷰만 삭제
+    @DeleteMapping("/api/mypage/reviews/{reviewId:\\d+}")
+    @ResponseBody
+    @Transactional
+    public ResponseEntity<Void> deleteMyReview(@PathVariable Long reviewId, HttpServletRequest request) {
+        Long userId = currentUserId(request);
+        if (userId == null) {
+            return ResponseEntity.status(401).build();
+        }
+
+        Review review = reviewRepository.findById(reviewId).orElse(null);
+        if (review == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!userId.equals(review.getUserId())) {
+            return ResponseEntity.status(403).build();
+        }
+
+        reviewRepository.delete(review);
+        return ResponseEntity.noContent().build();
     }
 
     // 프로필 수정 API (이름/닉네임/국적만 수정 가능. 이메일은 로그인 계정 정보라 제외)

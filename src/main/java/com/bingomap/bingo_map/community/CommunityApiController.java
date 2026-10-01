@@ -64,7 +64,7 @@ public class CommunityApiController {
                 category,
                 pageable,
                 getLoginUserId(httpRequest),
-                isAdmin(httpRequest)
+                canModerate(httpRequest)
         );
     }
 
@@ -77,7 +77,7 @@ public class CommunityApiController {
             @PathVariable Long id,
             HttpServletRequest httpRequest
     ) {
-        return service.getPost(id, getLoginUserId(httpRequest), isAdmin(httpRequest));
+        return service.getPost(id, getLoginUserId(httpRequest), canModerate(httpRequest));
     }
 
     /**
@@ -93,7 +93,7 @@ public class CommunityApiController {
                 id,
                 body.get("status"),
                 getLoginUserId(httpRequest),
-                isAdmin(httpRequest)
+                canModerate(httpRequest)
         );
     }
 
@@ -143,7 +143,7 @@ public class CommunityApiController {
             HttpServletRequest httpRequest
     ) {
         // [09/30 유해성] 작성자 본인 또는 관리자만
-        service.delete(id, getLoginUserId(httpRequest), isAdmin(httpRequest));
+        service.delete(id, getLoginUserId(httpRequest), canModerate(httpRequest));
 
         return ResponseEntity.noContent().build();
     }
@@ -184,7 +184,7 @@ public class CommunityApiController {
     ) {
         // [10/01 유해성] 비공개 요청 댓글은 작성자·관리자만, 요청 글은 관리자 답변을 위로
         boolean requestPost = service.checkCanViewComments(
-                postId, getLoginUserId(httpRequest), isAdmin(httpRequest));
+                postId, getLoginUserId(httpRequest), canModerate(httpRequest));
         return commentService.getComments(postId, requestPost);
     }
 
@@ -204,7 +204,7 @@ public class CommunityApiController {
             return ResponseEntity.badRequest().build();
         }
         // [10/01 유해성] 비공개 요청에는 작성자·관리자만 댓글 가능 (아니면 403)
-        service.checkCanViewComments(postId, userId, isAdmin(httpRequest));
+        service.checkCanViewComments(postId, userId, canModerate(httpRequest));
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -217,7 +217,7 @@ public class CommunityApiController {
             HttpServletRequest httpRequest
     ) {
         // [09/30 유해성] 댓글 작성자 본인 또는 관리자만
-        commentService.delete(commentId, getLoginUserId(httpRequest), isAdmin(httpRequest));
+        commentService.delete(commentId, getLoginUserId(httpRequest), canModerate(httpRequest));
         return ResponseEntity.noContent().build();
     }
 
@@ -225,6 +225,13 @@ public class CommunityApiController {
         HttpSession session = request.getSession(false);
         return session != null
                 && "ADMIN".equals(session.getAttribute(LoginController.SESSION_USER_ROLE));
+    }
+
+    private boolean canModerate(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) return false;
+        Object role = session.getAttribute(LoginController.SESSION_USER_ROLE);
+        return "ADMIN".equals(role) || "MANAGER".equals(role);
     }
 
     /**

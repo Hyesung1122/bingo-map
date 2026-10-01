@@ -11,13 +11,20 @@ public class AdminUserDto {
     private final String email;
     private final String role;
     private final String joinedAt;
+    private final boolean blocked;
+    private final boolean blockedPermanently;
+    private final String blockedUntil;
 
-    public AdminUserDto(Long userId, String name, String nickname, String email, String role, String joinedAt) {
+    public AdminUserDto(Long userId, String name, String nickname, String email, String role, String joinedAt,
+                        boolean blocked, boolean blockedPermanently, String blockedUntil) {
         this.userId = userId;
         this.name = name;
         this.nickname = nickname;
         this.email = email;
         this.role = role;
         this.joinedAt = joinedAt;
+        this.blocked = blocked;
+        this.blockedPermanently = blockedPermanently;
+        this.blockedUntil = blockedUntil;
     }
 }

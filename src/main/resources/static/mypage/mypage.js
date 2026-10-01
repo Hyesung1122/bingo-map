@@ -6,7 +6,7 @@ document.addEventListener("DOMContentLoaded", function () {
         currentProfile = data;
         document.getElementById("mypage-name").textContent = data.name + "님";
         document.getElementById("mypage-nickname").textContent = data.nickname;
-        document.getElementById("mypage-badge").textContent = data.role === "ADMIN" ? "관리자" : "일반회원";
+        document.getElementById("mypage-badge").textContent = data.role === "ADMIN" ? "관리자" : data.role === "MANAGER" ? "매니저" : "일반회원";
         document.getElementById("mypage-email").textContent = data.email;
         document.getElementById("mypage-avatar").textContent = data.name.charAt(0);
         document.getElementById("mypage-nationality").textContent = data.nationality;
@@ -31,16 +31,19 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
     // 1-1) 통계 카드 (작성한 리뷰 / 받은 좋아요 등)
-    fetch("/api/mypage/stats")
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-            if (!data) return;
-            document.getElementById("stat-review-count").textContent = data.reviewCount;
-            document.getElementById("stat-report-count").textContent = data.reportCount;
-            document.getElementById("stat-favorite-count").textContent = data.favoriteCount;
-            document.getElementById("stat-help-count").textContent = data.helpCountTotal;
-        })
-        .catch(() => {});
+    function refreshStats() {
+        fetch("/api/mypage/stats")
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+                if (!data) return;
+                document.getElementById("stat-post-count").textContent = data.postCount;
+                document.getElementById("stat-comment-count").textContent = data.commentCount;
+                document.getElementById("stat-review-count").textContent = data.reviewCount;
+                document.getElementById("stat-report-count").textContent = data.reportCount;
+            })
+            .catch(() => {});
+    }
+    refreshStats();
 
     // 1-2) 내가 쓴 리뷰 (프로필 탭 '최근 작성한 리뷰' + 리뷰 탭 전체 목록에서 공용으로 사용)
     let myReviewsCache = null;
@@ -63,7 +66,8 @@ document.addEventListener("DOMContentLoaded", function () {
             : "";
         const href = review.linkUrl || "/reviews/" + review.reviewId;
         return (
-            '<a class="my-review-card" href="' + escapeHtml(href) + '">' +
+            '<div class="my-review-card">' +
+            '<a class="my-review-link" href="' + escapeHtml(href) + '">' +
             '<div class="my-review-thumb"' + thumbStyle + '></div>' +
             '<div class="my-review-body">' +
             '<div class="my-review-top">' +
@@ -73,17 +77,10 @@ document.addEventListener("DOMContentLoaded", function () {
             '<p class="my-review-content">' + escapeHtml(review.content) + "</p>" +
             '<span class="my-review-meta">' + escapeHtml(review.createdAt) + " · 도움이 돼요 " + review.helpCount + "</span>" +
             "</div>" +
-            "</a>"
+            "</a>" +
+            '<button type="button" class="mypage-delete-btn" data-delete-type="review" data-delete-id="' + escapeHtml(review.reviewId) + '">삭제</button>' +
+            "</div>"
         );
-    }
-
-    function renderRecentReviews(reviews) {
-        const el = document.getElementById("recent-reviews-list");
-        if (!reviews.length) {
-            el.innerHTML = '<p class="mypage-empty">아직 작성한 리뷰가 없습니다.<br>맛집 페이지에서 첫 리뷰를 남겨보세요.</p>';
-            return;
-        }
-        el.innerHTML = reviews.slice(0, 3).map(reviewCardHtml).join("");
     }
 
     function renderAllReviews(reviews) {
@@ -107,8 +104,6 @@ document.addEventListener("DOMContentLoaded", function () {
             })
             .catch(() => []);
     }
-
-    loadMyReviews().then(renderRecentReviews);
 
     // 1-3) 작성한 제보 (프로필 탭 '최근 제보 내역' + 제보 탭 전체 목록에서 공용으로 사용)
     let myReportsCache = null;
@@ -134,15 +129,6 @@ document.addEventListener("DOMContentLoaded", function () {
         );
     }
 
-    function renderRecentReports(reports) {
-        const el = document.getElementById("recent-reports-list");
-        if (!reports.length) {
-            el.innerHTML = '<p class="mypage-empty">아직 제보한 내역이 없습니다.<br><a href="/report">쓰레기통 위치 제보하러 가기</a></p>';
-            return;
-        }
-        el.innerHTML = reports.slice(0, 3).map(reportCardHtml).join("");
-    }
-
     function renderReports(reports) {
         const el = document.getElementById("reports-tab-panel");
         if (!reports.length) {
@@ -165,7 +151,125 @@ document.addEventListener("DOMContentLoaded", function () {
             .catch(() => []);
     }
 
-    loadMyReports().then(renderRecentReports);
+    // 1-4) 작성한 게시글
+    let myPostsCache = null;
+
+    function postCardHtml(p) {
+        return (
+            '<div class="my-post-card">' +
+            '<a class="my-post-link" href="' + escapeHtml(p.linkUrl) + '">' +
+            '<div class="my-post-body">' +
+            "<b>" + escapeHtml(p.title) + "</b>" +
+            '<p>' + escapeHtml(p.contentPreview) + "</p>" +
+            '<span class="my-post-meta">' + escapeHtml(p.createdAt) + " · 조회 " + (p.viewCount != null ? p.viewCount : 0) + "</span>" +
+            "</div>" +
+            "</a>" +
+            '<button type="button" class="mypage-delete-btn" data-delete-type="post" data-delete-id="' + escapeHtml(p.postId) + '">삭제</button>' +
+            "</div>"
+        );
+    }
+
+    function renderPosts(posts) {
+        const el = document.getElementById("posts-tab-panel");
+        if (!posts.length) {
+            el.innerHTML = '<p class="mypage-empty">아직 작성한 게시글이 없습니다.<br><a href="/community/write">커뮤니티에 글 쓰러 가기</a></p>';
+            return;
+        }
+        el.innerHTML = posts.map(postCardHtml).join("");
+    }
+
+    function loadMyPosts() {
+        if (myPostsCache) {
+            return Promise.resolve(myPostsCache);
+        }
+        return fetch("/api/mypage/posts")
+            .then((res) => (res.ok ? res.json() : []))
+            .then((data) => {
+                myPostsCache = data || [];
+                return myPostsCache;
+            })
+            .catch(() => []);
+    }
+
+    // 1-5) 작성한 댓글
+    let myCommentsCache = null;
+
+    function commentCardHtml(c) {
+        return (
+            '<div class="my-comment-card">' +
+            '<a class="my-comment-link" href="' + escapeHtml(c.linkUrl) + '">' +
+            '<div class="my-comment-body">' +
+            '<span class="my-comment-post-title">' + escapeHtml(c.postTitle) + "</span>" +
+            '<p>' + escapeHtml(c.content) + "</p>" +
+            '<span class="my-comment-meta">' + escapeHtml(c.createdAt) + "</span>" +
+            "</div>" +
+            "</a>" +
+            '<button type="button" class="mypage-delete-btn" data-delete-type="comment" data-delete-id="' + escapeHtml(c.commentId) + '">삭제</button>' +
+            "</div>"
+        );
+    }
+
+    function renderComments(comments) {
+        const el = document.getElementById("comments-tab-panel");
+        if (!comments.length) {
+            el.innerHTML = '<p class="mypage-empty">아직 작성한 댓글이 없습니다.</p>';
+            return;
+        }
+        el.innerHTML = comments.map(commentCardHtml).join("");
+    }
+
+    function loadMyComments() {
+        if (myCommentsCache) {
+            return Promise.resolve(myCommentsCache);
+        }
+        return fetch("/api/mypage/comments")
+            .then((res) => (res.ok ? res.json() : []))
+            .then((data) => {
+                myCommentsCache = data || [];
+                return myCommentsCache;
+            })
+            .catch(() => []);
+    }
+
+    // 마이페이지에서 본인 게시글/댓글/리뷰 삭제
+    [
+        { panelId: "posts-tab-panel", type: "post", idKey: "postId", getCache: () => myPostsCache, setCache: (items) => { myPostsCache = items; }, render: renderPosts, url: (id) => "/api/community/" + id },
+        { panelId: "comments-tab-panel", type: "comment", idKey: "commentId", getCache: () => myCommentsCache, setCache: (items) => { myCommentsCache = items; }, render: renderComments, url: (id) => "/api/community/comments/" + id },
+        { panelId: "reviews-tab-panel", type: "review", idKey: "reviewId", getCache: () => myReviewsCache, setCache: (items) => { myReviewsCache = items; }, render: renderAllReviews, url: (id) => "/api/mypage/reviews/" + id }
+    ].forEach((config) => {
+        const panel = document.getElementById(config.panelId);
+        panel.addEventListener("click", function (event) {
+            const button = event.target.closest("[data-delete-type]");
+            if (!button || button.dataset.deleteType !== config.type) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (!window.confirm("삭제한 내용은 복구할 수 없습니다. 삭제하시겠습니까?")) return;
+
+            button.disabled = true;
+            fetch(config.url(encodeURIComponent(button.dataset.deleteId)), { method: "DELETE" })
+                .then((response) => {
+                    if (!response.ok) {
+                        throw new Error(response.status === 403
+                            ? "본인이 작성한 내용만 삭제할 수 있습니다."
+                            : "삭제하지 못했습니다. 다시 시도해 주세요.");
+                    }
+                    const remaining = (config.getCache() || []).filter(
+                        (item) => String(item[config.idKey]) !== button.dataset.deleteId
+                    );
+                    config.setCache(remaining);
+                    config.render(remaining);
+                    if (config.type === "post" && myCommentsCache) {
+                        myCommentsCache = myCommentsCache.filter((comment) => String(comment.postId) !== button.dataset.deleteId);
+                        renderComments(myCommentsCache);
+                    }
+                    refreshStats();
+                })
+                .catch((error) => {
+                    window.alert(error.message || "삭제하지 못했습니다. 다시 시도해 주세요.");
+                    button.disabled = false;
+                });
+        });
+    });
 
     // 2) 사이드바 메뉴 클릭 -> 페이지 이동 없이 해당 탭만 보여주기
     const navLinks = document.querySelectorAll(".mypage-nav a[data-tab]");
@@ -186,6 +290,12 @@ document.addEventListener("DOMContentLoaded", function () {
         }
         if (tabName === "reports") {
             loadMyReports().then(renderReports);
+        }
+        if (tabName === "posts") {
+            loadMyPosts().then(renderPosts);
+        }
+        if (tabName === "comments") {
+            loadMyComments().then(renderComments);
         }
         if (tabName === "notifications") {
             resetNotificationTab();
@@ -269,8 +379,7 @@ document.addEventListener("DOMContentLoaded", function () {
             });
     });
 
-    // 4) 설정 탭: 다크모드 / 알림 / 위치정보
-    const darkModeToggle = document.getElementById("setting-dark-mode");
+    // 4) 설정 탭: 알림 / 위치정보
     const notifyToggle = document.getElementById("setting-notify-email");
     const locationToggle = document.getElementById("setting-location");
     const locationCheckPanel = document.getElementById("location-check-panel");
@@ -283,13 +392,6 @@ document.addEventListener("DOMContentLoaded", function () {
         saveMessageEl.textContent = text;
         saveMessageEl.className = "settings-save-message " + (isError ? "error" : "success");
     }
-
-    // 다크모드는 서버 저장 없이 즉시 적용 + localStorage에 기억
-    darkModeToggle.addEventListener("change", function () {
-        const isDark = darkModeToggle.checked;
-        document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
-        localStorage.setItem("bingomap-theme", isDark ? "dark" : "light");
-    });
 
     // 알림/위치 설정은 서버에 저장
     function saveServerSettings() {
@@ -338,9 +440,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     function loadSettings() {
-        // 다크모드는 localStorage 기준으로 스위치 상태만 맞춰줌
-        darkModeToggle.checked = localStorage.getItem("bingomap-theme") === "dark";
-
         if (settingsLoaded) return; // 알림/위치는 서버에서 한 번만 불러오면 충분
         fetch("/api/mypage/settings")
             .then((res) => res.json())

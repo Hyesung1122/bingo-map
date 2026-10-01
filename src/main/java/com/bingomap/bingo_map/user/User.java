@@ -66,6 +66,12 @@ public class User {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "blocked_until")
+    private LocalDateTime blockedUntil;
+
+    @Column(name = "blocked_permanent", nullable = false, length = 1)
+    private String blockedPermanent = "N";
+
     @PrePersist
     protected void onCreate() {
         LocalDateTime now = LocalDateTime.now();
@@ -93,6 +99,10 @@ public class User {
         if (this.locationEnabled == null) {
             this.locationEnabled = "N";
         }
+
+        if (this.blockedPermanent == null) {
+            this.blockedPermanent = "N";
+        }
     }
 
     @PreUpdate
@@ -106,6 +116,30 @@ public class User {
 
     public boolean isLocationEnabled() {
         return "Y".equals(locationEnabled);
+    }
+
+    public boolean isCurrentlyBlocked(LocalDateTime now) {
+        return "Y".equals(blockedPermanent)
+                || (blockedUntil != null && blockedUntil.isAfter(now));
+    }
+
+    public boolean isBlockedPermanently() {
+        return "Y".equals(blockedPermanent);
+    }
+
+    public void blockUntil(LocalDateTime until) {
+        this.blockedUntil = until;
+        this.blockedPermanent = "N";
+    }
+
+    public void blockPermanently() {
+        this.blockedUntil = null;
+        this.blockedPermanent = "Y";
+    }
+
+    public void unblock() {
+        this.blockedUntil = null;
+        this.blockedPermanent = "N";
     }
 
     public User(

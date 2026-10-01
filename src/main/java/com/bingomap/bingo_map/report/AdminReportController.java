@@ -1,5 +1,7 @@
 package com.bingomap.bingo_map.report;
 
+import com.bingomap.bingo_map.notification.NotificationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.bingomap.bingo_map.user.LoginController;
 import com.bingomap.bingo_map.user.User;
 import com.bingomap.bingo_map.user.UserRepository;
@@ -21,6 +23,9 @@ public class AdminReportController {
     private final BinReportRepository binReportRepository;
     private final UserRepository userRepository;
 
+    @Autowired
+    private NotificationService notificationService;
+
     public AdminReportController(BinReportRepository binReportRepository, UserRepository userRepository) {
         this.binReportRepository = binReportRepository;
         this.userRepository = userRepository;
@@ -30,7 +35,7 @@ public class AdminReportController {
     @GetMapping("/api/admin/reports")
     @ResponseBody
     public ResponseEntity<?> reports(HttpServletRequest request) {
-        if (!isAdmin(request)) {
+        if (!canManageReports(request)) {
             return ResponseEntity.status(403).body(Map.of("message", "관리자만 접근할 수 있습니다."));
         }
 
@@ -58,7 +63,7 @@ public class AdminReportController {
     @GetMapping("/api/admin/reports/pending-count")
     @ResponseBody
     public ResponseEntity<?> pendingCount(HttpServletRequest request) {
-        if (!isAdmin(request)) {
+        if (!canManageReports(request)) {
             return ResponseEntity.status(403).body(Map.of("message", "관리자만 접근할 수 있습니다."));
         }
         return ResponseEntity.ok(Map.of("count", binReportRepository.countByStatus(BinReport.STATUS_PENDING)));
@@ -80,7 +85,7 @@ public class AdminReportController {
                                           @Valid @RequestBody BinReportStatusUpdateDto dto,
                                           BindingResult bindingResult,
                                           HttpServletRequest request) {
-        if (!isAdmin(request)) {
+        if (!canManageReports(request)) {
             return ResponseEntity.status(403).body(Map.of("message", "관리자만 접근할 수 있습니다."));
         }
         if (bindingResult.hasErrors()) {
@@ -97,8 +102,11 @@ public class AdminReportController {
         }
 
         Long adminId = (Long) request.getSession(false).getAttribute(LoginController.SESSION_USER_ID);
+        String previousStatus = report.getStatus();
         report.review(dto.getStatus(), dto.getRejectReason(), adminId);
         binReportRepository.save(report);
+        notificationService.onReportReviewed(report.getUserId(), report.getName(),
+                previousStatus, report.getStatus(), report.getRejectReason());
 
         return ResponseEntity.ok(Map.of("message", "처리되었습니다."));
     }
@@ -107,7 +115,7 @@ public class AdminReportController {
     @DeleteMapping("/api/admin/reports/{reportId}")
     @ResponseBody
     public ResponseEntity<?> deleteReport(@PathVariable Long reportId, HttpServletRequest request) {
-        if (!isAdmin(request)) {
+        if (!canManageReports(request)) {
             return ResponseEntity.status(403).body(Map.of("message", "관리자만 접근할 수 있습니다."));
         }
         if (!binReportRepository.existsById(reportId)) {
@@ -117,8 +125,10 @@ public class AdminReportController {
         return ResponseEntity.ok(Map.of("message", "삭제되었습니다."));
     }
 
-    private boolean isAdmin(HttpServletRequest request) {
+    private boolean canManageReports(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
-        return session != null && "ADMIN".equals(session.getAttribute(LoginController.SESSION_USER_ROLE));
+        if (session == null) return false;
+        Object role = session.getAttribute(LoginController.SESSION_USER_ROLE);
+        return "ADMIN".equals(role) || "MANAGER".equals(role);
     }
 }

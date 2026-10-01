@@ -1,14 +1,4 @@
 /**
- * 다크모드는 화면이 다 그려지기 전에 최대한 빨리 적용해서 밝은 화면이 잠깐 보였다가
- * 어두워지는 깜빡임을 막는다. localStorage에 저장된 값을 읽어 <html>에 표시한다.
- */
-(function () {
-    if (localStorage.getItem("bingomap-theme") === "dark") {
-        document.documentElement.setAttribute("data-theme", "dark");
-    }
-})();
-
-/**
  * 페이지 로드 시 /api/session을 호출해서 로그인 상태를 확인하고,
  * 로그인 상태면 헤더의 "로그인" 버튼을 "{이름}님" + "로그아웃"으로 바꿔준다.
  * 모든 페이지 <body> 하단에 <script src="/js/header-auth.js"></script> 를 넣어서 사용한다.
@@ -49,14 +39,14 @@ document.addEventListener("DOMContentLoaded", function () {
             logoutLink.textContent = "로그아웃";
             loginLink.after(logoutLink);
 
-            // 관리자면 "관리자 페이지" 링크 추가
-            if (data.role === "ADMIN") {
+            // 관리자/매니저면 관리 콘솔 링크 추가
+            if (data.role === "ADMIN" || data.role === "MANAGER") {
                 const adminLink = document.createElement("a");
                 adminLink.href = "/admin";
                 adminLink.className = "site-header__aux";
-                adminLink.textContent = "관리자 페이지";
+                adminLink.textContent = data.role === "ADMIN" ? "관리자 페이지" : "매니저 페이지";
                 loginLink.after(adminLink);
-                startAdminReportAlert(adminLink);
+                if (data.role === "ADMIN") startAdminReportAlert(adminLink);
             }
 
             // 메뉴 바(nav)에도 "마이페이지"를 추가 (비회원에게는 애초에 추가하지 않음)
@@ -67,6 +57,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 mypageNavLink.textContent = "마이페이지";
                 nav.appendChild(mypageNavLink);
             }
+
+            // 로그인 상태면 알림(🔔 종 아이콘)도 붙인다
+            loadNotifications(actions, data);
         })
         .catch(() => {
             // 세션 확인 실패 시 기존 "로그인" 버튼 그대로 둠
@@ -164,6 +157,23 @@ function renderSharedFooter() {
     icon.className = "bi bi-trash3-fill site-brand__trash";
     icon.setAttribute("aria-hidden", "true");
     oldIcon.replaceWith(icon);
+}
+
+/**
+ * 알림 스크립트(/js/notifications.js)를 필요할 때만 불러와서 헤더에 🔔 종 아이콘을 붙인다.
+ * header-auth.js 하나만 넣으면 알림이 함께 동작한다.
+ */
+function loadNotifications(actions, session) {
+    if (window.BingoNotifications) {
+        window.BingoNotifications.init(actions, session);
+        return;
+    }
+    const script = document.createElement("script");
+    script.src = "/js/notifications.js";
+    script.onload = function () {
+        if (window.BingoNotifications) window.BingoNotifications.init(actions, session);
+    };
+    document.head.appendChild(script);
 }
 
 /**

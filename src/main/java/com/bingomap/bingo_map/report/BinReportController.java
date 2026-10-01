@@ -1,5 +1,7 @@
 package com.bingomap.bingo_map.report;
 
+import com.bingomap.bingo_map.notification.NotificationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.bingomap.bingo_map.user.LoginController;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -18,6 +20,9 @@ import java.util.Map;
 public class BinReportController {
 
     private final BinReportRepository binReportRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
     public BinReportController(BinReportRepository binReportRepository) {
         this.binReportRepository = binReportRepository;
@@ -74,6 +79,11 @@ public class BinReportController {
         }
 
         binReportRepository.save(report);
+
+        // 일반 회원 제보만 '접수(보류)' 알림. 관리자가 직접 올려 바로 승인된 건은 알림 없음
+        if (BinReport.STATUS_PENDING.equals(report.getStatus())) {
+            notificationService.onReportSubmitted(userId, report.getName());
+        }
 
         return ResponseEntity.ok(new BinReportResponseDto(report));
     }

@@ -42,9 +42,10 @@
             <h3>마이페이지</h3>
             <nav class="mypage-nav">
                 <a href="#" class="active" data-tab="profile">회원 정보</a>
-                <a href="#" data-tab="reviews">내가 쓴 리뷰</a>
+                <a href="#" data-tab="posts">작성한 게시글</a>
+                <a href="#" data-tab="comments">작성한 댓글</a>
+                <a href="#" data-tab="reviews">작성한 리뷰</a>
                 <a href="#" data-tab="reports">작성한 제보</a>
-                <a href="#" data-tab="favorites">즐겨찾기 관리</a>
                 <a href="#" data-tab="notifications">알림</a>
                 <a href="#" data-tab="settings">설정</a>
             </nav>
@@ -103,43 +104,22 @@
                 </div>
 
                 <div class="mypage-stats">
-                    <div class="mypage-stat-card">
+                    <button type="button" class="mypage-stat-card" data-tab-link="posts">
+                        <span class="num" id="stat-post-count">0</span>
+                        <span class="label">작성한 게시글</span>
+                    </button>
+                    <button type="button" class="mypage-stat-card" data-tab-link="comments">
+                        <span class="num" id="stat-comment-count">0</span>
+                        <span class="label">작성한 댓글</span>
+                    </button>
+                    <button type="button" class="mypage-stat-card" data-tab-link="reviews">
                         <span class="num" id="stat-review-count">0</span>
                         <span class="label">작성한 리뷰</span>
-                    </div>
-                    <div class="mypage-stat-card">
+                    </button>
+                    <button type="button" class="mypage-stat-card" data-tab-link="reports">
                         <span class="num" id="stat-report-count">0</span>
                         <span class="label">작성한 제보</span>
-                    </div>
-                    <div class="mypage-stat-card">
-                        <span class="num" id="stat-favorite-count">0</span>
-                        <span class="label">즐겨찾기</span>
-                    </div>
-                    <div class="mypage-stat-card">
-                        <span class="num" id="stat-help-count">0</span>
-                        <span class="label">받은 좋아요</span>
-                    </div>
-                </div>
-
-                <div class="mypage-recent">
-                    <div class="mypage-panel">
-                        <div class="mypage-panel-head">
-                            <b>최근 작성한 리뷰</b>
-                            <a href="#" data-tab-link="reviews">더보기</a>
-                        </div>
-                        <div id="recent-reviews-list">
-                            <p class="mypage-empty">아직 작성한 리뷰가 없습니다.<br>맛집 페이지에서 첫 리뷰를 남겨보세요.</p>
-                        </div>
-                    </div>
-                    <div class="mypage-panel">
-                        <div class="mypage-panel-head">
-                            <b>최근 제보 내역</b>
-                            <a href="#" data-tab-link="reports">더보기</a>
-                        </div>
-                        <div id="recent-reports-list">
-                            <p class="mypage-empty">아직 제보한 내역이 없습니다.<br><a href="/report">쓰레기통 위치 제보하러 가기</a></p>
-                        </div>
-                    </div>
+                    </button>
                 </div>
             </section>
 
@@ -160,10 +140,20 @@
                 </div>
             </section>
 
-            <section id="tab-favorites" class="mypage-tab-content" hidden>
-                <h2>즐겨찾기 관리</h2>
-                <div class="mypage-panel">
-                    <p class="mypage-empty">아직 즐겨찾기한 항목이 없습니다.<br>즐겨찾기 기능은 곧 연동될 예정이에요.</p>
+            <section id="tab-posts" class="mypage-tab-content" hidden>
+                <div class="mypage-panel-head">
+                    <h2>작성한 게시글</h2>
+                    <a class="mypage-edit-btn mypage-save-btn" href="/community/write" style="display:inline-block;text-decoration:none;">글쓰기</a>
+                </div>
+                <div class="mypage-panel" id="posts-tab-panel">
+                    <p class="mypage-empty">아직 작성한 게시글이 없습니다.<br><a href="/community/write">커뮤니티에 글 쓰러 가기</a></p>
+                </div>
+            </section>
+
+            <section id="tab-comments" class="mypage-tab-content" hidden>
+                <h2>작성한 댓글</h2>
+                <div class="mypage-panel" id="comments-tab-panel">
+                    <p class="mypage-empty">아직 작성한 댓글이 없습니다.</p>
                 </div>
             </section>
 
@@ -182,17 +172,6 @@
 
             <section id="tab-settings" class="mypage-tab-content" hidden>
                 <h2>설정</h2>
-
-                <div class="mypage-panel settings-row">
-                    <div class="settings-row-text">
-                        <b>다크모드</b>
-                        <span>화면을 어두운 톤으로 바꿔서 표시합니다</span>
-                    </div>
-                    <label class="settings-switch">
-                        <input type="checkbox" id="setting-dark-mode">
-                        <span class="settings-switch-track"></span>
-                    </label>
-                </div>
 
                 <div class="mypage-panel settings-row">
                     <div class="settings-row-text">

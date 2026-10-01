@@ -81,14 +81,12 @@ const loginReady = fetch('/api/reviews/current-user', { cache: 'no-store' })
     .catch(() => ({ loggedIn: false }))
     .then(u => { loginUser = u || { loggedIn: false }; return loginUser; });
 
-// [10/01 유해성] 글 수정은 작성자 본인만 (관리자는 남의 글 삭제만 가능)
-function isMine(ownerId) {
+function canEdit(ownerId) {
     return loginUser.loggedIn && String(loginUser.userId) === String(ownerId);
 }
 
-function canEdit(ownerId) {
-    if (!loginUser.loggedIn) return false;
-    return loginUser.role === 'ADMIN' || String(loginUser.userId) === String(ownerId);
+function canDelete(ownerId) {
+    return canEdit(ownerId) || (loginUser.loggedIn && ['ADMIN', 'MANAGER'].includes(loginUser.role));
 }
 
 function goLogin(message) {
@@ -142,7 +140,7 @@ function render(p) {
     let extra = '';
     if (p.hidden) {
         extra = '<div class="board-notice-box">🔒 비공개 요청은 작성자와 관리자만 볼 수 있어요.</div>';
-    } else if (p.category === '요청' && loginUser.role === 'ADMIN') {
+    } else if (p.category === '요청' && ['ADMIN', 'MANAGER'].includes(loginUser.role)) {
         extra = `<div class="board-status-admin">관리자 · 처리 상태
             <select id="status-select">${STATUSES.map(s => `<option ${s === p.status ? 'selected' : ''}>${s}</option>`).join('')}</select>
         </div>`;
@@ -156,9 +154,9 @@ function render(p) {
         <h1 class="board-detail-title">${escapeHtml(p.title)}</h1>
         <div class="board-detail-meta">
             <span>by ${escapeHtml(p.authorName ?? ('회원' + (p.userId ?? '')))}${adminBadge} | ${dateStr} | 조회수 ${p.viewCount ?? 0}</span>
-            ${canEdit(p.userId) ? `<span class="actions">
-                ${isMine(p.userId) ? `<a onclick="location.href='/community/write?edit=${p.postId}'">수정</a>` : ''}
-                <a onclick="deletePost()">삭제</a>
+            ${(canEdit(p.userId) || canDelete(p.userId)) ? `<span class="actions">
+                ${canEdit(p.userId) ? `<a onclick="location.href='/community/write?edit=${p.postId}'">수정</a>` : ''}
+                ${canDelete(p.userId) ? `<a onclick="deletePost()">삭제</a>` : ''}
             </span>` : ''}
         </div>
         ${extra}
@@ -242,7 +240,7 @@ function commentItemHtml(c) {
     return `
         <div class="${c.authorAdmin ? 'comment-admin' : ''}" style="padding:10px 0;border-bottom:1px solid #f2f2f2;">
             <div style="font-size:12px;color:#999;margin-bottom:4px;">${escapeHtml(c.authorName ?? ('회원' + (c.userId ?? '')))}${adminBadge} · ${dateStr}
-                ${canEdit(c.userId) ? `<a onclick="deleteComment(${c.commentId})" style="color:#e05a5a;cursor:pointer;margin-left:8px;">삭제</a>` : ''}
+                ${canDelete(c.userId) ? `<a onclick="deleteComment(${c.commentId})" style="color:#e05a5a;cursor:pointer;margin-left:8px;">삭제</a>` : ''}
             </div>
             <div style="font-size:13px;color:#333;">${escapeHtml(c.content)}</div>
         </div>`;

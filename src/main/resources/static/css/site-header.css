@@ -191,21 +191,6 @@
     outline-offset: 3px;
 }
 
-:root[data-theme="dark"] .site-header {
-    background: #1b1e24;
-    border-bottom-color: #2a2e36;
-}
-
-:root[data-theme="dark"] .site-header__nav a {
-    color: #e7e9ec;
-}
-
-:root[data-theme="dark"] .site-header__aux {
-    background: #22262d;
-    border-color: #33383f;
-    color: #e7e9ec;
-}
-
 @media (max-width: 1180px) {
     .site-header__inner {
         grid-template-columns: minmax(180px, 1fr) auto;
@@ -263,7 +248,7 @@
         row-gap: 0;
     }
 
-    .site-header__nav a { 
+    .site-header__nav a {
         height: 38px;
         font-size: 15px;
         font-weight: 800;

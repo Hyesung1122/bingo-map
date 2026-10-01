@@ -35,7 +35,7 @@ public class SystemSettingController {
     @GetMapping("/api/admin/settings")
     @ResponseBody
     public ResponseEntity<?> adminSettings(HttpServletRequest request) {
-        if (!isAdmin(request)) {
+        if (!canManageConsole(request)) {
             return ResponseEntity.status(403).body(Map.of("message", "관리자만 접근할 수 있습니다."));
         }
         return ResponseEntity.ok(toDto(getOrDefault()));
@@ -45,7 +45,7 @@ public class SystemSettingController {
     @PutMapping("/api/admin/settings")
     @ResponseBody
     public ResponseEntity<?> updateSettings(@RequestBody SettingsUpdateDto dto, HttpServletRequest request) {
-        if (!isAdmin(request)) {
+        if (!canManageConsole(request)) {
             return ResponseEntity.status(403).body(Map.of("message", "관리자만 접근할 수 있습니다."));
         }
 
@@ -69,9 +69,11 @@ public class SystemSettingController {
         });
     }
 
-    private boolean isAdmin(HttpServletRequest request) {
+    private boolean canManageConsole(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
-        return session != null && "ADMIN".equals(session.getAttribute(LoginController.SESSION_USER_ROLE));
+        if (session == null) return false;
+        Object role = session.getAttribute(LoginController.SESSION_USER_ROLE);
+        return "ADMIN".equals(role) || "MANAGER".equals(role);
     }
 
     private SettingsResponseDto toDto(SystemSetting s) {

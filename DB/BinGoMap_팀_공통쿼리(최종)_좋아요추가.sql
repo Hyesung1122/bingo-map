@@ -171,13 +171,15 @@ BEGIN
                 SECURITY_ANSWER     VARCHAR2(255),
                 NOTIFY_EMAIL        VARCHAR2(1),
                 LOCATION_ENABLED    VARCHAR2(1),
+                BLOCKED_UNTIL       TIMESTAMP,
+                BLOCKED_PERMANENT   CHAR(1)         DEFAULT 'N' NOT NULL,
                 ROLE                VARCHAR2(20)    DEFAULT 'USER' NOT NULL,
                 CREATED_AT          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
                 UPDATED_AT          TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
 
                 CONSTRAINT PK_USERS PRIMARY KEY (ID),
                 CONSTRAINT UQ_USERS_EMAIL UNIQUE (EMAIL),
-                CONSTRAINT CK_USERS_ROLE CHECK (ROLE IN ('USER', 'ADMIN'))
+                CONSTRAINT CK_USERS_ROLE CHECK (ROLE IN ('USER', 'MANAGER', 'ADMIN'))
             )
         ]';
 

@@ -1,6 +1,20 @@
 document.addEventListener("DOMContentLoaded", function () {
 
     let myEmail = null;
+    let canManageRoles = false;
+
+    fetch("/api/admin/access")
+        .then((res) => {
+            if (!res.ok) throw new Error("denied");
+            return res.json();
+        })
+        .then((access) => {
+            canManageRoles = access.role === "ADMIN";
+            if (!canManageRoles) {
+                document.querySelector(".admin-sidebar h3").textContent = "매니저 페이지";
+            }
+        })
+        .catch(() => { window.location.href = "/login"; });
 
     // 1) 대시보드 통계 로드 (회원 수는 실제 값, 나머지는 기능 연동 전이라 0)
     fetch("/api/admin/dashboard")
@@ -97,6 +111,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const tbody = document.getElementById("admin-user-table-body");
     const emptyEl = document.getElementById("admin-user-empty");
     const messageEl = document.getElementById("admin-user-message");
+    const userSearch = document.getElementById("admin-user-search");
 
     function showMessage(text, isError) {
         messageEl.textContent = text;
@@ -104,7 +119,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     function loadUsers() {
-        fetch("/api/admin/users")
+        fetch("/api/admin/users?keyword=" + encodeURIComponent(userSearch.value.trim()))
             .then((res) => res.json())
             .then((list) => {
                 renderUsers(list);
@@ -121,26 +136,52 @@ document.addEventListener("DOMContentLoaded", function () {
         list.forEach((u) => {
             const isMe = u.email === myEmail;
             const isAdminUser = u.role === "ADMIN";
+            const canBlock = !isMe && !isAdminUser;
+            const roleLabel = { USER: "일반회원", MANAGER: "매니저", ADMIN: "관리자" }[u.role] || u.role;
+            const blockStatus = !u.blocked
+                ? '<span class="admin-block-badge">정상</span>'
+                : u.blockedPermanently
+                    ? '<span class="admin-block-badge blocked">영구 차단</span>'
+                    : '<span class="admin-block-badge blocked">차단 ~ ' + escapeHtml(u.blockedUntil) + '</span>';
 
             const tr = document.createElement("tr");
             tr.innerHTML = `
+                <td>${u.userId}</td>
                 <td>${escapeHtml(u.name)}${isMe ? " (나)" : ""}</td>
                 <td>${escapeHtml(u.nickname)}</td>
                 <td>${escapeHtml(u.email)}</td>
-                <td><span class="admin-role-badge ${isAdminUser ? "admin" : "user"}">${isAdminUser ? "관리자" : "일반회원"}</span></td>
+                <td><span class="admin-role-badge ${u.role.toLowerCase()}">${escapeHtml(roleLabel)}</span></td>
                 <td>${u.joinedAt}</td>
+                <td>${blockStatus}</td>
                 <td>
                     <div class="admin-row-actions">
-                        <button class="${isAdminUser ? "demote" : "promote"}" data-action="role" data-id="${u.userId}" data-role="${isAdminUser ? "USER" : "ADMIN"}" ${isMe ? "disabled" : ""}>
-                            ${isAdminUser ? "일반회원으로" : "관리자로"}
-                        </button>
+                        <select class="admin-role-select" data-role-user="${u.userId}" ${isMe || !canManageRoles ? "disabled" : ""} title="${canManageRoles ? "직급 선택" : "직급 변경은 관리자만 할 수 있습니다."}">
+                            <option value="USER" ${u.role === "USER" ? "selected" : ""}>일반회원</option>
+                            <option value="MANAGER" ${u.role === "MANAGER" ? "selected" : ""}>매니저</option>
+                            <option value="ADMIN" ${u.role === "ADMIN" ? "selected" : ""}>관리자</option>
+                        </select>
+                        <button class="promote" data-action="role-save" data-id="${u.userId}" ${isMe || !canManageRoles ? "disabled" : ""}>직급 변경</button>
                         <button class="delete" data-action="delete" data-id="${u.userId}" ${isMe ? "disabled" : ""}>삭제</button>
+                        <select class="admin-block-duration" data-block-user="${u.userId}" aria-label="${escapeHtml(u.name)} 차단 기간" ${canBlock ? "" : "disabled"}>
+                            <option value="1">1일</option>
+                            <option value="7">7일</option>
+                            <option value="30">30일</option>
+                            <option value="PERMANENT">영구</option>
+                        </select>
+                        <button class="block" data-action="block" data-id="${u.userId}" ${canBlock ? "" : "disabled"}>차단</button>
+                        <button class="unblock" data-action="unblock" data-id="${u.userId}" ${u.blocked && canBlock ? "" : "disabled"}>해제</button>
                     </div>
                 </td>
             `;
             tbody.appendChild(tr);
         });
     }
+
+    let userSearchTimer;
+    userSearch.addEventListener("input", function () {
+        clearTimeout(userSearchTimer);
+        userSearchTimer = setTimeout(loadUsers, 250);
+    });
 
     function escapeHtml(str) {
         const div = document.createElement("div");
@@ -154,8 +195,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const userId = btn.dataset.id;
 
-        if (btn.dataset.action === "role") {
-            const newRole = btn.dataset.role;
+        if (btn.dataset.action === "role-save") {
+            const newRole = tbody.querySelector(`select[data-role-user="${userId}"]`).value;
             fetch(`/api/admin/users/${userId}/role`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
@@ -187,6 +228,42 @@ document.addEventListener("DOMContentLoaded", function () {
                     loadUsers();
                 })
                 .catch(() => showMessage("삭제 중 오류가 발생했습니다.", true));
+        }
+
+        if (btn.dataset.action === "block") {
+            const duration = tbody.querySelector(`select[data-block-user="${userId}"]`).value;
+            const durationLabel = duration === "PERMANENT" ? "영구" : duration + "일";
+            if (!confirm(`${durationLabel} 동안 이 회원을 차단하시겠습니까?`)) return;
+
+            fetch(`/api/admin/users/${userId}/block`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ duration }),
+            })
+                .then(async (res) => {
+                    const data = await res.json();
+                    if (!res.ok) {
+                        showMessage(data.message || "차단에 실패했습니다.", true);
+                        return;
+                    }
+                    showMessage(data.message || "회원이 차단되었습니다.", false);
+                    loadUsers();
+                })
+                .catch(() => showMessage("차단 중 오류가 발생했습니다.", true));
+        }
+
+        if (btn.dataset.action === "unblock") {
+            fetch(`/api/admin/users/${userId}/block`, { method: "DELETE" })
+                .then(async (res) => {
+                    const data = await res.json();
+                    if (!res.ok) {
+                        showMessage(data.message || "차단 해제에 실패했습니다.", true);
+                        return;
+                    }
+                    showMessage(data.message || "회원 차단을 해제했습니다.", false);
+                    loadUsers();
+                })
+                .catch(() => showMessage("차단 해제 중 오류가 발생했습니다.", true));
         }
     });
 

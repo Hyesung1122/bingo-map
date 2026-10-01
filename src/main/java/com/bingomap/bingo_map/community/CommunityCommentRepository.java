@@ -9,4 +9,8 @@ public interface CommunityCommentRepository extends JpaRepository<CommunityComme
 
     // [09/30 유해성] 댓글 내용 검색 (댓글 CONTENT 는 VARCHAR2 라 대소문자 무시 비교 가능)
     List<CommunityComment> findByContentContainingIgnoreCase(String keyword);
+
+    // 마이페이지 "작성한 댓글" 탭/통계용
+    List<CommunityComment> findByUserIdOrderByCreatedAtDesc(Long userId);
+    long countByUserId(Long userId);
 }
