@@ -1,5 +1,7 @@
 package com.bingomap.bingo_map.notice;
 
+import com.bingomap.bingo_map.notification.NotificationService;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.bingomap.bingo_map.user.LoginController;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -20,6 +22,9 @@ public class NoticeController {
             DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm");
 
     private final NoticeRepository noticeRepository;
+
+    @Autowired
+    private NotificationService notificationService;
 
     public NoticeController(NoticeRepository noticeRepository) {
         this.noticeRepository = noticeRepository;
@@ -102,6 +107,7 @@ public class NoticeController {
         );
 
         noticeRepository.save(notice);
+        notificationService.onNoticeCreated(authorId, dto.getTitle());
 
         return ResponseEntity.ok(toDto(notice));
     }

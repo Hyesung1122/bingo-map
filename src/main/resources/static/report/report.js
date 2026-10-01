@@ -61,7 +61,9 @@ document.addEventListener("DOMContentLoaded", function () {
                     errorEl.textContent = data.message || "제보 접수에 실패했습니다.";
                     return;
                 }
-                successEl.textContent = "제보가 접수되었습니다. 관리자 검수 후 반영됩니다.";
+                successEl.textContent = data.status === "APPROVED"
+                    ? "제보가 지도에 바로 반영되었습니다. (관리자 제보)"
+                    : "제보가 접수되었습니다. 관리자 검수 후 반영됩니다.";
                 nameInput.value = "";
                 addressInput.value = "";
                 descriptionInput.value = "";

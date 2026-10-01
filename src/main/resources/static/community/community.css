@@ -43,3 +43,78 @@
 .board-detail-meta .actions a{color:#888;margin-left:10px;cursor:pointer}
 .board-detail-meta .actions a:hover{color:#159b35}
 .board-detail-content{font-size:14px;line-height:1.8;color:#333;white-space:pre-wrap;min-height:120px}
+
+/* [10/01 유해성] 말머리 탭 / 배지 / 공지 고정 / 비공개 / 관리자 */
+.board-tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+.board-tabs button{border:1px solid #ddd;background:#fff;border-radius:18px;padding:7px 14px;font-size:13px;font-weight:700;color:#555;cursor:pointer}
+.board-tabs button:hover{border-color:#159b35;color:#159b35}
+.board-tabs button.active{background:#159b35;border-color:#159b35;color:#fff}
+
+.board-badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+.badge{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:2px 8px;line-height:1.5}
+.badge-cat{background:#eef7f0;color:#159b35}
+.badge-cat.cat-공지{background:#159b35;color:#fff}
+.badge-cat.cat-질문{background:#eef4ff;color:#2d6cdf}
+.badge-cat.cat-꿀팁{background:#fff6e5;color:#c77800}
+.badge-cat.cat-요청{background:#f6efff;color:#7a3fd1}
+.badge-status{border:1px solid currentColor;background:#fff}
+.badge-status.st-접수{color:#888}
+.badge-status.st-처리중{color:#2d6cdf}
+.badge-status.st-완료{color:#159b35}
+.badge-status.st-반려{color:#e05a5a}
+.badge-admin{background:#159b35;color:#fff;font-size:10px;padding:1px 6px;margin-left:4px;vertical-align:1px}
+
+.board-item.pinned{background:#f3faf5}
+.board-item.hidden-post .board-item-title{color:#999}
+
+.board-notice-box{background:#f8f8f8;border:1px solid #eee;border-radius:10px;padding:12px 14px;font-size:13px;color:#666;margin-bottom:16px}
+.board-status-admin{display:flex;align-items:center;gap:8px;background:#f6efff;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;font-weight:700;color:#7a3fd1}
+.board-status-admin select{border:1px solid #d9c8f5;border-radius:8px;padding:6px 8px;font-size:13px;background:#fff}
+.comment-admin{background:#f3faf5;border-radius:8px;padding:10px 10px !important}
+
+/* [10/01 유해성] 좋아요 버튼 (상세) */
+.like-wrap{display:flex;justify-content:center;margin:24px 0 4px}
+.like-btn{display:inline-flex;align-items:center;gap:6px;border:1.5px solid #ddd;background:#fff;border-radius:24px;padding:10px 22px;font-size:14px;font-weight:700;color:#555;cursor:pointer;transition:all .15s}
+.like-btn:hover{border-color:#e05a5a;color:#e05a5a}
+.like-btn.liked{border-color:#e05a5a;background:#fff3f3;color:#e05a5a}
+.like-btn:disabled{opacity:.6;cursor:wait}
+.like-btn b{font-weight:900}
+
+/* [10/01 유해성] 목록 화면: 가운데 목록 + 오른쪽 사이드바 */
+.community-layout{max-width:1080px;margin:0 auto;padding:28px 20px 60px;display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:36px;align-items:start}
+.community-layout .board-wrap{max-width:none;margin:0;padding:0}
+.board-side{display:flex;flex-direction:column;gap:14px;position:sticky;top:20px}
+.side-card{background:#fff;border:1px solid #eee;border-radius:14px;padding:16px 16px 12px}
+.side-card h3{font-size:14px;font-weight:900;margin:0 0 10px;color:#222}
+.side-empty{font-size:12px;color:#aaa;padding:4px 0 6px}
+.side-rank{list-style:none;margin:0;padding:0}
+.side-rank li{display:flex;gap:10px;align-items:baseline;padding:6px 0;cursor:pointer;font-size:13px}
+.side-rank li:hover .side-title{color:#159b35}
+.side-rank .num{font-weight:900;color:#159b35;width:14px;flex-shrink:0}
+.side-title{flex:1;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.side-sub{font-size:11px;color:#aaa;flex-shrink:0}
+.side-card h3 .side-more{float:right;font-size:11px;font-weight:700;color:#999;text-decoration:none;background:none;border:none;padding:0;cursor:pointer}
+.side-card h3 .side-more:hover{color:#159b35}
+.side-me{background:#f3faf5;border-color:#dcefe1}
+.side-me-hello{font-size:15px;font-weight:900;color:#222;margin-bottom:6px}
+.side-me-text{font-size:12px;color:#777;margin:0 0 12px}
+.side-me-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0 12px;text-align:center}
+.side-me-stats div{background:#fff;border-radius:10px;padding:8px 0}
+.side-me-stats b{display:block;font-size:18px;font-weight:900;color:#159b35}
+.side-me-stats span{font-size:11px;color:#888}
+.side-me-btn{display:block;width:100%;box-sizing:border-box;text-align:center;background:#159b35;color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;font-weight:800;cursor:pointer;text-decoration:none}
+.side-me-btn:hover{background:#128a2f}
+.side-notice{list-style:none;margin:0;padding:0}
+.side-notice li{display:flex;gap:8px;align-items:baseline;padding:6px 0;cursor:pointer;font-size:13px}
+.side-notice li:hover .side-title{color:#159b35}
+.side-tip p{font-size:13px;color:#555;line-height:1.6;margin:0 0 4px;min-height:42px}
+.side-links{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.side-links a{display:block;text-align:center;background:#f3faf5;border-radius:10px;padding:12px 6px;font-size:12px;font-weight:800;color:#159b35;text-decoration:none}
+.side-links a span{display:block;font-size:20px;margin-bottom:4px}
+@media (max-width:900px){
+  .community-layout{grid-template-columns:minmax(0,1fr)}
+  .board-side{position:static}
+}
+
+.board-field select{width:100%;border:1px solid #ddd;border-radius:10px;padding:11px 12px;font-size:14px;font-family:inherit;background:#fff}
+.board-check{display:flex;align-items:center;gap:8px;font-size:13px;color:#555;margin-top:10px;cursor:pointer}

@@ -166,6 +166,41 @@ public class RestaurantService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * 홈 인기 테이크아웃 맛집 목록.
+     * 실제 리뷰 평점이 있는 식당을 평점 순으로 먼저 보여주고,
+     * 부족한 자리는 식당 등록 순서대로 채웁니다.
+     * 공공 API 로더가 테이크아웃 후보를 선별하므로 공개 식당만 대상으로 합니다.
+     */
+    public List<RestaurantDto> getPopularTakeoutRestaurants(int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 10));
+        List<Restaurant> published = restaurantRepository.findByIsPublished("Y");
+
+        Comparator<Restaurant> registrationOrder = Comparator
+                .comparing(Restaurant::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(Restaurant::getRestaurantId, Comparator.nullsLast(Comparator.naturalOrder()));
+
+        Comparator<Restaurant> reviewRatingOrder = Comparator
+                .comparing(Restaurant::getRating, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(Restaurant::getReviewCount, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(registrationOrder);
+
+        List<Restaurant> reviewed = published.stream()
+                .filter(r -> r.getRating() != null && r.getReviewCount() != null && r.getReviewCount() > 0)
+                .sorted(reviewRatingOrder)
+                .collect(Collectors.toList());
+
+        List<Restaurant> fallback = published.stream()
+                .filter(r -> r.getRating() == null || r.getReviewCount() == null || r.getReviewCount() == 0)
+                .sorted(registrationOrder)
+                .collect(Collectors.toList());
+
+        return java.util.stream.Stream.concat(reviewed.stream(), fallback.stream())
+                .limit(safeLimit)
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
     private double calculateDistance(
             double lat1,
             double lon1,

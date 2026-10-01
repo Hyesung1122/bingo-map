@@ -52,6 +52,12 @@ public class BinReportController {
         String category = (dto.getCategory() == null || dto.getCategory().isBlank()) ? "general" : dto.getCategory();
         BinReport report = new BinReport(userId, dto.getLatitude(), dto.getLongitude(),
                 dto.getName(), category, dto.getAddress(), dto.getDescription());
+
+        // 관리자가 직접 제보한 건 검수가 필요 없으므로 바로 승인(지도에 즉시 표시)한다.
+        if (isAdmin(request)) {
+            report.review(BinReport.STATUS_APPROVED, null, userId);
+        }
+
         binReportRepository.save(report);
 
         return ResponseEntity.ok(new BinReportResponseDto(report));
@@ -70,6 +76,20 @@ public class BinReportController {
                 .map(BinReportResponseDto::new)
                 .toList();
         return ResponseEntity.ok(result);
+    }
+
+    // 지도 표시용: 관리자가 승인한 제보만 (로그인 없이 조회, 제보자 정보는 내려주지 않음)
+    @GetMapping("/api/reports/approved")
+    @ResponseBody
+    public List<BinReportResponseDto> approvedReports() {
+        return binReportRepository.findByStatusOrderByCreatedAtDesc(BinReport.STATUS_APPROVED).stream()
+                .map(BinReportResponseDto::new)
+                .toList();
+    }
+
+    private boolean isAdmin(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        return session != null && "ADMIN".equals(session.getAttribute(LoginController.SESSION_USER_ROLE));
     }
 
     private Long currentUserId(HttpServletRequest request) {

@@ -13,9 +13,10 @@ public class MyReviewResponseDto {
     private String createdAt; // yyyy.MM.dd 형태로 포맷
     private Integer helpCount;
     private String thumbnailUrl; // 첫 번째 이미지, 없으면 null
+    private String linkUrl;      // 카드를 눌렀을 때 이동할 리뷰 상세 주소
 
     public MyReviewResponseDto(Long reviewId, Long restaurantId, String restaurantName, Double rating,
-                               String content, String createdAt, Integer helpCount, String thumbnailUrl) {
+                               String content, String createdAt, Integer helpCount, String thumbnailUrl, String linkUrl) {
         this.reviewId = reviewId;
         this.restaurantId = restaurantId;
         this.restaurantName = restaurantName;
@@ -24,6 +25,7 @@ public class MyReviewResponseDto {
         this.createdAt = createdAt;
         this.helpCount = helpCount;
         this.thumbnailUrl = thumbnailUrl;
+        this.linkUrl = linkUrl;
     }
 
     public Long getReviewId() { return reviewId; }
@@ -34,4 +36,5 @@ public class MyReviewResponseDto {
     public String getCreatedAt() { return createdAt; }
     public Integer getHelpCount() { return helpCount; }
     public String getThumbnailUrl() { return thumbnailUrl; }
+    public String getLinkUrl() { return linkUrl; }
 }

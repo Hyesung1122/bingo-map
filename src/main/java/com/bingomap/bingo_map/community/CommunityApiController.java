@@ -1,6 +1,7 @@
 package com.bingomap.bingo_map.community;
 
 import com.bingomap.bingo_map.user.LoginController;
+import com.bingomap.bingo_map.user.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import org.springframework.data.domain.Page;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/community")
@@ -19,13 +21,16 @@ public class CommunityApiController {
 
     private final CommunityPostService service;
     private final CommunityCommentService commentService;
+    private final UserRepository userRepository;
 
     public CommunityApiController(
             CommunityPostService service,
-            CommunityCommentService commentService
+            CommunityCommentService commentService,
+            UserRepository userRepository
     ) {
         this.service = service;
         this.commentService = commentService;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -38,7 +43,9 @@ public class CommunityApiController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(required = false) String keyword,
-            @RequestParam(defaultValue = "all") String field
+            @RequestParam(defaultValue = "all") String field,
+            @RequestParam(required = false) String category,   // [10/01 유해성] 말머리 탭
+            HttpServletRequest httpRequest
     ) {
 
         Pageable pageable =
@@ -54,18 +61,40 @@ public class CommunityApiController {
         return service.getPosts(
                 keyword,
                 field,
-                pageable
+                category,
+                pageable,
+                getLoginUserId(httpRequest),
+                isAdmin(httpRequest)
         );
     }
 
     /**
      * 게시글 상세.
+     * [10/01 유해성] 비공개 요청은 작성자·관리자가 아니면 내용이 가려져서 내려감
      */
     @GetMapping("/{id:\\d+}")
     public CommunityPostResponseDto getPost(
-            @PathVariable Long id
+            @PathVariable Long id,
+            HttpServletRequest httpRequest
     ) {
-        return service.getPost(id);
+        return service.getPost(id, getLoginUserId(httpRequest), isAdmin(httpRequest));
+    }
+
+    /**
+     * [10/01 유해성] 요청 글 처리 상태 변경 (관리자만). body: { "status": "처리중" }
+     */
+    @PatchMapping("/{id:\\d+}/status")
+    public CommunityPostResponseDto changeStatus(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body,
+            HttpServletRequest httpRequest
+    ) {
+        return service.changeStatus(
+                id,
+                body.get("status"),
+                getLoginUserId(httpRequest),
+                isAdmin(httpRequest)
+        );
     }
 
     /**
@@ -73,12 +102,18 @@ public class CommunityApiController {
      */
     @PostMapping
     public ResponseEntity<CommunityPostResponseDto> create(
-            @RequestBody CommunityPostRequestDto request
+            @RequestBody CommunityPostRequestDto request,
+            HttpServletRequest httpRequest
     ) {
+        // [09/30 유해성] 로그인한 사람만 작성, 작성자는 로그인 정보로 저장
+        Long loginUserId = getLoginUserId(httpRequest);
+        if (loginUserId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(service.create(request));
+                .body(service.create(request, loginUserId, isAdmin(httpRequest)));
     }
 
     /**
@@ -87,12 +122,15 @@ public class CommunityApiController {
     @PutMapping("/{id:\\d+}")
     public CommunityPostResponseDto edit(
             @PathVariable Long id,
-            @RequestBody CommunityPostRequestDto request
+            @RequestBody CommunityPostRequestDto request,
+            HttpServletRequest httpRequest
     ) {
-
+        // [09/30 유해성] 작성자 본인 또는 관리자만
         return service.edit(
                 id,
-                request
+                request,
+                getLoginUserId(httpRequest),
+                isAdmin(httpRequest)
         );
     }
 
@@ -101,10 +139,11 @@ public class CommunityApiController {
      */
     @DeleteMapping("/{id:\\d+}")
     public ResponseEntity<Void> delete(
-            @PathVariable Long id
+            @PathVariable Long id,
+            HttpServletRequest httpRequest
     ) {
-
-        service.delete(id);
+        // [09/30 유해성] 작성자 본인 또는 관리자만
+        service.delete(id, getLoginUserId(httpRequest), isAdmin(httpRequest));
 
         return ResponseEntity.noContent().build();
     }
@@ -117,13 +156,36 @@ public class CommunityApiController {
         return service.getSuggestedTags();
     }
 
+    /**
+     * [10/01 유해성] 좋아요 누르기 / 다시 누르면 취소 (로그인 필요)
+     */
+    @PostMapping("/{id:\\d+}/like")
+    public Map<String, Object> toggleLike(
+            @PathVariable Long id,
+            HttpServletRequest httpRequest
+    ) {
+        return service.toggleLike(id, getLoginUserId(httpRequest), isAdmin(httpRequest));
+    }
+
+    /**
+     * [10/01 유해성] 커뮤니티 오른쪽 사이드바 (인기글 / 내 활동)
+     */
+    @GetMapping("/sidebar")
+    public Map<String, Object> getSidebar(HttpServletRequest httpRequest) {
+        return service.getSidebar(getLoginUserId(httpRequest));
+    }
+
     // ── [09/30 유해성] 댓글 API (병합 중 빠져서 댓글 조회/등록이 실패하던 것 복구) ──
 
     @GetMapping("/{postId:\\d+}/comments")
     public List<CommentResponseDto> getComments(
-            @PathVariable Long postId
+            @PathVariable Long postId,
+            HttpServletRequest httpRequest
     ) {
-        return commentService.getComments(postId);
+        // [10/01 유해성] 비공개 요청 댓글은 작성자·관리자만, 요청 글은 관리자 답변을 위로
+        boolean requestPost = service.checkCanViewComments(
+                postId, getLoginUserId(httpRequest), isAdmin(httpRequest));
+        return commentService.getComments(postId, requestPost);
     }
 
     @PostMapping("/{postId:\\d+}/comments")
@@ -132,9 +194,8 @@ public class CommunityApiController {
             @RequestBody CommentRequestDto request,
             HttpServletRequest httpRequest
     ) {
-        // 로그인했으면 로그인한 사람으로, 아니면 화면이 보낸 id(임시 1번)로 저장
-        Long loginUserId = getLoginUserId(httpRequest);
-        Long userId = loginUserId != null ? loginUserId : request.getUserId();
+        // [09/30 유해성] 로그인한 사람만 댓글 작성, 작성자는 로그인 정보로 저장
+        Long userId = getLoginUserId(httpRequest);
 
         if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -142,6 +203,8 @@ public class CommunityApiController {
         if (request.getContent() == null || request.getContent().isBlank()) {
             return ResponseEntity.badRequest().build();
         }
+        // [10/01 유해성] 비공개 요청에는 작성자·관리자만 댓글 가능 (아니면 403)
+        service.checkCanViewComments(postId, userId, isAdmin(httpRequest));
 
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -150,21 +213,39 @@ public class CommunityApiController {
 
     @DeleteMapping("/comments/{commentId:\\d+}")
     public ResponseEntity<Void> deleteComment(
-            @PathVariable Long commentId
+            @PathVariable Long commentId,
+            HttpServletRequest httpRequest
     ) {
-        commentService.delete(commentId);
+        // [09/30 유해성] 댓글 작성자 본인 또는 관리자만
+        commentService.delete(commentId, getLoginUserId(httpRequest), isAdmin(httpRequest));
         return ResponseEntity.noContent().build();
     }
 
+    private boolean isAdmin(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        return session != null
+                && "ADMIN".equals(session.getAttribute(LoginController.SESSION_USER_ROLE));
+    }
+
+    /**
+     * [10/01 유해성] 로그인한 회원 번호. 세션에 번호가 있어도 USERS 에 없는 회원이면
+     * (DB 를 다시 만든 뒤 예전 로그인이 남아 있는 경우) 세션을 지우고 비로그인으로 처리.
+     * -> 댓글/글 저장 시 ORA-02291(FK_..._USER, 부모 키 없음) 대신 로그인 페이지로 안내됨
+     */
     private Long getLoginUserId(HttpServletRequest request) {
         HttpSession session = request.getSession(false);
         if (session == null) {
             return null;
         }
         Object value = session.getAttribute(LoginController.SESSION_USER_ID);
-        if (value instanceof Number) {
-            return ((Number) value).longValue();
+        if (!(value instanceof Number)) {
+            return null;
         }
-        return null;
+        Long userId = ((Number) value).longValue();
+        if (!userRepository.existsById(userId)) {
+            session.invalidate();
+            return null;
+        }
+        return userId;
     }
 }

@@ -2,7 +2,7 @@ package com.bingomap.bingo_map.user;
 
 /**
  * 마이페이지 프로필 탭 상단 통계 카드용 DTO.
- * favoriteCount / reportCount는 아직 관련 기능이 없어서 0으로 고정.
+ * reviewCount / reportCount / favoriteCount는 내 계정 기준으로 DB에서 센 값.
  */
 public class MyPageStatsDto {
 

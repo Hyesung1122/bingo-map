@@ -9,6 +9,7 @@ public class CommentResponseDto {
     private String content;
     private LocalDateTime createdAt;
     private String authorName;   // [09/30 유해성] 작성자 닉네임(없으면 이름)
+    private boolean authorAdmin; // [10/01 유해성] 관리자 댓글이면 배지 표시
 
     public CommentResponseDto(CommunityComment c) {
         this.commentId = c.getCommentId();
@@ -25,4 +26,6 @@ public class CommentResponseDto {
     public LocalDateTime getCreatedAt() { return createdAt; }
     public String getAuthorName() { return authorName; }
     public void setAuthorName(String authorName) { this.authorName = authorName; }
+    public boolean isAuthorAdmin() { return authorAdmin; }
+    public void setAuthorAdmin(boolean authorAdmin) { this.authorAdmin = authorAdmin; }
 }

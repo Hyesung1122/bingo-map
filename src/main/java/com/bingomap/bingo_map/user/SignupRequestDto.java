@@ -40,9 +40,7 @@ public class SignupRequestDto {
     private String nationality;   // 선택 입력 (화면에는 아직 없음)
     private boolean agreeTerms;
 
-    @NotBlank(message = "본인확인 질문을 선택해주세요.")
+    // 본인확인 질문/답변은 회원가입 화면에서 제거되어 선택 항목이다 (없으면 null)
     private String securityQuestion;
-
-    @NotBlank(message = "본인확인 답변을 입력해주세요.")
     private String securityAnswer;
 }

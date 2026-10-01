@@ -6,6 +6,7 @@
     <title>마이페이지 | BinGo Map</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/mypage/mypage.css">
+    <link rel="stylesheet" href="/css/notifications.css">
 </head>
 <body>
 <header class="header">
@@ -24,7 +25,6 @@
             <a href="/restaurants">주변 맛집</a>
             <a href="/favorites">즐겨찾기</a>
             <a href="/reviews">리뷰</a>
-            <a href="/community">커뮤니티</a>
             <a href="/notices">공지사항</a>
         </nav>
 
@@ -135,7 +135,9 @@
                             <b>최근 제보 내역</b>
                             <a href="#" data-tab-link="reports">더보기</a>
                         </div>
-                        <p class="mypage-empty">아직 제보한 내역이 없습니다.<br>제보 기능은 곧 연동될 예정이에요.</p>
+                        <div id="recent-reports-list">
+                            <p class="mypage-empty">아직 제보한 내역이 없습니다.<br><a href="/report">쓰레기통 위치 제보하러 가기</a></p>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -148,7 +150,10 @@
             </section>
 
             <section id="tab-reports" class="mypage-tab-content" hidden>
-                <h2>작성한 제보</h2>
+                <div class="mypage-panel-head">
+                    <h2>작성한 제보</h2>
+                    <a class="mypage-edit-btn mypage-save-btn" href="/report" style="display:inline-block;text-decoration:none;">제보하기</a>
+                </div>
                 <div class="mypage-panel" id="reports-tab-panel">
                     <p class="mypage-empty">아직 제보한 내역이 없습니다.<br><a href="/report">쓰레기통 위치 제보하러 가기</a></p>
                 </div>
@@ -164,7 +169,13 @@
             <section id="tab-notifications" class="mypage-tab-content" hidden>
                 <h2>알림</h2>
                 <div class="mypage-panel">
-                    <p class="mypage-empty">아직 받은 알림이 없습니다.</p>
+                    <div class="notif-tab-head">
+                        <b>받은 알림<small id="notif-tab-unread"></small></b>
+                        <button type="button" id="notif-tab-readall" class="notif-readall">모두 읽음</button>
+                    </div>
+                    <div id="notif-tab-list"></div>
+                    <p class="mypage-empty" id="notif-tab-empty" hidden>아직 받은 알림이 없습니다.</p>
+                    <button type="button" id="notif-tab-more" class="notif-loadmore" hidden>더 보기</button>
                 </div>
             </section>
 

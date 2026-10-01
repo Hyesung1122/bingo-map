@@ -6,6 +6,8 @@
     <title>리뷰 작성 | BinGo Map</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/reviews/reviews.css">
+    <!-- [10/01 유해성] 헤더 로그인 상태(이름님/로그아웃/관리자 페이지) 표시 -->
+    <script src="/js/header-auth.js"></script>
 </head>
 <body>
 <header class="header">
@@ -30,7 +32,7 @@
     </div>
 </header>
 
-<main>
+<main id="reviewWriteMain" style="display:none;">
     <div class="review-wrap" style="max-width:560px;">
         <a class="back-link" href="/reviews">‹ 리뷰 목록</a>
         <div class="review-top"><h2>리뷰 작성</h2></div>
@@ -117,10 +119,27 @@
 </footer>
 
 <script>
-const DEMO_USER_ID = 1;
-
 const params = new URLSearchParams(location.search);
 const restaurantId = params.get('restaurantId') || '';
+const writePath = `${location.pathname}${location.search}`;
+
+async function requireLoginForReview() {
+    try {
+        const response = await fetch('/api/reviews/current-user', { cache: 'no-store' });
+        if (!response.ok) throw new Error('login status unavailable');
+        const user = await response.json();
+        if (!user.loggedIn) {
+            location.replace(`/login?returnUrl=${encodeURIComponent(writePath)}`);
+            return false;
+        }
+        document.getElementById('reviewWriteMain').style.display = '';
+        return true;
+    } catch (error) {
+        console.error(error);
+        location.replace(`/login?returnUrl=${encodeURIComponent(writePath)}`);
+        return false;
+    }
+}
 
 async function loadRestaurant() {
     const nameEl = document.getElementById('restaurant-name');
@@ -146,7 +165,9 @@ async function loadRestaurant() {
     }
 }
 
-loadRestaurant();
+requireLoginForReview().then(isLoggedIn => {
+    if (isLoggedIn) loadRestaurant();
+});
 
 let rating = 0;
 const starPicker = document.getElementById('star-picker');
@@ -226,7 +247,6 @@ form.addEventListener('submit', async (e) => {
     if (!contentEl.value.trim()) { alert('리뷰 내용을 입력해주세요.'); return; }
 
     const reviewData = {
-        userId: DEMO_USER_ID,
         restaurantId: Number(restaurantId),
         rating: rating,
         content: contentEl.value.trim(),
@@ -245,9 +265,15 @@ form.addEventListener('submit', async (e) => {
 
     try {
         const res = await fetch('/api/reviews', { method: 'POST', body: formData });
+        // [10/01 유해성] 작성 중 로그인이 풀렸으면 로그인 후 이 화면으로 돌아오게
+        if (res.status === 401) {
+            alert('로그인이 필요합니다. 로그인 후 다시 작성해주세요.');
+            location.href = `/login?returnUrl=${encodeURIComponent(writePath)}`;
+            return;
+        }
         if (!res.ok) throw new Error('failed');
         const created = await res.json();
-        location.href = `/reviews/${created.reviewId}`;
+        location.href = `/reviews/restaurant/${encodeURIComponent(restaurantId)}`;
     } catch (err) {
         alert('리뷰 등록에 실패했습니다. 잠시 후 다시 시도해주세요.');
         submitBtn.disabled = false;

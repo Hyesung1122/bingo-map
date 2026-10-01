@@ -61,15 +61,19 @@ public class SignupService {
                 "NONE"
         );
 
-        user.setSecurityQuestion(
-                dto.getSecurityQuestion()
-        );
+        // 본인확인 질문/답변은 선택 항목: 둘 다 입력된 경우에만 저장 (비밀번호 찾기에 사용)
+        if (dto.getSecurityQuestion() != null && !dto.getSecurityQuestion().isBlank()
+                && dto.getSecurityAnswer() != null && !dto.getSecurityAnswer().isBlank()) {
+            user.setSecurityQuestion(
+                    dto.getSecurityQuestion()
+            );
 
-        user.setSecurityAnswer(
-                passwordEncoder.encode(
-                        normalizeAnswer(dto.getSecurityAnswer())
-                )
-        );
+            user.setSecurityAnswer(
+                    passwordEncoder.encode(
+                            normalizeAnswer(dto.getSecurityAnswer())
+                    )
+            );
+        }
 
         return userRepository.save(user);
     }
