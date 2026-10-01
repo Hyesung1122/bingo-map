@@ -9,6 +9,6 @@ import lombok.Setter;
 @Setter
 public class AdminRoleUpdateDto {
 
-    @Pattern(regexp = "^(USER|ADMIN)$", message = "role은 USER 또는 ADMIN이어야 합니다.")
+    @Pattern(regexp = "^(USER|MANAGER|ADMIN)$", message = "role은 USER, MANAGER 또는 ADMIN이어야 합니다.")
     private String role;
 }

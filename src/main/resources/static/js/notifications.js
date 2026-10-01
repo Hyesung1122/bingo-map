@@ -87,7 +87,13 @@
             '<div class="notif-list"></div>' +
             '<a class="notif-more" href="/mypage?tab=notifications">전체 알림 보기</a>' +
             "</div>";
-        actions.insertBefore(wrap, actions.firstChild);
+        // "{이름}님" 오른쪽, "로그아웃" 왼쪽에 놓는다. (이름 링크를 못 찾으면 맨 앞에 둠)
+        var nameLink = actions.querySelector("a.login");
+        if (nameLink) {
+            nameLink.after(wrap);
+        } else {
+            actions.insertBefore(wrap, actions.firstChild);
+        }
 
         els.wrap = wrap;
         els.bell = wrap.querySelector(".notif-bell");

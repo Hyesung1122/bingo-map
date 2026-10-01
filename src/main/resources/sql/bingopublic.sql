@@ -19,7 +19,7 @@ CREATE TABLE users (
     updated_at  TIMESTAMP       DEFAULT SYSTIMESTAMP NOT NULL,
     CONSTRAINT pk_users PRIMARY KEY (id),
     CONSTRAINT uq_users_email UNIQUE (email),
-    CONSTRAINT ck_users_role CHECK (role IN ('USER', 'ADMIN'))
+    CONSTRAINT ck_users_role CHECK (role IN ('USER', 'MANAGER', 'ADMIN'))
 );
 CREATE OR REPLACE TRIGGER users_bi
     BEFORE INSERT ON users

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -24,6 +25,8 @@ public class AdminController {
 
     private static final DateTimeFormatter JOINED_FORMAT =
             DateTimeFormatter.ofPattern("yyyy.MM.dd");
+    private static final DateTimeFormatter BLOCKED_UNTIL_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy.MM.dd HH:mm");
 
     private final UserRepository userRepository;
     private final RestaurantRepository restaurantRepository;
@@ -42,7 +45,7 @@ public class AdminController {
     // 관리자 페이지 진입
     @GetMapping("/admin")
     public String admin(HttpServletRequest request) {
-        if (!isAdmin(request)) {
+        if (!canAccessConsole(request)) {
             return redirectDenied(request);
         }
 
@@ -55,7 +58,7 @@ public class AdminController {
     public AdminDashboardResponseDto dashboard(
             HttpServletRequest request
     ) {
-        if (!isAdmin(request)) {
+        if (!canAccessConsole(request)) {
             return null;
         }
 
@@ -78,9 +81,10 @@ public class AdminController {
     @GetMapping("/api/admin/users")
     @ResponseBody
     public ResponseEntity<?> users(
+            @RequestParam(required = false) String keyword,
             HttpServletRequest request
     ) {
-        if (!isAdmin(request)) {
+        if (!canAccessConsole(request)) {
             return ResponseEntity
                     .status(403)
                     .body(
@@ -91,20 +95,32 @@ public class AdminController {
                     );
         }
 
-        List<AdminUserDto> result =
-                userRepository.findAll()
-                        .stream()
-                        .map(u -> new AdminUserDto(
-                                u.getUserId(),
-                                u.getName(),
-                                u.getNickname(),
-                                u.getEmail(),
-                                u.getRole(),
-                                u.getCreatedAt() != null
-                                        ? u.getCreatedAt().format(JOINED_FORMAT)
-                                        : "-"
-                        ))
-                        .toList();
+        LocalDateTime now = LocalDateTime.now();
+        String normalizedKeyword = keyword == null ? "" : keyword.trim().toLowerCase();
+        List<AdminUserDto> result = userRepository.findAll().stream()
+                .filter(u -> normalizedKeyword.isEmpty()
+                        || String.valueOf(u.getUserId()).contains(normalizedKeyword)
+                        || (u.getEmail() != null && u.getEmail().toLowerCase().contains(normalizedKeyword))
+                        || (u.getNickname() != null && u.getNickname().toLowerCase().contains(normalizedKeyword)))
+                .map(u -> {
+                    boolean blocked = u.isCurrentlyBlocked(now);
+                    boolean permanent = blocked && u.isBlockedPermanently();
+                    String until = blocked && !permanent && u.getBlockedUntil() != null
+                            ? u.getBlockedUntil().format(BLOCKED_UNTIL_FORMAT)
+                            : null;
+                    return new AdminUserDto(
+                            u.getUserId(),
+                            u.getName(),
+                            u.getNickname(),
+                            u.getEmail(),
+                            u.getRole(),
+                            u.getCreatedAt() != null ? u.getCreatedAt().format(JOINED_FORMAT) : "-",
+                            blocked,
+                            permanent,
+                            until
+                    );
+                })
+                .toList();
 
         return ResponseEntity.ok(result);
     }
@@ -177,6 +193,11 @@ public class AdminController {
                     );
         }
 
+        if ("ADMIN".equals(target.getRole()) && !"ADMIN".equals(dto.getRole())
+                && userRepository.findAll().stream().filter(u -> "ADMIN".equals(u.getRole())).count() <= 1) {
+            return ResponseEntity.badRequest().body(Map.of("message", "마지막 관리자의 권한은 내릴 수 없습니다."));
+        }
+
         target.setRole(dto.getRole());
         userRepository.save(target);
 
@@ -188,6 +209,69 @@ public class AdminController {
         );
     }
 
+    // 회원 차단 기간 설정 (1일 / 7일 / 30일 / 영구)
+    @PutMapping("/api/admin/users/{userId}/block")
+    @ResponseBody
+    public ResponseEntity<?> blockUser(
+            @PathVariable Long userId,
+            @RequestBody Map<String, String> body,
+            HttpServletRequest request
+    ) {
+        if (!canAccessConsole(request)) {
+            return ResponseEntity.status(403).body(Map.of("message", "관리자만 접근할 수 있습니다."));
+        }
+
+        HttpSession session = request.getSession(false);
+        Long adminId = (Long) session.getAttribute(LoginController.SESSION_USER_ID);
+        if (userId.equals(adminId)) {
+            return ResponseEntity.badRequest().body(Map.of("message", "본인 계정은 차단할 수 없습니다."));
+        }
+
+        User target = userRepository.findById(userId).orElse(null);
+        if (target == null) {
+            return ResponseEntity.status(404).body(Map.of("message", "존재하지 않는 회원입니다."));
+        }
+        if ("ADMIN".equals(target.getRole())) {
+            return ResponseEntity.badRequest().body(Map.of("message", "관리자 계정은 차단할 수 없습니다."));
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        String duration = body.get("duration");
+        switch (duration == null ? "" : duration) {
+            case "1" -> target.blockUntil(now.plusDays(1));
+            case "7" -> target.blockUntil(now.plusDays(7));
+            case "30" -> target.blockUntil(now.plusDays(30));
+            case "PERMANENT" -> target.blockPermanently();
+            default -> {
+                return ResponseEntity.badRequest().body(Map.of("message", "차단 기간이 올바르지 않습니다."));
+            }
+        }
+
+        userRepository.save(target);
+        return ResponseEntity.ok(Map.of("message", "회원 차단 기간을 설정했습니다."));
+    }
+
+    // 차단 해제
+    @DeleteMapping("/api/admin/users/{userId}/block")
+    @ResponseBody
+    public ResponseEntity<?> unblockUser(
+            @PathVariable Long userId,
+            HttpServletRequest request
+    ) {
+        if (!canAccessConsole(request)) {
+            return ResponseEntity.status(403).body(Map.of("message", "관리자만 접근할 수 있습니다."));
+        }
+
+        User target = userRepository.findById(userId).orElse(null);
+        if (target == null) {
+            return ResponseEntity.status(404).body(Map.of("message", "존재하지 않는 회원입니다."));
+        }
+
+        target.unblock();
+        userRepository.save(target);
+        return ResponseEntity.ok(Map.of("message", "회원 차단을 해제했습니다."));
+    }
+
     // 회원 삭제
     @DeleteMapping("/api/admin/users/{userId}")
     @ResponseBody
@@ -195,7 +279,7 @@ public class AdminController {
             @PathVariable Long userId,
             HttpServletRequest request
     ) {
-        if (!isAdmin(request)) {
+        if (!canAccessConsole(request)) {
             return ResponseEntity
                     .status(403)
                     .body(
@@ -236,6 +320,11 @@ public class AdminController {
                     );
         }
 
+        User target = userRepository.findById(userId).orElse(null);
+        if (isManager(request) && target != null && "ADMIN".equals(target.getRole())) {
+            return ResponseEntity.status(403).body(Map.of("message", "매니저는 관리자 계정을 삭제할 수 없습니다."));
+        }
+
         userRepository.deleteById(userId);
 
         return ResponseEntity.ok(
@@ -258,6 +347,25 @@ public class AdminController {
                         LoginController.SESSION_USER_ROLE
                 )
         );
+    }
+
+    @GetMapping("/api/admin/access")
+    @ResponseBody
+    public ResponseEntity<?> consoleAccess(HttpServletRequest request) {
+        if (!canAccessConsole(request)) {
+            return ResponseEntity.status(403).body(Map.of("message", "관리자 또는 매니저만 접근할 수 있습니다."));
+        }
+        HttpSession session = request.getSession(false);
+        return ResponseEntity.ok(Map.of("role", session.getAttribute(LoginController.SESSION_USER_ROLE)));
+    }
+
+    private boolean isManager(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        return session != null && "MANAGER".equals(session.getAttribute(LoginController.SESSION_USER_ROLE));
+    }
+
+    private boolean canAccessConsole(HttpServletRequest request) {
+        return isAdmin(request) || isManager(request);
     }
 
     private String redirectDenied(

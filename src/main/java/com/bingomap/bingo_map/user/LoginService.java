@@ -3,6 +3,8 @@ package com.bingomap.bingo_map.user;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+
 @Service
 public class LoginService {
 
@@ -25,6 +27,12 @@ public class LoginService {
         if (user.getPassword() == null
                 || !passwordEncoder.matches(dto.getPassword(), user.getPassword())) {
             throw new LoginException("아이디 또는 비밀번호가 올바르지 않습니다. 입력한 정보를 다시 확인해 주세요.");
+        }
+
+        if (user.isCurrentlyBlocked(LocalDateTime.now())) {
+            throw new LoginException(user.isBlockedPermanently()
+                    ? "관리자에 의해 영구 차단된 계정입니다."
+                    : "관리자에 의해 일시 차단된 계정입니다.");
         }
 
         return user;

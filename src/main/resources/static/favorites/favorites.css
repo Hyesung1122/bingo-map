@@ -171,20 +171,6 @@
     cursor: pointer;
 }
 
-:root[data-theme="dark"] .favorites-main { background: #14161a; }
-:root[data-theme="dark"] .favorite-card,
-:root[data-theme="dark"] .favorites-state {
-    background: #1b1e24;
-    border-color: #2a2e36;
-    color: #e7e9ec;
-}
-:root[data-theme="dark"] .favorite-name,
-:root[data-theme="dark"] .favorites-state strong { color: #e7e9ec; }
-:root[data-theme="dark"] .favorites-description,
-:root[data-theme="dark"] .favorite-location,
-:root[data-theme="dark"] .favorite-date { color: #b6bac1; }
-:root[data-theme="dark"] .favorite-card-icon { background: #203326; }
-
 @media (max-width: 760px) {
     .favorites-main { padding: 36px 16px 52px; }
     .favorites-heading { align-items: start; }

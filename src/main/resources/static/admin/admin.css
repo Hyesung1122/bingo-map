@@ -1,9 +1,9 @@
 .admin-layout{max-width:1120px;margin:0 auto;padding:36px 20px 60px;display:grid;grid-template-columns:220px 1fr;gap:28px;align-items:start;}
 
 .admin-sidebar{background:#fff;border:1px solid #ececec;border-radius:14px;padding:22px 18px;}
-.admin-sidebar h3{font-size:15px;font-weight:900;margin:0 0 16px;padding-left:6px;}
+.admin-sidebar h3{font-size:15px;font-weight:900;margin:0 0 16px;padding-left:6px;white-space:nowrap;}
 .admin-nav{display:flex;flex-direction:column;gap:2px;}
-.admin-nav a{display:block;padding:10px 12px;border-radius:9px;font-size:14px;font-weight:700;color:#555;}
+.admin-nav a{display:block;padding:10px 12px;border-radius:9px;font-size:14px;font-weight:700;color:#555;white-space:nowrap;}
 .admin-nav a:hover{background:#f5f8f5;}
 .admin-nav a.active{background:#e9f8ee;color:#159b35;}
 
@@ -23,21 +23,36 @@
 .admin-table{width:100%;border-collapse:collapse;font-size:13px;}
 .admin-table th{text-align:left;color:#888;font-weight:700;padding:8px 10px;border-bottom:1px solid #eee;}
 .admin-table td{padding:10px 10px;border-bottom:1px solid #f3f3f3;}
+.admin-main h2{white-space:nowrap;}
+#tab-users .admin-panel{overflow-x:auto;}
+#tab-users .admin-table{min-width:920px;}
+#tab-users .admin-table th,#tab-users .admin-table td{white-space:nowrap;}
+.admin-user-search{display:flex;margin-bottom:12px;}
+.admin-user-search input{width:min(100%,420px);border:1px solid #ddd;border-radius:8px;padding:9px 12px;font-size:13px;}
 
 .admin-empty{font-size:13px;color:#999;text-align:center;padding:26px 6px;}
 
 .admin-role-badge{font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;}
 .admin-role-badge.admin{background:#e9f8ee;color:#159b35;}
+.admin-role-badge.manager{background:#eaf2ff;color:#2861b2;}
 .admin-role-badge.user{background:#f1f1f1;color:#666;}
 .admin-role-badge.pending{background:#fff7e6;color:#a5720b;}
 .admin-role-badge.approved{background:#e9f8ee;color:#159b35;}
 .admin-role-badge.rejected{background:#fdecec;color:#c0392b;}
 
 .admin-row-actions{display:flex;gap:6px;}
+.admin-row-actions{flex-wrap:wrap;align-items:center;}
 .admin-row-actions button{border:1px solid #ddd;background:#fff;border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;color:#444;white-space:nowrap;}
 .admin-row-actions button.promote{background:#e9f8ee;border-color:#bfe9cb;color:#159b35;}
 .admin-row-actions button.demote{background:#fff7e6;border-color:#f4dfa8;color:#a5720b;}
 .admin-row-actions button.delete{background:#fdecec;border-color:#f4c7c3;color:#c0392b;}
+.admin-row-actions button.block{background:#fdecec;border-color:#f4c7c3;color:#c0392b;}
+.admin-row-actions button.unblock{background:#f1f1f1;color:#555;}
+.admin-row-actions select.admin-block-duration{border:1px solid #ddd;border-radius:6px;padding:5px 6px;font-size:11px;background:#fff;color:#444;}
+.admin-row-actions select.admin-role-select{border:1px solid #ddd;border-radius:6px;padding:5px 6px;font-size:11px;background:#fff;color:#444;}
+.admin-nav a[hidden],.admin-tab-content[hidden]{display:none!important;}
+.admin-block-badge{display:inline-block;border-radius:20px;padding:3px 8px;background:#e9f8ee;color:#159b35;font-size:11px;font-weight:800;white-space:nowrap;}
+.admin-block-badge.blocked{background:#fdecec;color:#c0392b;}
 .admin-row-actions button:disabled{opacity:.4;cursor:not-allowed;}
 
 .admin-message{font-size:13px;font-weight:700;margin:0 0 12px;min-height:16px;}
