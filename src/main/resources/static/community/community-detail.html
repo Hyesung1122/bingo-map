@@ -80,6 +80,11 @@ const loginReady = fetch('/api/reviews/current-user', { cache: 'no-store' })
     .catch(() => ({ loggedIn: false }))
     .then(u => { loginUser = u || { loggedIn: false }; return loginUser; });
 
+// [10/01 유해성] 글 수정은 작성자 본인만 (관리자는 남의 글 삭제만 가능)
+function isMine(ownerId) {
+    return loginUser.loggedIn && String(loginUser.userId) === String(ownerId);
+}
+
 function canEdit(ownerId) {
     if (!loginUser.loggedIn) return false;
     return loginUser.role === 'ADMIN' || String(loginUser.userId) === String(ownerId);
@@ -151,7 +156,7 @@ function render(p) {
         <div class="board-detail-meta">
             <span>by ${escapeHtml(p.authorName ?? ('회원' + (p.userId ?? '')))}${adminBadge} | ${dateStr} | 조회수 ${p.viewCount ?? 0}</span>
             ${canEdit(p.userId) ? `<span class="actions">
-                <a onclick="location.href='/community/write?edit=${p.postId}'">수정</a>
+                ${isMine(p.userId) ? `<a onclick="location.href='/community/write?edit=${p.postId}'">수정</a>` : ''}
                 <a onclick="deletePost()">삭제</a>
             </span>` : ''}
         </div>

@@ -61,11 +61,11 @@
                 </div>
 
                 <div class="rd-pick-box" id="rd-pick" style="display:none;margin-top:30px;">
-                    <div class="rd-pick-label">👍 추천 독자의 리뷰</div>
+                    <div class="rd-pick-label">👍 추천 유저 리뷰</div>
                     <div id="rd-pick-content"></div>
                 </div>
 
-                <div class="rd-section-title">독자 리뷰 <span id="rd-review-count"></span></div>
+                <div class="rd-section-title">유저 리뷰 <span id="rd-review-count"></span></div>
                 <div id="rd-review-list"></div>
                 <div id="rd-empty" class="empty-state" style="display:none;">
                     등록된 리뷰가 없습니다.<br>첫 리뷰를 남겨보세요!
@@ -162,8 +162,11 @@ function moveCarousel(dir) {
 }
 
 // ── 맛집 정보 ──
-fetch(`/api/restaurants/${restaurantId}`)
+// [10/01 유해성] 메뉴 영역에서 대표 메뉴를 쓰려고 응답을 infoReady 로 보관
+const infoReady = fetch(`/api/restaurants/${restaurantId}`)
     .then(res => res.ok ? res.json() : null)
+    .catch(() => null);
+infoReady
     .then(info => {
         if (!info || !info.name) return;
         document.getElementById('rd-name').textContent = info.name;
@@ -190,15 +193,36 @@ fetch(`/api/restaurants/${restaurantId}`)
     .catch(() => {});
 
 // ── 메뉴 ──
-fetch(`/api/restaurants/${restaurantId}/menu`)
-    .then(res => res.ok ? res.json() : [])
-    .then(menu => {
+// [10/01 유해성] 맛집의 대표 메뉴(이름·설명·가격·사진)를 메뉴 맨 위에 카드로 표시
+function signatureMenuHtml(info) {
+    if (!info || !info.menuName) return '';
+    const img = info.menuImageUrl
+        ? `<img src="${escapeHtml(info.menuImageUrl)}" alt="${escapeHtml(info.menuName)}" style="width:96px;height:96px;object-fit:cover;border-radius:10px;flex-shrink:0;">`
+        : '';
+    return `
+        <div style="grid-column:1/-1;display:flex;gap:14px;align-items:center;border:1px solid #e6efe8;background:#f7fbf8;border-radius:12px;padding:12px;margin-bottom:8px;">
+            ${img}
+            <div style="flex:1;min-width:0;">
+                <span class="signature">대표</span>
+                <div style="font-weight:800;font-size:15px;margin:4px 0;">${escapeHtml(info.menuName)}</div>
+                ${info.menuDescription ? `<div style="font-size:12px;color:#777;line-height:1.5;">${escapeHtml(info.menuDescription)}</div>` : ''}
+                ${info.menuPrice ? `<div style="font-weight:800;color:#159b35;margin-top:6px;">${escapeHtml(info.menuPrice)}</div>` : ''}
+            </div>
+        </div>`;
+}
+
+Promise.all([
+    fetch(`/api/restaurants/${restaurantId}/menu`).then(res => res.ok ? res.json() : []).catch(() => []),
+    infoReady
+])
+    .then(([menu, info]) => {
         const el = document.getElementById('rd-menu');
+        const signature = signatureMenuHtml(info);
         if (!menu || !menu.length) {
-            el.innerHTML = '<p style="color:#999;font-size:13px;">등록된 메뉴 정보가 없습니다.</p>';
+            el.innerHTML = signature || '<p style="color:#999;font-size:13px;">등록된 메뉴 정보가 없습니다.</p>';
             return;
         }
-        el.innerHTML = menu.map(m => `
+        el.innerHTML = signature + menu.map(m => `
             <div class="rd-menu-item">
                 ${m.signature ? '<span class="signature">대표</span>' : ''}
                 <span class="mname">${escapeHtml(m.name)}</span>
@@ -215,16 +239,22 @@ fetch(`/api/restaurants/${restaurantId}/menu`)
 function reviewItemHtml(r) {
     const dateStr = r.createdAt ? r.createdAt.substring(0, 10) : '';
     const images = (r.imageUrls || []).map(url => `<img src="${url}" alt="리뷰 사진">`).join('');
+    // [10/01 유해성] 방문 정보가 있으면 리뷰에 함께 표시
+    const visitBits = [];
+    if (r.visitDate) visitBits.push(`📅 ${r.visitDate}`);
+    if (r.visitTimeSlot) visitBits.push(`🕒 ${escapeHtml(r.visitTimeSlot)}`);
+    if (r.visitPurpose) visitBits.push(`🎯 ${escapeHtml(r.visitPurpose)}`);
     return `
         <div class="rd-review-item">
             <div class="review-meta-row">
                 <span class="stars">${renderStars(r.rating)}</span>
                 <span class="rating-num">${(r.rating ?? 0).toFixed(1)}</span>
-                <span class="review-date">회원 ${r.userId ?? ''} · ${dateStr}</span>
+                <span class="review-date">${escapeHtml(r.authorName || ('회원 ' + (r.userId ?? '')))} · ${dateStr}</span>
             </div>
             <p class="review-content" style="-webkit-line-clamp:initial;">${escapeHtml(r.content)}</p>
             ${images ? `<div class="rd-review-images">${images}</div>` : ''}
-            <button class="helpful-btn" onclick="markHelpful(${r.reviewId}, this)">👍 도움이 돼요 ${r.helpCount ?? 0}</button>
+            ${visitBits.length ? `<div class="visit-info-box" style="margin:8px 0;">${visitBits.map(b => `<span>${b}</span>`).join('')}</div>` : ''}
+            <button class="helpful-btn${r.helped ? ' active' : ''}" onclick="markHelpful(${r.reviewId}, this)">👍 도움이 돼요 ${r.helpCount ?? 0}</button>
             <a class="helpful-btn" style="text-decoration:none;margin-left:6px;" href="/reviews/${r.reviewId}">상세</a>
         </div>`;
 }
@@ -257,14 +287,23 @@ async function loadReviews() {
     }
 }
 
+// [10/01 유해성] 한 회원당 한 번, 다시 누르면 취소. 비로그인이면 로그인 후 이 맛집으로 복귀
 async function markHelpful(reviewId, btn) {
     btn.disabled = true;
     try {
         const res = await fetch(`/api/reviews/${reviewId}/helpful`, { method: 'POST' });
+        if (res.status === 401) {
+            alert('로그인한 회원만 누를 수 있습니다.');
+            location.href = '/login?returnUrl=' + encodeURIComponent(location.pathname);
+            return;
+        }
         if (!res.ok) throw new Error('failed');
         const r = await res.json();
         btn.textContent = `👍 도움이 돼요 ${r.helpCount}`;
+        btn.classList.toggle('active', !!r.helped);
     } catch (e) {
+        alert('잠시 후 다시 시도해주세요.');
+    } finally {
         btn.disabled = false;
     }
 }

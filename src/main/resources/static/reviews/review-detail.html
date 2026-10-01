@@ -81,6 +81,7 @@ async function loadReview() {
         const r = await res.json();
         const u = await loginReady;
         r.canEdit = u.loggedIn && (u.role === 'ADMIN' || String(u.userId) === String(r.userId));
+        r.isMine = u.loggedIn && String(u.userId) === String(r.userId);   // [10/01 유해성] 수정은 작성자 본인만
         render(r);
     } catch (e) {
         card.innerHTML = '<p style="text-align:center;color:#999;">리뷰를 찾을 수 없습니다.</p>';
@@ -95,16 +96,16 @@ function render(r) {
     if (r.visitDate) visitBits.push(`📅 방문일 ${r.visitDate}`);
     if (r.visitTimeSlot) visitBits.push(`🕒 ${r.visitTimeSlot}`);
     if (r.visitPurpose) visitBits.push(`🎯 ${r.visitPurpose}`);
-    if (r.recommendYn !== null && r.recommendYn !== undefined) {
-        visitBits.push(r.recommendYn ? '이 매장을 추천해요 👍' : '이 매장을 추천하지 않아요 👎');
-    }
+    // [10/01 유해성] "매장 추천" 항목 삭제에 맞춰 추천 여부 표시도 제거
 
+    // [10/01 유해성] "회원 N" 대신 닉네임 표시
+    const authorName = r.authorName || ('회원 ' + (r.userId ?? ''));
     card.innerHTML = `
         <div class="reviewer-row">
-            <div class="avatar">U${r.userId ?? ''}</div>
+            <div class="avatar">${escapeHtml(authorName.charAt(0))}</div>
             <div>
-                <div class="reviewer-name">회원 ${r.userId ?? ''}</div>
-                <div class="review-date">${dateStr} · 맛집 #${r.restaurantId}</div>
+                <div class="reviewer-name">${escapeHtml(authorName)}</div>
+                <div class="review-date">${dateStr}</div>
             </div>
         </div>
 
@@ -119,15 +120,21 @@ function render(r) {
 
         ${visitBits.length ? `<div class="visit-info-box">${visitBits.map(b => `<span>${b}</span>`).join('')}</div>` : ''}
 
-        <button class="helpful-btn" id="helpful-btn" style="font-size:13px;padding:9px 16px;">
+        <button class="helpful-btn${r.helped ? ' active' : ''}" id="helpful-btn" style="font-size:13px;padding:9px 16px;">
             👍 도움이 돼요 <span id="help-count">${r.helpCount ?? 0}</span>
         </button>
         ${r.canEdit ? `<button id="delete-btn" style="float:right;font-size:13px;padding:9px 16px;border:1px solid #e2e2e2;background:#fff;border-radius:14px;color:#e05a5a;cursor:pointer;">
             🗑 삭제
         </button>` : ''}
+        ${r.isMine ? `<button id="edit-btn" style="float:right;margin-right:6px;font-size:13px;padding:9px 16px;border:1px solid #e2e2e2;background:#fff;border-radius:14px;color:#555;cursor:pointer;">
+            ✏️ 수정
+        </button>` : ''}
     `;
 
     document.getElementById('helpful-btn').addEventListener('click', markHelpful);
+    // [10/01 유해성] 수정 → 리뷰 작성 화면을 수정 모드로
+    const editBtn = document.getElementById('edit-btn');
+    if (editBtn) editBtn.addEventListener('click', () => { location.href = `/reviews/write?edit=${reviewId}`; });
     const deleteBtn = document.getElementById('delete-btn');
     if (deleteBtn) deleteBtn.addEventListener('click', deleteReview);
 }
@@ -150,22 +157,30 @@ async function deleteReview() {
     }
 }
 
+// [10/01 유해성] 한 회원당 한 번, 다시 누르면 취소. 비로그인이면 로그인 후 이 리뷰로 복귀
 async function markHelpful() {
     const btn = document.getElementById('helpful-btn');
     btn.disabled = true;
     try {
         const res = await fetch(`/api/reviews/${reviewId}/helpful`, { method: 'POST' });
+        if (res.status === 401) {
+            alert('로그인한 회원만 누를 수 있습니다.');
+            location.href = '/login?returnUrl=' + encodeURIComponent(location.pathname);
+            return;
+        }
         if (!res.ok) throw new Error('failed');
         const r = await res.json();
         document.getElementById('help-count').textContent = r.helpCount ?? 0;
-        btn.classList.add('active');
+        btn.classList.toggle('active', !!r.helped);
     } catch (e) {
+        alert('잠시 후 다시 시도해주세요.');
+    } finally {
         btn.disabled = false;
     }
 }
 
 function escapeHtml(str) {
-    return str.replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
+    return String(str ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
 }
 
 loadReview();
