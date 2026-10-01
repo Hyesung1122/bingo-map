@@ -97,7 +97,6 @@ textarea.review-textarea{width:100%;min-height:110px;border:1px solid #ddd;borde
 .rv-thumb-wrap img{width:100%;height:100%;object-fit:cover;display:block;}
 .rv-thumb-wrap.placeholder{display:flex;align-items:center;justify-content:center;font-size:34px;color:#ccc;}
 .rv-badge{position:absolute;top:8px;left:8px;background:rgba(21,155,53,.92);color:#fff;font-size:11px;font-weight:800;padding:3px 8px;border-radius:4px;}
-.rv-bookmark{position:absolute;top:8px;right:8px;width:26px;height:26px;border-radius:50%;background:rgba(255,255,255,.9);display:flex;align-items:center;justify-content:center;font-size:13px;}
 
 .rv-name{font-weight:800;font-size:15px;margin:10px 0 2px;}
 .rv-sub-row{display:flex;align-items:center;gap:6px;font-size:12px;color:#777;margin-bottom:6px;}
@@ -140,9 +139,6 @@ textarea.review-textarea{width:100%;min-height:110px;border:1px solid #ddd;borde
   display:flex;align-items:center;justify-content:center;font-weight:900;color:#159b35;font-size:20px;}
 .rd-top-row .rd-titles{flex:1;}
 .rd-top-row h2{margin:0 0 2px;font-size:19px;}
-.rd-bookmark-btn{width:34px;height:34px;border-radius:50%;border:1px solid #eee;background:#fff;
-  display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;}
-
 .rd-carousel{position:relative;border-radius:12px;overflow:hidden;background:#f0f0f0;height:340px;margin-bottom:20px;}
 .rd-carousel img{width:100%;height:100%;object-fit:cover;display:block;}
 .rd-carousel .placeholder{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:40px;color:#ccc;}

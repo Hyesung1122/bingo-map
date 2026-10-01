@@ -1,0 +1,160 @@
+Table users {
+  id integer [primary key, increment]
+  email varchar(100) [not null, unique]
+  password varchar(255) [not null]
+  name varchar(50) [not null]
+
+  nickname varchar(30)
+  nationality varchar(50)
+  sns_type varchar(20)
+  security_question varchar(100)
+  security_answer varchar(255)
+  notify_email varchar(1)
+  location_enabled varchar(1)
+
+  role varchar(20) [not null, default: 'USER', note: 'USER / ADMIN']
+  created_at timestamp
+  updated_at timestamp
+}
+
+Table favorites {
+  id integer [primary key, increment]
+  user_id integer [not null]
+  target_type varchar(20) [not null, note: 'WASTE_BIN / RESTAURANT']
+  target_id varchar(100) [not null, note: 'OSM 노드 ID 또는 맛집 PK']
+  target_name varchar(200) [note: '목록 표시용 캐시']
+  created_at timestamp
+  updated_at timestamp
+
+  indexes {
+    (user_id, target_type, target_id) [unique]
+  }
+}
+
+Table reviews {
+  id integer [primary key, increment]
+  user_id integer [not null]
+  target_type varchar(20) [not null, note: 'WASTE_BIN / RESTAURANT']
+  target_id varchar(100) [not null, note: 'OSM 노드 ID 또는 맛집 PK']
+
+  rating decimal(2,1) [not null, note: '0.5~5.0']
+  content varchar(2000)
+
+  visit_date date
+  visit_time_slot varchar(20)
+  visit_purpose varchar(20)
+  recommend_yn integer [note: '1 = 추천 / 0 = 비추천']
+  help_count integer [default: 0]
+
+  created_at timestamp
+  updated_at timestamp
+}
+
+// ▼ 리뷰 이미지
+Table review_image {
+  id bigint [primary key, increment, note: '시퀀스 SEQ_REVIEW_IMAGE']
+  review_id bigint [not null, note: '리뷰 PK']
+  image_url varchar(255) [not null, note: '리뷰 이미지 경로']
+  sort_order integer [note: '이미지 표시 순서']
+}
+
+// ▼ 커뮤니티 게시글
+Table community_post {
+  id bigint [primary key, increment, note: '시퀀스 SEQ_COMMUNITY_POST']
+  user_id bigint [not null, note: '작성자 users.id']
+  title varchar(200) [not null]
+  content text [not null]
+  tags varchar(200) [note: '쉼표로 구분']
+  view_count integer [default: 0]
+  created_at timestamp
+  updated_at timestamp
+}
+
+// ▼ 커뮤니티 댓글
+Table community_comment {
+  id bigint [primary key, increment, note: '시퀀스 SEQ_COMMUNITY_COMMENT']
+  post_id bigint [not null, note: '커뮤니티 게시글 PK']
+  user_id bigint [not null, note: '작성자 users.id']
+  content varchar(1000) [not null]
+  created_at timestamp
+}
+
+//0929 kdk ▼ 식당
+Table restaurants {
+  restaurant_id bigint [primary key, increment, note: '시퀀스 SEQ_RESTAURANT']
+  name varchar(255) [not null]
+  category varchar(255) [note: '타코야키 / 오코노미야키 등']
+  tags varchar(255)
+  rating decimal(3,1)
+  review_count integer
+  description varchar(1000)
+  address varchar(4000)
+  latitude decimal(10,7)
+  longitude decimal(10,7)
+  opening_hours varchar(1000)
+  phone varchar(255)
+  price_range varchar(50)
+  website_url varchar(1000)
+  seat_info varchar(100)
+  reservation_info varchar(100)
+  payment_methods varchar(200)
+  languages varchar(200)
+  main_image_url varchar(500) [note: '/images/restaurants/xxx.jpg 형태']
+  menu_name varchar(100) [note: '대표 메뉴']
+  menu_description varchar(500)
+  menu_price varchar(50)
+  menu_image_url varchar(500)
+  osm_id bigint [unique, note: 'OSM 노드 ID (수기 등록 식당은 NULL)']
+  is_published char(1) [not null, default: 'N', note: 'Y = 지도/목록에 공개, N = 비공개']
+  created_at timestamp [not null, default: `SYSTIMESTAMP`]
+  updated_at timestamp [not null, default: `SYSTIMESTAMP`]
+}
+
+Table notices {
+  id integer [primary key, increment] 
+  author_id integer [not null, note: '관리자'] 
+  title varchar(200) [not null] 
+  content text [not null] 
+  view_count integer [default: 0] 
+  created_at timestamp 
+  updated_at timestamp 
+}
+
+// ▼ 쓰레기통 (기존 DBML이 이미 팀 SQL과 일치 → 내용 변경 없음)
+Table waste_bin {
+  id integer [primary key, increment]
+  osm_id bigint [not null, unique, note: 'OSM 노드 ID']
+  name varchar(100)
+  category varchar(20) [not null, note: 'general / recycle / can']
+  address varchar(300)
+  latitude decimal(10,7) [not null]
+  longitude decimal(10,7) [not null]
+  city varchar(50) [not null, default: 'osaka']
+  created_at timestamp
+  updated_at timestamp
+}
+// ▼ 식당 메뉴
+Table restaurant_menu {
+  id bigint [primary key, increment, note: '시퀀스 SEQ_RESTAURANT_MENU']
+  restaurant_id bigint [not null, note: '맛집 PK']
+  name varchar(100) [not null, note: '메뉴 이름']
+  price varchar(50) [note: '예: ¥850']
+  is_signature integer [default: 0, note: '1 = 대표 메뉴 / 0 = 일반 메뉴']
+}
+
+// ▼ 시스템 설정
+Table system_settings {
+  id bigint [primary key, note: '항상 1인 단일 설정 행']
+  signup_enabled varchar(1) [not null, default: 'Y', note: 'Y = 회원가입 허용 / N = 비허용']
+  maintenance_mode varchar(1) [not null, default: 'N', note: 'Y = 점검 모드 / N = 정상']
+  maintenance_message varchar(500) [note: '점검 안내 문구']
+}
+
+Ref: restaurant_menu.restaurant_id > restaurants.restaurant_id
+Ref: favorites.user_id > users.id
+Ref: reviews.user_id > users.id
+Ref: review_image.review_id > reviews.id
+Ref: community_post.user_id > users.id
+Ref: community_comment.post_id > community_post.id
+Ref: community_comment.user_id > users.id
+Ref: notices.author_id > users.id

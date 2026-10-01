@@ -42,7 +42,6 @@
                 <h2 id="rd-name">불러오는 중...</h2>
                 <span class="rd-category-badge" id="rd-category" style="display:none;"></span>
             </div>
-            <button class="rd-bookmark-btn" title="북마크">🔖</button>
         </div>
 
         <div class="rd-carousel" id="rd-carousel">
@@ -117,7 +116,7 @@ document.getElementById('write-btn').addEventListener('click', async () => {
         const u = res.ok ? await res.json() : { loggedIn: false };
         if (!u.loggedIn) {
             alert('로그인한 회원만 리뷰를 쓸 수 있습니다.');
-            location.href = '/login';
+            location.href = '/login?returnUrl=' + encodeURIComponent(location.pathname);   // [10/01 유해성] 로그인 후 이 맛집으로 복귀
             return;
         }
     } catch (e) { /* 확인 실패 시 작성 화면에서 한 번 더 확인 */ }

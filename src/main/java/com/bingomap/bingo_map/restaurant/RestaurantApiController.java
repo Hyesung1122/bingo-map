@@ -52,6 +52,12 @@ public class RestaurantApiController {
         );
     }
 
+    // 홈 인기 테이크아웃 맛집 (리뷰 순위 + 기존 평점 기반 보완, 최대 10개)
+    @GetMapping("/popular")
+    public List<RestaurantDto> getPopularRestaurants() {
+        return restaurantService.getPopularTakeoutRestaurants(10);
+    }
+
     // 맛집 상세 - detail.html의 JS가 fetch
     @GetMapping("/{id:\\d+}")
     public ResponseEntity<RestaurantDto> getRestaurant(@PathVariable Long id) {
