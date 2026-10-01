@@ -6,6 +6,8 @@
     <title>리뷰 작성 | BinGo Map</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/reviews/reviews.css">
+    <!-- [10/01 유해성] 헤더 로그인 상태(이름님/로그아웃/관리자 페이지) 표시 -->
+    <script src="/js/header-auth.js"></script>
 </head>
 <body>
 <header class="header">
@@ -117,7 +119,16 @@
 </footer>
 
 <script>
-const DEMO_USER_ID = 1;
+// [09/30 유해성] 작성자는 서버가 로그인 정보로 저장 (임시 id 1 제거), 비로그인이면 로그인 페이지로
+fetch('/api/reviews/current-user', { cache: 'no-store' })
+    .then(res => res.ok ? res.json() : { loggedIn: false })
+    .catch(() => ({ loggedIn: false }))
+    .then(u => {
+        if (!u.loggedIn) {
+            alert('로그인한 회원만 리뷰를 쓸 수 있습니다.');
+            location.href = '/login';
+        }
+    });
 
 const params = new URLSearchParams(location.search);
 const restaurantId = params.get('restaurantId') || '';
@@ -226,7 +237,6 @@ form.addEventListener('submit', async (e) => {
     if (!contentEl.value.trim()) { alert('리뷰 내용을 입력해주세요.'); return; }
 
     const reviewData = {
-        userId: DEMO_USER_ID,
         restaurantId: Number(restaurantId),
         rating: rating,
         content: contentEl.value.trim(),
@@ -245,6 +255,11 @@ form.addEventListener('submit', async (e) => {
 
     try {
         const res = await fetch('/api/reviews', { method: 'POST', body: formData });
+        if (res.status === 401) {
+            alert('로그인한 회원만 리뷰를 쓸 수 있습니다.');
+            location.href = '/login';
+            return;
+        }
         if (!res.ok) throw new Error('failed');
         const created = await res.json();
         location.href = `/reviews/${created.reviewId}`;

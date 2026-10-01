@@ -6,6 +6,8 @@
     <title>게시글 | BinGo Map</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/community/community.css">
+    <!-- [10/01 유해성] 헤더 로그인 상태(이름님/로그아웃/관리자 페이지) 표시 -->
+    <script src="/js/header-auth.js"></script>
 </head>
 <body>
 <header class="header">
@@ -71,39 +73,147 @@
 const postId = location.pathname.split('/').pop();
 const box = document.getElementById('post-detail');
 
+// ── [09/30 유해성] 로그인 정보 (작성자 본인 / 관리자만 수정·삭제 버튼 보이기) ──
+let loginUser = { loggedIn: false };
+const loginReady = fetch('/api/reviews/current-user', { cache: 'no-store' })
+    .then(res => res.ok ? res.json() : { loggedIn: false })
+    .catch(() => ({ loggedIn: false }))
+    .then(u => { loginUser = u || { loggedIn: false }; return loginUser; });
+
+function canEdit(ownerId) {
+    if (!loginUser.loggedIn) return false;
+    return loginUser.role === 'ADMIN' || String(loginUser.userId) === String(ownerId);
+}
+
+function goLogin(message) {
+    alert(message || '로그인이 필요합니다.');
+    location.href = '/login?returnUrl=' + encodeURIComponent(location.pathname + location.search);   // [10/01 유해성] 로그인 후 보던 글로 복귀
+}
+
+// 서버가 401(비로그인) / 403(권한 없음)을 돌려줬을 때 공통 안내. 처리했으면 true
+function handleAuthError(res, what) {
+    if (res.status === 401) { goLogin('로그인이 필요합니다.'); return true; }
+    if (res.status === 403) { alert(`본인이 작성한 ${what}만 수정·삭제할 수 있습니다.`); return true; }
+    return false;
+}
+
 async function loadPost() {
     try {
         const res = await fetch(`/api/community/${postId}`);
         if (!res.ok) throw new Error('not found');
         const p = await res.json();
+        await loginReady;
         render(p);
     } catch (e) {
         box.innerHTML = '<p style="text-align:center;color:#999;">게시글을 찾을 수 없습니다.</p>';
     }
 }
 
+// [10/01 유해성] 말머리 / 요청 상태 / 비공개 배지
+function badgesHtml(p) {
+    const parts = [];
+    if (p.category && p.category !== '자유') {
+        parts.push(`<span class="badge badge-cat cat-${p.category}">${p.category === '공지' ? '📌 공지' : escapeHtml(p.category)}</span>`);
+    }
+    if (p.category === '요청' && p.status) {
+        parts.push(`<span class="badge badge-status st-${p.status}">${escapeHtml(p.status)}</span>`);
+    }
+    if (p.privateRequest) parts.push('<span class="badge badge-status">🔒 비공개</span>');
+    return parts.join('');
+}
+
+const STATUSES = ['접수', '처리중', '완료', '반려'];
+let postHidden = false;   // [10/01 유해성] 비공개라 볼 수 없는 글이면 댓글 영역도 막음
+
 function render(p) {
     const dateStr = p.createdAt ? p.createdAt.substring(0, 10) : '';
     const tags = (p.tags || []).map(t => `<span class="board-tag">${escapeHtml(t)}</span>`).join('');
+    const badges = badgesHtml(p);
+    const adminBadge = p.authorAdmin ? '<span class="badge badge-admin">관리자</span>' : '';
+    postHidden = !!p.hidden;
+
+    // [10/01 유해성] 비공개 요청 안내 / 관리자 상태 변경
+    let extra = '';
+    if (p.hidden) {
+        extra = '<div class="board-notice-box">🔒 비공개 요청은 작성자와 관리자만 볼 수 있어요.</div>';
+    } else if (p.category === '요청' && loginUser.role === 'ADMIN') {
+        extra = `<div class="board-status-admin">관리자 · 처리 상태
+            <select id="status-select">${STATUSES.map(s => `<option ${s === p.status ? 'selected' : ''}>${s}</option>`).join('')}</select>
+        </div>`;
+    } else if (p.category === '요청' && p.privateRequest) {
+        extra = '<div class="board-notice-box">🔒 비공개 요청이에요. 작성자와 관리자만 볼 수 있어요.</div>';
+    }
 
     box.innerHTML = `
+        ${badges ? `<div class="board-badges">${badges}</div>` : ''}
         ${tags ? `<div class="board-tags">${tags}</div>` : ''}
         <h1 class="board-detail-title">${escapeHtml(p.title)}</h1>
         <div class="board-detail-meta">
-            <span>by ${escapeHtml(p.authorName ?? ('회원' + (p.userId ?? '')))} | ${dateStr} | 조회수 ${p.viewCount ?? 0}</span>
-            <span class="actions">
+            <span>by ${escapeHtml(p.authorName ?? ('회원' + (p.userId ?? '')))}${adminBadge} | ${dateStr} | 조회수 ${p.viewCount ?? 0}</span>
+            ${canEdit(p.userId) ? `<span class="actions">
                 <a onclick="location.href='/community/write?edit=${p.postId}'">수정</a>
                 <a onclick="deletePost()">삭제</a>
-            </span>
+            </span>` : ''}
         </div>
+        ${extra}
         <div class="board-detail-content">${escapeHtml(p.content || '')}</div>
+        ${p.hidden ? '' : `<div class="like-wrap">
+            <button type="button" id="like-btn" class="like-btn ${p.liked ? 'liked' : ''}" onclick="toggleLike()">
+                <span class="like-heart">${p.liked ? '❤️' : '🤍'}</span> 좋아요 <b id="like-count">${p.likeCount ?? 0}</b>
+            </button>
+        </div>`}
     `;
+
+    const statusSelect = document.getElementById('status-select');
+    if (statusSelect) statusSelect.addEventListener('change', () => changeStatus(statusSelect.value));
+}
+
+// [10/01 유해성] 좋아요 누르기 / 다시 누르면 취소
+async function toggleLike() {
+    await loginReady;
+    if (!loginUser.loggedIn) { goLogin('로그인한 회원만 좋아요를 누를 수 있습니다.'); return; }
+
+    const btn = document.getElementById('like-btn');
+    btn.disabled = true;
+    try {
+        const res = await fetch(`/api/community/${postId}/like`, { method: 'POST' });
+        if (res.status === 401) { goLogin('로그인이 필요합니다.'); return; }
+        if (res.status === 403) { alert('이 글에는 좋아요를 누를 수 없습니다.'); return; }
+        if (!res.ok) throw new Error('failed');
+        const r = await res.json();
+        btn.classList.toggle('liked', r.liked);
+        btn.querySelector('.like-heart').textContent = r.liked ? '❤️' : '🤍';
+        document.getElementById('like-count').textContent = r.likeCount;
+    } catch (e) {
+        alert('좋아요 처리에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+// [10/01 유해성] 요청 글 처리 상태 변경 (관리자만)
+async function changeStatus(status) {
+    try {
+        const res = await fetch(`/api/community/${postId}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status })
+        });
+        if (res.status === 401) { goLogin('로그인이 필요합니다.'); return; }
+        if (res.status === 403) { alert('관리자만 상태를 바꿀 수 있습니다.'); return; }
+        if (!res.ok) throw new Error('failed');
+        render(await res.json());
+    } catch (e) {
+        alert('상태 변경에 실패했습니다.');
+        loadPost();
+    }
 }
 
 async function deletePost() {
     if (!confirm('이 글을 삭제할까요? 삭제하면 되돌릴 수 없어요.')) return;
     try {
         const res = await fetch(`/api/community/${postId}`, { method: 'DELETE' });
+        if (handleAuthError(res, '게시글')) return;
         if (!res.ok) throw new Error('failed');
         alert('삭제되었습니다.');
         location.href = '/community';
@@ -117,14 +227,16 @@ function escapeHtml(str) {
 }
 
 // ── 댓글 ──
-const DEMO_USER_ID = 1; // TODO: 로그인 연동 전까지 데모 사용자 id 사용
+// [09/30 유해성] 댓글 작성자는 서버가 로그인 정보로 저장 (임시 id 1 제거)
 
 function commentItemHtml(c) {
     const dateStr = c.createdAt ? c.createdAt.substring(0, 16).replace('T', ' ') : '';
+    // [10/01 유해성] 관리자 댓글은 배지 + 연한 배경
+    const adminBadge = c.authorAdmin ? '<span class="badge badge-admin">관리자</span>' : '';
     return `
-        <div style="padding:10px 0;border-bottom:1px solid #f2f2f2;">
-            <div style="font-size:12px;color:#999;margin-bottom:4px;">${escapeHtml(c.authorName ?? ('회원' + (c.userId ?? '')))} · ${dateStr}
-                <a onclick="deleteComment(${c.commentId})" style="color:#e05a5a;cursor:pointer;margin-left:8px;">삭제</a>
+        <div class="${c.authorAdmin ? 'comment-admin' : ''}" style="padding:10px 0;border-bottom:1px solid #f2f2f2;">
+            <div style="font-size:12px;color:#999;margin-bottom:4px;">${escapeHtml(c.authorName ?? ('회원' + (c.userId ?? '')))}${adminBadge} · ${dateStr}
+                ${canEdit(c.userId) ? `<a onclick="deleteComment(${c.commentId})" style="color:#e05a5a;cursor:pointer;margin-left:8px;">삭제</a>` : ''}
             </div>
             <div style="font-size:13px;color:#333;">${escapeHtml(c.content)}</div>
         </div>`;
@@ -133,8 +245,19 @@ function commentItemHtml(c) {
 async function loadComments() {
     try {
         const res = await fetch(`/api/community/${postId}/comments`);
+        // [10/01 유해성] 비공개 요청이라 댓글을 볼 수 없는 경우
+        if (res.status === 401 || res.status === 403) {
+            document.getElementById('comment-count').textContent = '';
+            document.getElementById('comment-list').innerHTML = '<p style="color:#999;font-size:13px;">🔒 비공개 요청의 댓글은 작성자와 관리자만 볼 수 있어요.</p>';
+            const input = document.getElementById('comment-input');
+            input.disabled = true;
+            input.placeholder = '비공개 요청에는 댓글을 쓸 수 없어요';
+            document.getElementById('comment-submit').disabled = true;
+            return;
+        }
         if (!res.ok) throw new Error('failed');
         const comments = await res.json();
+        await loginReady;
         document.getElementById('comment-count').textContent = `(${comments.length})`;
         document.getElementById('comment-list').innerHTML = comments.length
             ? comments.map(commentItemHtml).join('')
@@ -145,6 +268,9 @@ async function loadComments() {
 }
 
 async function submitComment() {
+    await loginReady;
+    if (!loginUser.loggedIn) { goLogin('로그인한 회원만 댓글을 쓸 수 있습니다.'); return; }
+
     const input = document.getElementById('comment-input');
     const content = input.value.trim();
     if (!content) { alert('댓글 내용을 입력해주세요.'); return; }
@@ -155,10 +281,11 @@ async function submitComment() {
         const res = await fetch(`/api/community/${postId}/comments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId: DEMO_USER_ID, content })
+            body: JSON.stringify({ content })
         });
         // [09/30 유해성] 실패 이유별 안내
-        if (res.status === 401) { alert('로그인이 필요합니다.'); location.href = '/login'; return; }
+        if (res.status === 403 && postHidden) { alert('비공개 요청에는 작성자와 관리자만 댓글을 쓸 수 있습니다.'); return; }
+        if (handleAuthError(res, '댓글')) return;
         if (res.status === 400) { alert('댓글 내용을 입력해주세요.'); return; }
         if (!res.ok) throw new Error('HTTP ' + res.status);
         input.value = '';
@@ -174,6 +301,7 @@ async function deleteComment(commentId) {
     if (!confirm('댓글을 삭제할까요?')) return;
     try {
         const res = await fetch(`/api/community/comments/${commentId}`, { method: 'DELETE' });
+        if (handleAuthError(res, '댓글')) return;
         if (!res.ok) throw new Error('failed');
         await loadComments();
     } catch (e) {
@@ -184,6 +312,16 @@ async function deleteComment(commentId) {
 document.getElementById('comment-submit').addEventListener('click', submitComment);
 document.getElementById('comment-input').addEventListener('keydown', e => {
     if (e.key === 'Enter') submitComment();
+});
+
+// [09/30 유해성] 비로그인이면 댓글 입력칸을 안내 문구로 바꾸고, 누르면 로그인 페이지로
+loginReady.then(u => {
+    if (u.loggedIn) return;
+    const input = document.getElementById('comment-input');
+    input.placeholder = '로그인 후 댓글을 작성할 수 있어요 (눌러서 로그인)';
+    input.readOnly = true;
+    input.style.cursor = 'pointer';
+    input.addEventListener('click', () => goLogin('로그인한 회원만 댓글을 쓸 수 있습니다.'));
 });
 
 loadPost();
