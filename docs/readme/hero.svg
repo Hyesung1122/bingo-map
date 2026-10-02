@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1600" height="900" viewBox="0 0 1600 900" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1600" y2="900" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FCF7"/>
+      <stop offset="0.55" stop-color="#E9F5EC"/>
+      <stop offset="1" stop-color="#D9EDE1"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="950" y1="80" x2="1430" y2="700" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#BFE4FF"/>
+      <stop offset="1" stop-color="#F4FBFF"/>
+    </linearGradient>
+    <linearGradient id="dress" x1="930" y1="420" x2="1180" y2="820" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFE9D5"/>
+      <stop offset="1" stop-color="#FFC78F"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#24553D" flood-opacity="0.16"/>
+    </filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="24"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="900" rx="40" fill="url(#bg)"/>
+  <circle cx="1360" cy="130" r="210" fill="#FFFFFF" fill-opacity="0.5" filter="url(#soft)"/>
+  <circle cx="265" cy="765" r="240" fill="#BCE2C9" fill-opacity="0.34" filter="url(#soft)"/>
+
+  <!-- decorative road / map lines -->
+  <path d="M760 120C840 180 880 210 950 260C1030 318 1110 335 1198 410C1295 492 1385 563 1540 590" stroke="#74B98B" stroke-width="7" stroke-linecap="round" stroke-dasharray="12 20" opacity="0.55"/>
+  <path d="M745 665C860 580 958 520 1080 504C1185 490 1315 495 1535 420" stroke="#4D88D7" stroke-width="6" stroke-linecap="round" stroke-dasharray="9 18" opacity="0.35"/>
+
+  <!-- left copy panel -->
+  <g>
+    <rect x="74" y="70" width="650" height="760" rx="36" fill="#FFFFFF" fill-opacity="0.72"/>
+    <text x="112" y="145" font-family="Arial, sans-serif" font-size="42" font-weight="800" fill="#15533C">BinGo Map</text>
+    <text x="112" y="182" font-family="Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="2" fill="#5B7E6A">CLEAN &amp; GOURMET TRAVEL</text>
+    <text x="112" y="275" font-family="Arial, sans-serif" font-size="66" font-weight="900" fill="#15533C">깨끗한 여행,</text>
+    <text x="112" y="347" font-family="Arial, sans-serif" font-size="66" font-weight="900" fill="#EF8A45">더 맛있는 경험.</text>
+    <text x="112" y="397" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#3F5B4C">쓰레기통도 찾고, 맛집도 즐기고!</text>
+
+    <!-- feature chips -->
+    <g filter="url(#shadow)">
+      <rect x="112" y="450" width="250" height="110" rx="24" fill="#F4FBF6"/>
+      <circle cx="155" cy="505" r="24" fill="#D8F0DF"/>
+      <path d="M155 486C146 486 139 493 139 502C139 516 155 525 155 525C155 525 171 516 171 502C171 493 164 486 155 486Z" stroke="#2D8A5E" stroke-width="4" fill="none"/>
+      <circle cx="155" cy="501" r="5" fill="#2D8A5E"/>
+      <text x="195" y="497" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#15533C">쓰레기통 찾기</text>
+      <text x="195" y="523" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#718279">지도에서 가까운 위치 확인</text>
+
+      <rect x="378" y="450" width="250" height="110" rx="24" fill="#FFF8EF"/>
+      <circle cx="421" cy="505" r="24" fill="#FFE9D5"/>
+      <path d="M410 486V516M432 486V516M410 492H432M416 486V480M426 486V480" stroke="#EF8A45" stroke-width="4" stroke-linecap="round"/>
+      <text x="461" y="497" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#8A5327">맛집 탐방</text>
+      <text x="461" y="523" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#8D7B6D">테이크아웃 맛집과 리뷰 탐색</text>
+
+      <rect x="112" y="579" width="250" height="110" rx="24" fill="#F3F7FE"/>
+      <circle cx="155" cy="634" r="24" fill="#DDE9FF"/>
+      <path d="M143 643L158 623L170 634" stroke="#4B80D8" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="142" cy="645" r="7" fill="#4B80D8"/>
+      <circle cx="171" cy="633" r="7" fill="#4B80D8"/>
+      <text x="195" y="626" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#2F5A9B">추천 코스</text>
+      <text x="195" y="652" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#70809B">맛집과 쓰레기통을 이어서 이동</text>
+
+      <rect x="378" y="579" width="250" height="110" rx="24" fill="#F8F4FD"/>
+      <circle cx="421" cy="634" r="24" fill="#E9DEFA"/>
+      <path d="M409 641C409 632 414 625 421 625C428 625 433 632 433 641M415 643H427M421 618V612" stroke="#8B69C8" stroke-width="4" stroke-linecap="round"/>
+      <text x="461" y="626" font-family="Arial, sans-serif" font-size="17" font-weight="800" fill="#664797">여행 커뮤니티</text>
+      <text x="461" y="652" font-family="Arial, sans-serif" font-size="12" font-weight="600" fill="#7E7790">리뷰 · 제보 · 정보 공유</text>
+    </g>
+
+    <!-- Osaka skyline -->
+    <path d="M112 750H648V790H112V750Z" fill="#15533C"/>
+    <path d="M160 744V698H196V744M216 744V678H252V744M277 744V708H318V744M350 744V686H391V744M428 744V700H466V744M500 744V672H535V744M560 744V704H600V744" fill="#15533C"/>
+    <path d="M108 789C198 765 244 811 326 791C410 771 463 811 552 790C585 782 615 784 650 794" stroke="#B8E0C4" stroke-width="8" stroke-linecap="round"/>
+    <text x="112" y="742" font-family="cursive" font-size="32" font-weight="700" fill="#15533C">OSAKA ♡</text>
+  </g>
+
+  <!-- right illustration scene -->
+  <g>
+    <!-- sky + city block -->
+    <rect x="760" y="70" width="760" height="760" rx="36" fill="url(#sky)"/>
+    <circle cx="1374" cy="150" r="64" fill="#FFF8C4" fill-opacity="0.86"/>
+    <g opacity="0.75">
+      <path d="M780 620L950 580L1015 622L1150 565L1270 620L1390 560L1520 610V820H780V620Z" fill="#BDE0C5"/>
+      <path d="M780 680L910 635L1020 670L1140 624L1250 676L1390 626L1520 660V820H780V680Z" fill="#92C7A4"/>
+    </g>
+    <!-- Osaka castle -->
+    <g transform="translate(1222 245)">
+      <path d="M98 0L116 25L138 25L150 49H46L58 25H80L98 0Z" fill="#2B6650"/>
+      <path d="M28 48H168L148 72H48L28 48Z" fill="#EF8A45"/>
+      <path d="M47 72H149L138 104H58L47 72Z" fill="#F4E5BC"/>
+      <path d="M66 104H130L122 142H74L66 104Z" fill="#2B6650"/>
+      <path d="M77 139H119V194H77V139Z" fill="#F4E5BC"/>
+      <path d="M37 168H159V194H37V168Z" fill="#2B6650"/>
+      <circle cx="98" cy="63" r="7" fill="#F7E6B0"/>
+      <circle cx="98" cy="113" r="7" fill="#F7E6B0"/>
+    </g>
+    <!-- lantern street -->
+    <g opacity="0.95">
+      <rect x="820" y="105" width="94" height="52" rx="24" fill="#F6A15F"/>
+      <text x="837" y="139" font-family="Arial, sans-serif" font-size="26" font-weight="900" fill="#7E3D24">たこ焼</text>
+      <rect x="850" y="160" width="7" height="270" fill="#75452C"/>
+      <path d="M830 410C860 430 900 430 930 410" stroke="#75452C" stroke-width="8" fill="none"/>
+    </g>
+
+    <!-- anime traveler -->
+    <g filter="url(#shadow)">
+      <!-- body -->
+      <path d="M940 600C955 515 1040 458 1115 475C1188 491 1231 566 1243 650L1260 820H910L940 600Z" fill="url(#dress)"/>
+      <path d="M1032 610C1048 568 1080 554 1122 560C1165 566 1187 593 1192 636C1166 675 1095 681 1052 649C1038 639 1029 625 1032 610Z" fill="#F7F0E8"/>
+      <!-- neck -->
+      <path d="M1077 525H1133V585H1077V525Z" fill="#F3C5A4"/>
+      <!-- hair back -->
+      <path d="M1005 350C1040 266 1175 251 1234 347C1280 420 1245 590 1139 627C1050 657 977 573 980 474C981 429 989 390 1005 350Z" fill="#493428"/>
+      <!-- face -->
+      <ellipse cx="1114" cy="435" rx="119" ry="128" fill="#F7C9A8"/>
+      <!-- hair fringe -->
+      <path d="M1003 399C1035 338 1111 322 1176 352C1213 369 1237 399 1244 432C1208 415 1179 414 1151 429C1120 444 1091 440 1062 420C1040 405 1021 398 1003 399Z" fill="#51392C"/>
+      <!-- eye -->
+      <ellipse cx="1075" cy="448" rx="12" ry="18" fill="#3A2A22"/>
+      <ellipse cx="1151" cy="448" rx="12" ry="18" fill="#3A2A22"/>
+      <circle cx="1079" cy="441" r="4" fill="#FFF"/>
+      <circle cx="1155" cy="441" r="4" fill="#FFF"/>
+      <path d="M1097 493C1114 506 1131 506 1143 492" stroke="#A34E55" stroke-width="6" stroke-linecap="round"/>
+      <path d="M1048 492C1058 502 1068 506 1077 505M1151 505C1161 506 1172 502 1181 492" stroke="#E89B8F" stroke-width="8" stroke-linecap="round" opacity="0.7"/>
+      <!-- hat -->
+      <path d="M998 342C1004 286 1052 251 1114 249C1176 247 1221 280 1235 338L1252 365H976L998 342Z" fill="#F7E3C9"/>
+      <path d="M986 356C1046 327 1178 327 1247 356C1241 380 1226 392 1210 395C1140 373 1060 372 996 396C980 387 974 372 986 356Z" fill="#EFD1AF"/>
+      <rect x="1092" y="277" width="75" height="30" rx="8" fill="#FFFFFF" opacity="0.92"/>
+      <text x="1100" y="298" font-family="Arial, sans-serif" font-size="13" font-weight="800" fill="#15533C">BinGo Map</text>
+      <!-- arms -->
+      <path d="M1003 595C965 648 942 716 928 779" stroke="#F3C5A4" stroke-width="42" stroke-linecap="round"/>
+      <path d="M1191 589C1218 646 1227 698 1228 760" stroke="#F3C5A4" stroke-width="42" stroke-linecap="round"/>
+      <!-- phone -->
+      <g transform="translate(1171 588) rotate(10)">
+        <rect width="118" height="205" rx="19" fill="#1A2A24"/>
+        <rect x="9" y="12" width="100" height="176" rx="13" fill="#FAFCFA"/>
+        <rect x="15" y="22" width="88" height="45" rx="9" fill="#E3F2E8"/>
+        <path d="M20 147C44 120 57 108 82 96C92 90 98 79 101 69" stroke="#4D88D7" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="39" cy="134" r="8" fill="#EF8A45"/>
+        <circle cx="82" cy="96" r="8" fill="#2D8A5E"/>
+        <circle cx="53" cy="165" r="6" fill="#8B69C8"/>
+        <text x="24" y="48" font-family="Arial, sans-serif" font-size="14" font-weight="900" fill="#15533C">BinGo Map</text>
+      </g>
+      <!-- takoyaki -->
+      <g transform="translate(1010 699)">
+        <path d="M0 70C55 95 165 95 230 70L210 140H20L0 70Z" fill="#F7E7D0"/>
+        <circle cx="45" cy="74" r="27" fill="#B7652D"/>
+        <circle cx="93" cy="64" r="27" fill="#A95C28"/>
+        <circle cx="141" cy="70" r="27" fill="#B7652D"/>
+        <circle cx="188" cy="62" r="27" fill="#A95C28"/>
+        <path d="M26 67C42 56 54 57 65 67M74 58C89 49 102 50 114 58M124 67C140 54 151 55 165 65M172 58C187 48 201 49 211 58" stroke="#F3C58B" stroke-width="6" stroke-linecap="round"/>
+        <path d="M36 56C44 48 47 40 53 32M98 48C104 41 109 34 114 28M164 53C173 46 177 39 183 31" stroke="#6A9A56" stroke-width="5" stroke-linecap="round"/>
+      </g>
+    </g>
+
+    <!-- floating service callouts -->
+    <g filter="url(#shadow)">
+      <rect x="1160" y="520" width="292" height="86" rx="26" fill="#FFFFFF" fill-opacity="0.96"/>
+      <circle cx="1202" cy="562" r="23" fill="#DDF1E4"/>
+      <path d="M1191 553H1213V574H1191V553ZM1194 548H1210M1195 577H1209" stroke="#2D8A5E" stroke-width="4" stroke-linecap="round"/>
+      <text x="1240" y="558" font-family="Arial, sans-serif" font-size="20" font-weight="900" fill="#15533C">쓰레기통 찾기</text>
+      <text x="1240" y="581" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#75847B">도보 2분 · 120m</text>
+
+      <rect x="865" y="552" width="250" height="86" rx="26" fill="#FFFFFF" fill-opacity="0.96"/>
+      <circle cx="906" cy="595" r="23" fill="#FFE7D5"/>
+      <path d="M898 579V611M914 579V611M895 585H917" stroke="#EF8A45" stroke-width="4" stroke-linecap="round"/>
+      <text x="945" y="590" font-family="Arial, sans-serif" font-size="20" font-weight="900" fill="#8A5327">맛집 도착!</text>
+      <text x="945" y="613" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#8D7B6D">타코야키 맛집 · 210m</text>
+    </g>
+
+    <!-- route arrows -->
+    <path d="M1115 605C1078 573 1036 554 1000 553" stroke="#EF8A45" stroke-width="7" stroke-linecap="round" stroke-dasharray="12 13"/>
+    <path d="M1230 603C1282 578 1334 560 1390 561" stroke="#2D8A5E" stroke-width="7" stroke-linecap="round" stroke-dasharray="12 13"/>
+    <circle cx="1000" cy="553" r="13" fill="#EF8A45"/>
+    <circle cx="1390" cy="561" r="13" fill="#2D8A5E"/>
+  </g>
+
+  <text x="1218" y="776" font-family="Arial, sans-serif" font-size="22" font-weight="800" fill="#15533C">Good Food · Clean Travel · Better Tomorrow</text>
+</svg>
