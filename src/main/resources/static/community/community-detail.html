@@ -116,7 +116,7 @@ async function loadPost() {
 // [10/01 유해성] 말머리 / 요청 상태 / 비공개 배지
 function badgesHtml(p) {
     const parts = [];
-    if (p.category && p.category !== '자유') {
+    if (p.category) {   // [10/02 유해성] 자유 말머리도 배지 표시
         parts.push(`<span class="badge badge-cat cat-${p.category}">${p.category === '공지' ? '📌 공지' : escapeHtml(p.category)}</span>`);
     }
     if (p.category === '요청' && p.status) {
@@ -131,7 +131,7 @@ let postHidden = false;   // [10/01 유해성] 비공개라 볼 수 없는 글�
 
 function render(p) {
     const dateStr = p.createdAt ? p.createdAt.substring(0, 10) : '';
-    const tags = (p.tags || []).map(t => `<span class="board-tag">${escapeHtml(t)}</span>`).join('');
+    const tags = '';   // [10/02 유해성] 일반 태그는 표시하지 않음 (말머리 배지만 표시)
     const badges = badgesHtml(p);
     const adminBadge = p.authorAdmin ? '<span class="badge badge-admin">관리자</span>' : '';
     postHidden = !!p.hidden;

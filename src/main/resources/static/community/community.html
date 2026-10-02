@@ -38,21 +38,20 @@
     <div class="board-wrap">
         <div class="board-top">
             <h2>커뮤니티</h2>
-            <button class="btn-write" onclick="goWrite()">✏️ 글쓰기</button>
+            <!-- [10/02 유해성] 상단 글쓰기 버튼 삭제 (오른쪽 내 활동 카드의 글쓰기 사용) -->
         </div>
 
-        <!-- [10/01 유해성] 말머리 탭 -->
-        <div class="board-tabs" id="board-tabs">
-            <button class="active" data-cat="">전체</button>
-            <button data-cat="공지">공지</button>
-            <button data-cat="자유">자유</button>
-            <button data-cat="질문">질문</button>
-            <button data-cat="꿀팁">꿀팁</button>
-            <button data-cat="요청">요청</button>
-        </div>
-
+        <!-- [10/02 유해성] 말머리 탭(왼쪽) + 검색(오른쪽) 한 줄 -->
         <div class="board-toolbar">
-            <span></span>
+            <!-- [10/01 유해성] 말머리 탭 -->
+            <div class="board-tabs" id="board-tabs">
+                <button class="active" data-cat="">전체</button>
+                <button data-cat="공지">공지</button>
+                <button data-cat="자유">자유</button>
+                <button data-cat="질문">질문</button>
+                <button data-cat="꿀팁">꿀팁</button>
+                <button data-cat="요청">요청</button>
+            </div>
             <div class="board-search">
                 <!-- [09/30 유해성] 검색 범위 선택 -->
                 <select id="search-field" style="border:1px solid #ddd;border-radius:8px;padding:8px 8px;font-size:13px;background:#fff;">
@@ -81,19 +80,19 @@
             <h3>❤️ 좋아요 인기글</h3>
             <ol class="side-rank" id="side-popular"><li class="side-empty">불러오는 중...</li></ol>
         </div>
+        <!-- [10/02 유해성] 커뮤니티 현황 (오늘 새 글 / 전체 글 / 댓글) -->
         <div class="side-card">
-            <h3>📢 공지사항 <a class="side-more" href="/notices">더보기 ›</a></h3>
-            <ul class="side-notice" id="side-notices"><li class="side-empty">불러오는 중...</li></ul>
-        </div>
-        <div class="side-card side-tip">
-            <h3>♻️ 오늘의 여행 매너 <button class="side-more" id="tip-next" type="button">다음 ›</button></h3>
-            <p id="side-tip"></p>
-        </div>
-        <div class="side-card">
-            <div class="side-links">
-                <a href="/map"><span>🗑️</span>근처 쓰레기통</a>
-                <a href="/reviews"><span>🍜</span>맛집 리뷰</a>
+            <h3>📊 커뮤니티 현황</h3>
+            <div class="side-stats" id="side-stats">
+                <div><b>-</b><span>오늘 새 글</span></div>
+                <div><b>-</b><span>전체 글</span></div>
+                <div><b>-</b><span>댓글</span></div>
             </div>
+        </div>
+        <!-- [10/02 유해성] 리뷰 많은 맛집 TOP 3 -->
+        <div class="side-card">
+            <h3>🍜 리뷰 많은 맛집 TOP 3 <a class="side-more" href="/reviews">더보기 ›</a></h3>
+            <div id="side-top-food"><div class="side-empty">불러오는 중...</div></div>
         </div>
     </aside>
   </div>
@@ -152,7 +151,7 @@ document.querySelectorAll('#board-tabs button').forEach(btn => {
 // [10/01 유해성] 말머리 / 요청 상태 / 비공개 배지
 function badgesHtml(p) {
     const parts = [];
-    if (p.category && p.category !== '자유') {
+    if (p.category) {   // [10/02 유해성] 자유 말머리도 배지 표시
         parts.push(`<span class="badge badge-cat cat-${p.category}">${p.category === '공지' ? '📌 공지' : escapeHtml(p.category)}</span>`);
     }
     if (p.category === '요청' && p.status) {
@@ -206,7 +205,7 @@ async function loadPosts() {
         emptyEl.style.display = 'none';
 
         listEl.innerHTML = posts.map(p => {
-            const tags = (p.tags || []).map(t => `<span class="board-tag">${escapeHtml(t)}</span>`).join('');
+            const tags = '';   // [10/02 유해성] 일반 태그는 표시하지 않음 (말머리 배지만 표시)
             const dateStr = p.createdAt ? p.createdAt.substring(0, 10) : '';
             const badges = badgesHtml(p);
             const itemClass = 'board-item' + (p.pinned ? ' pinned' : '') + (p.hidden ? ' hidden-post' : '');
@@ -267,6 +266,10 @@ async function loadSidebar() {
                 </li>`).join('')
             : '<li class="side-empty">아직 좋아요를 받은 글이 없어요.</li>';
 
+        // [10/02 유해성] 커뮤니티 현황 숫자
+        const statValues = [d.todayPostCount, d.totalPostCount, d.totalCommentCount];
+        document.querySelectorAll('#side-stats b').forEach((b, i) => { b.textContent = statValues[i] ?? 0; });
+
         renderMe(d);
     } catch (e) {
         document.getElementById('side-popular').innerHTML = '<li class="side-empty">불러오지 못했어요.</li>';
@@ -292,55 +295,56 @@ async function renderMe(d) {
     }
     el.innerHTML = `
         <div class="side-me-hello">👋 ${escapeHtml(u.name || '회원')}님</div>
+        <!-- [10/02 유해성] 누르면 마이페이지의 작성한 게시글 / 작성한 댓글 탭으로 이동 -->
         <div class="side-me-stats">
-            <div><b>${d.myPostCount ?? 0}</b><span>내 글</span></div>
-            <div><b>${d.myCommentCount ?? 0}</b><span>내 댓글</span></div>
+            <a href="/mypage?tab=posts"><b>${d.myPostCount ?? 0}</b><span>내 글</span></a>
+            <a href="/mypage?tab=comments"><b>${d.myCommentCount ?? 0}</b><span>내 댓글</span></a>
         </div>
         <button class="side-me-btn" type="button" onclick="goWrite()">✏️ 글쓰기</button>`;
 }
 
-// 공지사항 최신 3개 (공지 담당 API 읽기만)
-async function loadNotices() {
-    const el = document.getElementById('side-notices');
+// [10/02 유해성] 리뷰 많은 맛집 TOP 3 (리뷰 담당 API 2개를 읽기만: 식당 목록 + 리뷰 집계)
+async function loadTopFood() {
+    const el = document.getElementById('side-top-food');
     try {
-        const res = await fetch('/api/notices');
-        if (!res.ok) throw new Error('failed');
-        const list = (await res.json()).slice(0, 3);
-        el.innerHTML = list.length
-            ? list.map(n => `
-                <li onclick="location.href='/notices'">
-                    <span class="side-title">${escapeHtml(n.title)}</span>
-                    <span class="side-sub">${escapeHtml(String(n.createdAt || '').substring(5, 10))}</span>
-                </li>`).join('')
-            : '<li class="side-empty">공지가 없어요.</li>';
+        const [placesRes, summaryRes] = await Promise.all([
+            fetch('/api/map/restaurants', { cache: 'no-store' }),
+            fetch('/api/reviews/restaurants', { cache: 'no-store' })
+        ]);
+        if (!placesRes.ok || !summaryRes.ok) throw new Error('failed');
+        const places = (await placesRes.json()).places || [];
+        const summaries = await summaryRes.json();
+        const placeById = new Map(places.map(p => [String(p.restaurantId), p]));
+
+        const top = summaries
+            .filter(s => (Number(s.reviewCount) || 0) > 0 && placeById.has(String(s.restaurantId)))
+            .sort((a, b) => (b.reviewCount - a.reviewCount) || ((b.avgRating || 0) - (a.avgRating || 0)))
+            .slice(0, 3);
+
+        el.innerHTML = top.length
+            ? top.map((s, i) => {
+                const p = placeById.get(String(s.restaurantId));
+                const img = p.mainImageUrl || s.thumbnailUrl;
+                const rating = Number(s.avgRating) || 0;
+                return `
+                <div class="side-food" onclick="location.href='/reviews/restaurant/${encodeURIComponent(s.restaurantId)}'">
+                    <span class="side-food-rank">${i + 1}</span>
+                    ${img ? `<img src="${escapeHtml(img)}" alt="${escapeHtml(p.name)}">` : '<div class="side-food-noimg">🍽️</div>'}
+                    <div class="side-food-info">
+                        <div class="side-food-name">${escapeHtml(p.name)}</div>
+                        <div class="side-food-meta"><span class="side-food-stars">★</span> ${rating.toFixed(1)} · 리뷰 ${s.reviewCount}</div>
+                    </div>
+                </div>`;
+            }).join('')
+            : '<div class="side-empty">아직 리뷰가 있는 맛집이 없어요.</div>';
     } catch (e) {
-        el.innerHTML = '<li class="side-empty">불러오지 못했어요.</li>';
+        el.innerHTML = '<div class="side-empty">불러오지 못했어요.</div>';
     }
 }
 
-// 여행 매너 팁 (고정 문구, "다음" 으로 넘기기)
-const TIPS = [
-    '일본은 길에 쓰레기통이 적어요. 작은 비닐봉투를 챙겨 다니면 편해요.',
-    '편의점 쓰레기통은 그 가게에서 산 물건 위주로 버리는 게 매너예요.',
-    '페트병은 뚜껑과 라벨을 떼고, 병은 헹궈서 버려요.',
-    '자판기 옆 수거함은 캔·페트병 전용이에요. 다른 쓰레기는 넣지 마세요.',
-    '걸으면서 먹는 건 실례로 보일 수 있어요. 가게 앞에서 먹고 가요.',
-    '숙소 쓰레기는 가연·불연·자원으로 나눠 버려요.',
-    '지도에서 가까운 쓰레기통을 미리 확인해 두면 여행이 편해져요.'
-];
-let tipIndex = Math.floor(Math.random() * TIPS.length);
-function showTip() {
-    document.getElementById('side-tip').textContent = TIPS[tipIndex];
-}
-document.getElementById('tip-next').addEventListener('click', () => {
-    tipIndex = (tipIndex + 1) % TIPS.length;
-    showTip();
-});
-
 loadPosts();
 loadSidebar();
-loadNotices();
-showTip();
+loadTopFood();
 </script>
 </body>
 </html>

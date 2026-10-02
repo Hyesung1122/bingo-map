@@ -245,6 +245,14 @@ public class CommunityPostService {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("popular", popular);
 
+        // [10/02 유해성] 커뮤니티 현황: 오늘 새 글 / 전체 글 / 전체 댓글
+        java.time.LocalDate today = java.time.LocalDate.now();
+        result.put("todayPostCount", posts.stream()
+                .filter(p -> p.getCreatedAt() != null && p.getCreatedAt().toLocalDate().equals(today))
+                .count());
+        result.put("totalPostCount", posts.size());
+        result.put("totalCommentCount", comments.size());
+
         // 내 활동
         if (loginUserId != null) {
             result.put("myPostCount", posts.stream().filter(p -> loginUserId.equals(p.getUserId())).count());
